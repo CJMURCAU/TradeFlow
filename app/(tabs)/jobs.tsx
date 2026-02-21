@@ -10,6 +10,7 @@ import {
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Trash2, Calendar } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import TabBar from '@/components/TabBar';
 
 type JobStatus = 'all' | 'pending' | 'active' | 'completed';
 
@@ -114,6 +115,8 @@ export default function JobsPage() {
           ))}
         </View>
       </View>
+
+      <TabBar />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {filteredJobs.length === 0 ? (

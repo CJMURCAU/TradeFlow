@@ -11,6 +11,7 @@ import {
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import TabBar from '@/components/TabBar';
 
 export default function ClientsPage() {
   const router = useRouter();
@@ -86,6 +87,8 @@ export default function ClientsPage() {
           />
         </View>
       </View>
+
+      <TabBar />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {filteredClients.length === 0 ? (

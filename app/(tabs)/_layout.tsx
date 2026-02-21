@@ -8,14 +8,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: '#F59E0B',
         tabBarInactiveTintColor: '#6B7280',
-        tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopColor: '#E5E7EB',
-          borderTopWidth: 1,
-          height: 60,
-          paddingBottom: 8,
-          paddingTop: 8,
-        },
+        tabBarStyle: { display: 'none' },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',

@@ -15,6 +15,7 @@ import {
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import TabBar from '@/components/TabBar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
@@ -236,6 +237,8 @@ export default function CalendarPage() {
       <View style={styles.header}>
         <Text style={styles.title}>TradePro</Text>
       </View>
+
+      <TabBar />
 
       <View style={styles.monthNavRow}>
         <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton}>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { supabase, Job, TimeEntry } from '@/lib/supabase';
 import { Clock, Briefcase, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
+import TabBar from '@/components/TabBar';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -66,6 +67,8 @@ export default function DashboardPage() {
       <View style={styles.header}>
         <Text style={styles.title}>Dashboard</Text>
       </View>
+
+      <TabBar />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.statsGrid}>

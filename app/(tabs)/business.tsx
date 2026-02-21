@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { supabase, BusinessDetails } from '@/lib/supabase';
 import { Save } from 'lucide-react-native';
+import TabBar from '@/components/TabBar';
 
 export default function BusinessPage() {
   const [businessDetails, setBusinessDetails] = useState<BusinessDetails | null>(null);
@@ -68,6 +69,8 @@ export default function BusinessPage() {
       <View style={styles.header}>
         <Text style={styles.title}>Business Details</Text>
       </View>
+
+      <TabBar />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.formGroup}>
