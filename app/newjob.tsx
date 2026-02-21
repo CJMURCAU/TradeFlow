@@ -28,6 +28,7 @@ export default function NewJobPage() {
   const calendarFlatListRef = useRef<FlatList>(null);
   const [calendarIndex, setCalendarIndex] = useState(0);
   const [newClientData, setNewClientData] = useState({
+    company_name: '',
     name: '',
     phone: '',
     email: '',
@@ -64,14 +65,15 @@ export default function NewJobPage() {
   };
 
   const createClient = async () => {
-    if (!newClientData.name.trim()) {
-      Alert.alert('Error', 'Please enter a client name');
+    if (!newClientData.company_name.trim()) {
+      Alert.alert('Error', 'Please enter a company name');
       return;
     }
 
     const { data, error } = await supabase
       .from('clients')
       .insert({
+        company_name: newClientData.company_name,
         name: newClientData.name,
         phone: newClientData.phone,
         email: newClientData.email,
@@ -85,7 +87,7 @@ export default function NewJobPage() {
     } else if (data) {
       setClients([...clients, data]);
       setFormData(prev => ({ ...prev, client_id: data.id }));
-      setNewClientData({ name: '', phone: '', email: '', address: '' });
+      setNewClientData({ company_name: '', name: '', phone: '', email: '', address: '' });
       setShowNewClientForm(false);
       Alert.alert('Success', 'Client created successfully');
     }
@@ -256,7 +258,14 @@ export default function NewJobPage() {
               <Text style={styles.newClientTitle}>Add New Client</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Name *"
+                placeholder="Company Name *"
+                placeholderTextColor="#9CA3AF"
+                value={newClientData.company_name}
+                onChangeText={text => setNewClientData(prev => ({ ...prev, company_name: text }))}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Contact"
                 placeholderTextColor="#9CA3AF"
                 value={newClientData.name}
                 onChangeText={text => setNewClientData(prev => ({ ...prev, name: text }))}
@@ -292,7 +301,7 @@ export default function NewJobPage() {
                   style={styles.cancelClientButton}
                   onPress={() => {
                     setShowNewClientForm(false);
-                    setNewClientData({ name: '', phone: '', email: '', address: '' });
+                    setNewClientData({ company_name: '', name: '', phone: '', email: '', address: '' });
                   }}>
                   <Text style={styles.cancelClientText}>Cancel</Text>
                 </TouchableOpacity>
@@ -324,8 +333,11 @@ export default function NewJobPage() {
                           styles.clientOptionName,
                           formData.client_id === client.id && styles.clientOptionNameActive,
                         ]}>
-                        {client.name}
+                        {client.company_name || client.name}
                       </Text>
+                      {client.name && client.company_name ? (
+                        <Text style={styles.clientOptionDetail}>{client.name}</Text>
+                      ) : null}
                       {client.phone && (
                         <Text style={styles.clientOptionDetail}>{client.phone}</Text>
                       )}
