@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,8 @@ export default function JobDetailPage() {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [currentTimeEntry, setCurrentTimeEntry] = useState<TimeEntry | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const currentTimeEntryRef = useRef<TimeEntry | null>(null);
+  const isTimerRunningRef = useRef(false);
   const [description, setDescription] = useState('');
   const [newPart, setNewPart] = useState({ name: '', cost: '', quantity: '1' });
   const [showAddPart, setShowAddPart] = useState(false);
@@ -44,16 +46,15 @@ export default function JobDetailPage() {
   }, [id]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isTimerRunning && currentTimeEntry) {
-      interval = setInterval(() => {
-        const start = new Date(currentTimeEntry.start_time).getTime();
+    const interval = setInterval(() => {
+      if (isTimerRunningRef.current && currentTimeEntryRef.current) {
+        const start = new Date(currentTimeEntryRef.current.start_time).getTime();
         const now = Date.now();
         setElapsedTime(Math.floor((now - start) / 1000));
-      }, 1000);
-    }
+      }
+    }, 1000);
     return () => clearInterval(interval);
-  }, [isTimerRunning, currentTimeEntry]);
+  }, []);
 
   const fetchJobDetails = async () => {
     const [jobResponse, partsResponse, timeEntriesResponse] = await Promise.all([
@@ -81,11 +82,16 @@ export default function JobDetailPage() {
       setTimeEntries(timeEntriesResponse.data);
       const running = timeEntriesResponse.data.find(entry => entry.is_running);
       if (running) {
+        currentTimeEntryRef.current = running;
+        isTimerRunningRef.current = true;
         setCurrentTimeEntry(running);
         setIsTimerRunning(true);
         const start = new Date(running.start_time).getTime();
         const now = Date.now();
         setElapsedTime(Math.floor((now - start) / 1000));
+      } else {
+        currentTimeEntryRef.current = null;
+        isTimerRunningRef.current = false;
       }
     }
   };
@@ -102,6 +108,8 @@ export default function JobDetailPage() {
       .single();
 
     if (data) {
+      currentTimeEntryRef.current = data;
+      isTimerRunningRef.current = true;
       setCurrentTimeEntry(data);
       setIsTimerRunning(true);
       setElapsedTime(0);
@@ -121,6 +129,8 @@ export default function JobDetailPage() {
       .eq('id', currentTimeEntry.id);
 
     if (!error) {
+      isTimerRunningRef.current = false;
+      currentTimeEntryRef.current = null;
       setIsTimerRunning(false);
       setCurrentTimeEntry(null);
       fetchJobDetails();

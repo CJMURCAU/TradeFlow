@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -38,6 +38,7 @@ export default function CalendarPage() {
   const calendarHeight = useRef(new Animated.Value(COMPACT_GRID_HEIGHT)).current;
   const dragStartY = useRef(0);
   const dragStartExpanded = useRef(false);
+  const expandedRef = useRef(false);
 
   useEffect(() => {
     fetchJobs();
@@ -113,7 +114,8 @@ export default function CalendarPage() {
     setDisplayMonth(getMonthForIndex(newIndex));
   };
 
-  const expandCalendar = () => {
+  const expandCalendar = useCallback(() => {
+    expandedRef.current = true;
     setExpanded(true);
     Animated.spring(calendarHeight, {
       toValue: EXPANDED_GRID_HEIGHT,
@@ -121,9 +123,10 @@ export default function CalendarPage() {
       tension: 80,
       friction: 10,
     }).start();
-  };
+  }, [calendarHeight]);
 
-  const collapseCalendar = () => {
+  const collapseCalendar = useCallback(() => {
+    expandedRef.current = false;
     setExpanded(false);
     Animated.spring(calendarHeight, {
       toValue: COMPACT_GRID_HEIGHT,
@@ -131,21 +134,36 @@ export default function CalendarPage() {
       tension: 80,
       friction: 10,
     }).start();
-  };
+  }, [calendarHeight]);
 
-  const panResponder = useRef(
+  const dragHandlePanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dy) > 5 && Math.abs(g.dy) > Math.abs(g.dx),
       onPanResponderGrant: (_, g) => {
         dragStartY.current = g.y0;
-        dragStartExpanded.current = expanded;
+        dragStartExpanded.current = expandedRef.current;
       },
       onPanResponderRelease: (_, g) => {
         if (g.dy > 20 && !dragStartExpanded.current) {
-          expandCalendar();
+          expandedRef.current = true;
+          setExpanded(true);
+          Animated.spring(calendarHeight, {
+            toValue: EXPANDED_GRID_HEIGHT,
+            useNativeDriver: false,
+            tension: 80,
+            friction: 10,
+          }).start();
         } else if (g.dy < -20 && dragStartExpanded.current) {
-          collapseCalendar();
+          expandedRef.current = false;
+          setExpanded(false);
+          Animated.spring(calendarHeight, {
+            toValue: COMPACT_GRID_HEIGHT,
+            useNativeDriver: false,
+            tension: 80,
+            friction: 10,
+          }).start();
         }
       },
     })
@@ -250,7 +268,7 @@ export default function CalendarPage() {
         </TouchableOpacity>
       </View>
 
-      <View {...panResponder.panHandlers}>
+      <View>
         <Animated.View style={[styles.calendarContainer, { height: calendarHeight }]}>
           <FlatList
             ref={flatListRef}
@@ -271,15 +289,19 @@ export default function CalendarPage() {
           />
         </Animated.View>
 
-        <TouchableOpacity
-          style={styles.dragHandle}
-          onPress={() => (expanded ? collapseCalendar() : expandCalendar())}
-          activeOpacity={0.7}>
-          <View style={styles.dragHandleBar} />
-          <Text style={styles.dragHandleHint}>
-            {expanded ? 'Swipe up to collapse' : 'Swipe down to expand'}
-          </Text>
-        </TouchableOpacity>
+        <View
+          {...dragHandlePanResponder.panHandlers}
+          style={styles.dragHandle}>
+          <TouchableOpacity
+            onPress={() => (expanded ? collapseCalendar() : expandCalendar())}
+            activeOpacity={0.7}
+            style={styles.dragHandleInner}>
+            <View style={styles.dragHandleBar} />
+            <Text style={styles.dragHandleHint}>
+              {expanded ? 'Swipe up to collapse' : 'Swipe down to expand'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.statusKey}>
@@ -441,9 +463,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 1,
   },
   dragHandle: {
+    backgroundColor: '#FFFFFF',
+  },
+  dragHandleInner: {
     alignItems: 'center',
     paddingVertical: 6,
-    backgroundColor: '#FFFFFF',
   },
   dragHandleBar: {
     width: 36,
