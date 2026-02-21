@@ -115,7 +115,7 @@ export default function JobsPage() {
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {filteredJobs.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
@@ -220,6 +220,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40,
   },
   emptyState: {
     alignItems: 'center',

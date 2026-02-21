@@ -239,7 +239,7 @@ export default function NewJobPage() {
         <Text style={styles.title}>New Job</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Client *</Text>
@@ -522,6 +522,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40,
   },
   formGroup: {
     marginBottom: 24,

@@ -42,6 +42,13 @@ export default function CalendarPage() {
     fetchJobs();
   }, []);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      flatListRef.current?.scrollToIndex({ index: 12, animated: false });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
   const fetchJobs = async () => {
     const { data: jobsData } = await supabase
       .from('jobs')
@@ -255,7 +262,6 @@ export default function CalendarPage() {
               offset: SCREEN_WIDTH * index,
               index,
             })}
-            initialScrollIndex={12}
             onMomentumScrollEnd={onScrollEnd}
             scrollEnabled={true}
             style={{ flex: 1 }}
@@ -290,7 +296,7 @@ export default function CalendarPage() {
 
       <View style={styles.daySection}>
         <Text style={styles.dayTitle}>{formattedSelectedDate}</Text>
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.dayScroll}>
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.dayScroll} contentContainerStyle={styles.dayScrollContent}>
           {selectedDayJobs.length === 0 ? (
             <View style={styles.emptyDay}>
               <Text style={styles.emptyDayText}>No jobs scheduled</Text>
@@ -321,7 +327,6 @@ export default function CalendarPage() {
               </TouchableOpacity>
             ))
           )}
-          <View style={{ height: 80 }} />
         </ScrollView>
       </View>
 
@@ -488,6 +493,9 @@ const styles = StyleSheet.create({
   },
   dayScroll: {
     flex: 1,
+  },
+  dayScrollContent: {
+    paddingBottom: 100,
   },
   emptyDay: {
     alignItems: 'center',

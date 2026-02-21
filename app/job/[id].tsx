@@ -273,7 +273,7 @@ export default function JobDetailPage() {
         </View>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.section}>
           <Text style={styles.jobTitle}>{job.title}</Text>
           {job.purchase_order_number && (
@@ -487,6 +487,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40,
   },
   loadingText: {
     color: '#111827',

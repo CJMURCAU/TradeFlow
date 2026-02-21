@@ -69,7 +69,7 @@ export default function BusinessPage() {
         <Text style={styles.title}>Business Details</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.formGroup}>
           <Text style={styles.label}>Company Name</Text>
           <TextInput
@@ -149,6 +149,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40,
   },
   formGroup: {
     marginBottom: 24,

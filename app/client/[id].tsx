@@ -143,7 +143,7 @@ export default function ClientDetailPage() {
         )}
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {isEditing ? (
           <>
             <View style={styles.formGroup}>
@@ -306,6 +306,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40,
   },
   loadingText: {
     color: '#6B7280',

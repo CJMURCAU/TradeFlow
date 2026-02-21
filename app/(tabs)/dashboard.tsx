@@ -67,7 +67,7 @@ export default function DashboardPage() {
         <Text style={styles.title}>Dashboard</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>
@@ -149,6 +149,9 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  contentContainer: {
+    paddingBottom: 40,
   },
   statsGrid: {
     flexDirection: 'row',
