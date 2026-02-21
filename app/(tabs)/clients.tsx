@@ -28,6 +28,7 @@ export default function ClientsPage() {
       setFilteredClients(clients);
     } else {
       const filtered = clients.filter(client =>
+        client.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
         client.phone.includes(searchQuery)
@@ -103,7 +104,8 @@ export default function ClientsPage() {
               <TouchableOpacity
                 style={styles.clientContent}
                 onPress={() => router.push(`/client/${client.id}`)}>
-                <Text style={styles.clientName}>{client.name}</Text>
+                <Text style={styles.clientName}>{client.company_name || client.name}</Text>
+                {client.name ? <Text style={styles.clientContact}>{client.name}</Text> : null}
                 {client.phone && (
                   <View style={styles.clientInfo}>
                     <Phone size={16} color="#6B7280" />
@@ -125,7 +127,7 @@ export default function ClientsPage() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteButton}
-                onPress={() => deleteClient(client.id, client.name)}>
+                onPress={() => deleteClient(client.id, client.company_name || client.name)}>
                 <Trash2 size={20} color="#EF4444" />
               </TouchableOpacity>
             </View>
@@ -209,7 +211,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 2,
+  },
+  clientContact: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 6,
   },
   clientInfo: {
     flexDirection: 'row',

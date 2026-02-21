@@ -12,6 +12,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export type Client = {
   id: string;
+  company_name: string;
   name: string;
   phone: string;
   email: string;

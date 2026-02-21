@@ -15,6 +15,7 @@ import { ArrowLeft, Save } from 'lucide-react-native';
 export default function NewClientPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
+    company_name: '',
     name: '',
     phone: '',
     email: '',
@@ -22,14 +23,15 @@ export default function NewClientPage() {
   });
 
   const createClient = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter a client name');
+    if (!formData.company_name.trim()) {
+      Alert.alert('Error', 'Please enter a company name');
       return;
     }
 
     const { data, error } = await supabase
       .from('clients')
       .insert({
+        company_name: formData.company_name,
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
@@ -59,10 +61,21 @@ export default function NewClientPage() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Name *</Text>
+          <Text style={styles.label}>Company Name *</Text>
           <TextInput
             style={styles.input}
-            placeholder="Enter client name"
+            placeholder="Enter company name"
+            placeholderTextColor="#9CA3AF"
+            value={formData.company_name}
+            onChangeText={text => setFormData(prev => ({ ...prev, company_name: text }))}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Contact</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter contact name"
             placeholderTextColor="#9CA3AF"
             value={formData.name}
             onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}

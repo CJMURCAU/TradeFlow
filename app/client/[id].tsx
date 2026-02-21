@@ -20,6 +20,7 @@ export default function ClientDetailPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
+    company_name: '',
     name: '',
     phone: '',
     email: '',
@@ -43,6 +44,7 @@ export default function ClientDetailPage() {
     if (data) {
       setClient(data);
       setFormData({
+        company_name: data.company_name,
         name: data.name,
         phone: data.phone,
         email: data.email,
@@ -64,14 +66,15 @@ export default function ClientDetailPage() {
   };
 
   const saveClient = async () => {
-    if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter a client name');
+    if (!formData.company_name.trim()) {
+      Alert.alert('Error', 'Please enter a company name');
       return;
     }
 
     const { error } = await supabase
       .from('clients')
       .update({
+        company_name: formData.company_name,
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
@@ -131,7 +134,7 @@ export default function ClientDetailPage() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.title}>{client.name}</Text>
+        <Text style={styles.title}>{client.company_name || client.name}</Text>
         {!isEditing ? (
           <TouchableOpacity onPress={() => setIsEditing(true)}>
             <Text style={styles.editButton}>Edit</Text>
@@ -147,10 +150,21 @@ export default function ClientDetailPage() {
         {isEditing ? (
           <>
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Name</Text>
+              <Text style={styles.label}>Company Name</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter client name"
+                placeholder="Enter company name"
+                placeholderTextColor="#9CA3AF"
+                value={formData.company_name}
+                onChangeText={text => setFormData(prev => ({ ...prev, company_name: text }))}
+              />
+            </View>
+
+            <View style={styles.formGroup}>
+              <Text style={styles.label}>Contact</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter contact name"
                 placeholderTextColor="#9CA3AF"
                 value={formData.name}
                 onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
@@ -200,6 +214,7 @@ export default function ClientDetailPage() {
               onPress={() => {
                 setIsEditing(false);
                 setFormData({
+                  company_name: client.company_name,
                   name: client.name,
                   phone: client.phone,
                   email: client.email,
