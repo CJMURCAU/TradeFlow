@@ -403,54 +403,46 @@ export default function NewJobPage() {
 
         <View style={styles.formGroup}>
           <Text style={styles.label}>Time</Text>
-          <View style={styles.timeRow}>
-            <View style={styles.timePickerContainer}>
-              <Text style={styles.timeLabel}>Hour</Text>
-              <ScrollView style={styles.timePicker} showsVerticalScrollIndicator={false}>
-                {hours.map(hour => (
-                  <TouchableOpacity
-                    key={hour}
-                    style={[
-                      styles.timeOption,
-                      formData.hour === hour && styles.timeOptionActive,
-                    ]}
-                    onPress={() => setFormData(prev => ({ ...prev, hour }))}>
-                    <Text
-                      style={[
-                        styles.timeOptionText,
-                        formData.hour === hour && styles.timeOptionTextActive,
-                      ]}>
-                      {hour}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            <Text style={styles.timeSeparator}>:</Text>
-
-            <View style={styles.timePickerContainer}>
-              <Text style={styles.timeLabel}>Minute</Text>
-              <ScrollView style={styles.timePicker} showsVerticalScrollIndicator={false}>
-                {minutes.map(minute => (
-                  <TouchableOpacity
-                    key={minute}
-                    style={[
-                      styles.timeOption,
-                      formData.minute === minute && styles.timeOptionActive,
-                    ]}
-                    onPress={() => setFormData(prev => ({ ...prev, minute }))}>
-                    <Text
-                      style={[
-                        styles.timeOptionText,
-                        formData.minute === minute && styles.timeOptionTextActive,
-                      ]}>
-                      {minute}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+          <View style={styles.timeSelectedDisplay}>
+            <Text style={styles.timeSelectedText}>{formData.hour}:{formData.minute}</Text>
+          </View>
+          <Text style={styles.timeLabel}>Hour</Text>
+          <View style={styles.timeGrid}>
+            {hours.map(hour => (
+              <TouchableOpacity
+                key={hour}
+                style={[
+                  styles.timeGridCell,
+                  formData.hour === hour && styles.timeGridCellActive,
+                ]}
+                onPress={() => setFormData(prev => ({ ...prev, hour }))}>
+                <Text style={[
+                  styles.timeGridCellText,
+                  formData.hour === hour && styles.timeGridCellTextActive,
+                ]}>
+                  {hour}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={[styles.timeLabel, { marginTop: 16 }]}>Minute</Text>
+          <View style={styles.minuteRow}>
+            {minutes.map(minute => (
+              <TouchableOpacity
+                key={minute}
+                style={[
+                  styles.minuteCell,
+                  formData.minute === minute && styles.timeGridCellActive,
+                ]}
+                onPress={() => setFormData(prev => ({ ...prev, minute }))}>
+                <Text style={[
+                  styles.timeGridCellText,
+                  formData.minute === minute && styles.timeGridCellTextActive,
+                ]}>
+                  {minute}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -657,49 +649,66 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 14,
   },
-  timeRow: {
-    flexDirection: 'row',
+  timeSelectedDisplay: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    padding: 12,
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 16,
   },
-  timePickerContainer: {
-    flex: 1,
+  timeSelectedText: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#F59E0B',
+    letterSpacing: 2,
   },
   timeLabel: {
     fontSize: 14,
     color: '#6B7280',
     marginBottom: 8,
-    textAlign: 'center',
+    fontWeight: '600',
   },
-  timePicker: {
+  timeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  timeGridCell: {
+    width: '22%',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    maxHeight: 150,
   },
-  timeOption: {
-    padding: 12,
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  timeOptionActive: {
+  timeGridCellActive: {
     backgroundColor: '#F59E0B',
+    borderColor: '#F59E0B',
   },
-  timeOptionText: {
+  timeGridCellText: {
+    fontSize: 15,
     color: '#111827',
-    fontSize: 16,
+    fontWeight: '500',
   },
-  timeOptionTextActive: {
+  timeGridCellTextActive: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
-  timeSeparator: {
-    fontSize: 24,
-    color: '#F59E0B',
-    fontWeight: 'bold',
-    marginTop: 24,
+  minuteRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  minuteCell: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   dateButton: {
     backgroundColor: '#F9FAFB',
