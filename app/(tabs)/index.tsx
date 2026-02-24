@@ -37,6 +37,11 @@ const AVAILABLE_HEIGHT =
   SCREEN_HEIGHT - STATUS_BAR_HEIGHT - MODAL_HEADER_HEIGHT - MODAL_NAV_HEIGHT - MODAL_DAY_HEADER - MODAL_HANDLE_HEIGHT - MODAL_PADDING_V;
 const EXPANDED_CELL_HEIGHT = Math.floor(AVAILABLE_HEIGHT / WEEKS) - 4;
 
+const CHIP_HEIGHT = 16;
+const CHIP_MARGIN = 2;
+const DAY_NUM_HEIGHT = 20;
+const MAX_CHIPS = Math.max(1, Math.floor((EXPANDED_CELL_HEIGHT - DAY_NUM_HEIGHT - 4) / (CHIP_HEIGHT + CHIP_MARGIN)));
+
 export default function CalendarPage() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -66,7 +71,13 @@ export default function CalendarPage() {
       .order('scheduled_time', { ascending: true });
 
     if (jobsData) {
-      setJobs(jobsData.map(job => ({
+      const seen = new Set<string>();
+      const unique = jobsData.filter(job => {
+        if (seen.has(job.id)) return false;
+        seen.add(job.id);
+        return true;
+      });
+      setJobs(unique.map(job => ({
         ...job,
         client: Array.isArray(job.client) ? job.client[0] : job.client,
       })));
@@ -85,10 +96,10 @@ export default function CalendarPage() {
     return map;
   }, [jobs]);
 
-  const getJobsForDate = (date: Date) => {
+  const getJobsForDate = useCallback((date: Date) => {
     const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
     return jobsByDate[key] ?? [];
-  };
+  }, [jobsByDate]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -101,136 +112,208 @@ export default function CalendarPage() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
   };
 
-  const getMonthForIndex = (index: number) => {
+  const getMonthForIndex = useCallback((index: number) => {
     const base = new Date();
     base.setDate(1);
     base.setMonth(base.getMonth() + (index - 12));
     return base;
-  };
+  }, []);
 
-  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+  const onScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
     if (newIndex !== currentIndex) {
       setCurrentIndex(newIndex);
       const newMonth = getMonthForIndex(newIndex);
       setDisplayMonth(newMonth);
     }
-  };
+  }, [currentIndex, getMonthForIndex]);
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
+  const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newIndex = currentIndex + (direction === 'next' ? 1 : -1);
     setCurrentIndex(newIndex);
     flatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
     modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
     setDisplayMonth(getMonthForIndex(newIndex));
-  };
+  }, [currentIndex, getMonthForIndex]);
 
   const openExpanded = useCallback(() => {
     setExpanded(true);
     slideAnim.setValue(SCREEN_HEIGHT);
-    Animated.spring(slideAnim, {
+    Animated.timing(slideAnim, {
       toValue: 0,
+      duration: 280,
       useNativeDriver: true,
-      tension: 65,
-      friction: 11,
     }).start();
-    setTimeout(() => {
-      modalFlatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
-    }, 80);
-  }, [slideAnim, currentIndex]);
+  }, [slideAnim]);
 
   const closeExpanded = useCallback(() => {
-    Animated.spring(slideAnim, {
+    Animated.timing(slideAnim, {
       toValue: SCREEN_HEIGHT,
+      duration: 220,
       useNativeDriver: true,
-      tension: 65,
-      friction: 11,
     }).start(() => {
       setExpanded(false);
     });
   }, [slideAnim]);
 
-  const renderMonth = (cellHeight: number, isModal: boolean) =>
-    ({ index }: { index: number }) => {
-      const monthDate = getMonthForIndex(index);
-      const year = monthDate.getFullYear();
-      const month = monthDate.getMonth();
-      const firstDay = new Date(year, month, 1);
-      const startDate = new Date(firstDay);
-      startDate.setDate(startDate.getDate() - firstDay.getDay());
+  const renderCompactMonth = useCallback(({ index }: { index: number }) => {
+    const monthDate = getMonthForIndex(index);
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
 
-      const days: Date[] = [];
-      const current = new Date(startDate);
-      while (days.length < 42) {
-        days.push(new Date(current));
-        current.setDate(current.getDate() + 1);
-      }
+    const days: Date[] = [];
+    const current = new Date(startDate);
+    while (days.length < 42) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
 
-      const weeks: Date[][] = [];
-      for (let i = 0; i < days.length; i += 7) {
-        weeks.push(days.slice(i, i + 7));
-      }
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
 
-      return (
-        <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 12 }}>
-          <View style={[styles.monthHeader, isModal && styles.monthHeaderModal]}>
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <Text key={d} style={[styles.monthHeaderDay, isModal && styles.monthHeaderDayModal]}>{d}</Text>
-            ))}
-          </View>
-          {weeks.map((week, wi) => (
-            <View key={wi} style={styles.monthWeek}>
-              {week.map((day, di) => {
-                const dayJobs = getJobsForDate(day);
-                const isCurrentMonth = day.getMonth() === month;
-                const isToday = day.toDateString() === new Date().toDateString();
-                const isSelected = day.toDateString() === selectedDate.toDateString();
-
-                return (
-                  <TouchableOpacity
-                    key={di}
-                    style={[
-                      styles.monthDay,
-                      { height: cellHeight },
-                      isToday && !isSelected && styles.monthDayToday,
-                      isSelected && styles.monthDaySelected,
-                    ]}
-                    onPress={() => {
-                      setSelectedDate(new Date(day));
-                      if (isModal) closeExpanded();
-                    }}>
-                    <Text style={[
-                      styles.monthDayNumber,
-                      isModal && styles.monthDayNumberModal,
-                      !isCurrentMonth && styles.monthDayNumberOther,
-                      isToday && !isSelected && styles.monthDayNumberToday,
-                      isSelected && styles.monthDayNumberSelected,
-                    ]}>
-                      {day.getDate()}
-                    </Text>
-                    <View style={styles.monthDayDots}>
-                      {dayJobs.slice(0, isModal ? 4 : 3).map((job, idx) => (
-                        <View
-                          key={idx}
-                          style={[
-                            styles.monthDayDot,
-                            isModal && styles.monthDayDotModal,
-                            { backgroundColor: getStatusColor(job.status) },
-                          ]}
-                        />
-                      ))}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+    return (
+      <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 12 }}>
+        <View style={styles.monthHeader}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+            <Text key={d} style={styles.monthHeaderDay}>{d}</Text>
           ))}
         </View>
-      );
-    };
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.monthWeek}>
+            {week.map((day, di) => {
+              const dayJobs = getJobsForDate(day);
+              const isCurrentMonth = day.getMonth() === month;
+              const isToday = day.toDateString() === new Date().toDateString();
+              const isSelected = day.toDateString() === selectedDate.toDateString();
+
+              return (
+                <TouchableOpacity
+                  key={di}
+                  style={[
+                    styles.monthDay,
+                    { height: COMPACT_CELL_HEIGHT },
+                    isToday && !isSelected && styles.monthDayToday,
+                    isSelected && styles.monthDaySelected,
+                  ]}
+                  onPress={() => setSelectedDate(new Date(day))}>
+                  <Text style={[
+                    styles.monthDayNumber,
+                    !isCurrentMonth && styles.monthDayNumberOther,
+                    isToday && !isSelected && styles.monthDayNumberToday,
+                    isSelected && styles.monthDayNumberSelected,
+                  ]}>
+                    {day.getDate()}
+                  </Text>
+                  <View style={styles.monthDayDots}>
+                    {dayJobs.slice(0, 3).map((job, idx) => (
+                      <View
+                        key={idx}
+                        style={[styles.monthDayDot, { backgroundColor: getStatusColor(job.status) }]}
+                      />
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+  }, [getMonthForIndex, getJobsForDate, selectedDate]);
+
+  const renderExpandedMonth = useCallback(({ index }: { index: number }) => {
+    const monthDate = getMonthForIndex(index);
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+    const days: Date[] = [];
+    const current = new Date(startDate);
+    while (days.length < 42) {
+      days.push(new Date(current));
+      current.setDate(current.getDate() + 1);
+    }
+
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
+    return (
+      <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 8 }}>
+        <View style={styles.monthHeaderModal}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+            <Text key={d} style={styles.monthHeaderDayModal}>{d}</Text>
+          ))}
+        </View>
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.monthWeek}>
+            {week.map((day, di) => {
+              const dayJobs = getJobsForDate(day);
+              const isCurrentMonth = day.getMonth() === month;
+              const isToday = day.toDateString() === new Date().toDateString();
+              const isSelected = day.toDateString() === selectedDate.toDateString();
+              const visibleJobs = dayJobs.slice(0, MAX_CHIPS);
+              const overflow = dayJobs.length - MAX_CHIPS;
+
+              return (
+                <TouchableOpacity
+                  key={di}
+                  style={[
+                    styles.expandedDay,
+                    { height: EXPANDED_CELL_HEIGHT },
+                    isToday && !isSelected && styles.expandedDayToday,
+                    isSelected && styles.expandedDaySelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedDate(new Date(day));
+                    closeExpanded();
+                  }}>
+                  <Text style={[
+                    styles.expandedDayNumber,
+                    !isCurrentMonth && styles.monthDayNumberOther,
+                    isToday && !isSelected && styles.monthDayNumberToday,
+                    isSelected && styles.monthDayNumberSelected,
+                  ]}>
+                    {day.getDate()}
+                  </Text>
+                  <View style={styles.chipContainer}>
+                    {visibleJobs.map((job, idx) => (
+                      <View
+                        key={idx}
+                        style={[styles.chip, { backgroundColor: getStatusColor(job.status) }]}>
+                        <Text style={styles.chipClient} numberOfLines={1}>
+                          {job.client?.name ?? job.title}
+                        </Text>
+                        {job.scheduled_time && (
+                          <Text style={styles.chipTime} numberOfLines={1}>
+                            {formatTime(job.scheduled_time)}
+                          </Text>
+                        )}
+                      </View>
+                    ))}
+                    {overflow > 0 && (
+                      <Text style={styles.chipOverflow}>+{overflow} more</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+  }, [getMonthForIndex, getJobsForDate, selectedDate, closeExpanded]);
 
   const selectedDayJobs = getJobsForDate(selectedDate);
 
@@ -242,7 +325,7 @@ export default function CalendarPage() {
     month: 'long', year: 'numeric',
   });
 
-  const months = Array.from({ length: 25 }, (_, i) => i);
+  const months = useMemo(() => Array.from({ length: 25 }, (_, i) => i), []);
 
   return (
     <View style={styles.container}>
@@ -271,14 +354,14 @@ export default function CalendarPage() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.toString()}
-            renderItem={renderMonth(COMPACT_CELL_HEIGHT, false)}
+            renderItem={renderCompactMonth}
             getItemLayout={(_, index) => ({
               length: SCREEN_WIDTH,
               offset: SCREEN_WIDTH * index,
               index,
             })}
             onMomentumScrollEnd={onScrollEnd}
-            scrollEnabled={true}
+            initialScrollIndex={12}
             style={{ flex: 1 }}
           />
         </View>
@@ -375,14 +458,14 @@ export default function CalendarPage() {
             pagingEnabled
             showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => `modal-${item}`}
-            renderItem={renderMonth(EXPANDED_CELL_HEIGHT, true)}
+            renderItem={renderExpandedMonth}
             getItemLayout={(_, index) => ({
               length: SCREEN_WIDTH,
               offset: SCREEN_WIDTH * index,
               index,
             })}
             onMomentumScrollEnd={onScrollEnd}
-            scrollEnabled={true}
+            initialScrollIndex={currentIndex}
             style={{ flex: 1 }}
           />
 
@@ -444,7 +527,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   monthHeaderModal: {
+    flexDirection: 'row',
+    marginBottom: 4,
     height: MODAL_DAY_HEADER,
+    alignItems: 'center',
   },
   monthHeaderDay: {
     flex: 1,
@@ -454,16 +540,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   monthHeaderDayModal: {
-    fontSize: 13,
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#4B5563',
   },
   monthWeek: {
     flexDirection: 'row',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   monthDay: {
     flex: 1,
-    height: COMPACT_CELL_HEIGHT,
     margin: 1,
     borderRadius: 8,
     alignItems: 'center',
@@ -482,10 +570,6 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 13,
     fontWeight: '600',
-  },
-  monthDayNumberModal: {
-    fontSize: 17,
-    fontWeight: '700',
   },
   monthDayNumberOther: {
     color: '#D1D5DB',
@@ -510,10 +594,62 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginHorizontal: 1,
   },
-  monthDayDotModal: {
-    width: 6,
-    height: 6,
+  expandedDay: {
+    flex: 1,
+    margin: 1,
+    borderRadius: 6,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 2,
+    paddingTop: 3,
+    paddingBottom: 2,
+    overflow: 'hidden',
+  },
+  expandedDayToday: {
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  expandedDaySelected: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+  },
+  expandedDayNumber: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 2,
+    lineHeight: DAY_NUM_HEIGHT,
+    height: DAY_NUM_HEIGHT,
+  },
+  chipContainer: {
+    flex: 1,
+    gap: CHIP_MARGIN,
+  },
+  chip: {
     borderRadius: 3,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+    height: CHIP_HEIGHT,
+    justifyContent: 'center',
+  },
+  chipClient: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '700',
+    lineHeight: 10,
+  },
+  chipTime: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 7,
+    lineHeight: 8,
+  },
+  chipOverflow: {
+    fontSize: 7,
+    color: '#6B7280',
+    fontWeight: '600',
+    paddingLeft: 2,
   },
   dragHandle: {
     backgroundColor: '#FFFFFF',
