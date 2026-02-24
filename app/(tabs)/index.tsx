@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -73,16 +73,21 @@ export default function CalendarPage() {
     }
   };
 
+  const jobsByDate = useMemo(() => {
+    const map: Record<string, (Job & { client?: Client })[]> = {};
+    for (const job of jobs) {
+      if (!job.scheduled_time) continue;
+      const d = new Date(job.scheduled_time);
+      const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(job);
+    }
+    return map;
+  }, [jobs]);
+
   const getJobsForDate = (date: Date) => {
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart);
-    dayEnd.setDate(dayEnd.getDate() + 1);
-    return jobs.filter(job => {
-      if (!job.scheduled_time) return false;
-      const jobDate = new Date(job.scheduled_time);
-      return jobDate >= dayStart && jobDate < dayEnd;
-    });
+    const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    return jobsByDate[key] ?? [];
   };
 
   const getStatusColor = (status: string) => {
