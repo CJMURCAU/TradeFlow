@@ -32,15 +32,10 @@ const MODAL_HEADER_HEIGHT = 56;
 const MODAL_NAV_HEIGHT = 52;
 const MODAL_DAY_HEADER = 32;
 const MODAL_HANDLE_HEIGHT = 48;
-const MODAL_PADDING_V = 16;
-const AVAILABLE_HEIGHT =
-  SCREEN_HEIGHT - STATUS_BAR_HEIGHT - MODAL_HEADER_HEIGHT - MODAL_NAV_HEIGHT - MODAL_DAY_HEADER - MODAL_HANDLE_HEIGHT - MODAL_PADDING_V;
-const EXPANDED_CELL_HEIGHT = Math.floor(AVAILABLE_HEIGHT / WEEKS) - 4;
 
-const CHIP_HEIGHT = 16;
-const CHIP_MARGIN = 2;
+const CHIP_HEIGHT = 30;
+const CHIP_MARGIN = 3;
 const DAY_NUM_HEIGHT = 20;
-const MAX_CHIPS = Math.max(1, Math.floor((EXPANDED_CELL_HEIGHT - DAY_NUM_HEIGHT - 4) / (CHIP_HEIGHT + CHIP_MARGIN)));
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -249,68 +244,71 @@ export default function CalendarPage() {
       weeks.push(days.slice(i, i + 7));
     }
 
-    return (
-      <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 8 }}>
-        <View style={styles.monthHeaderModal}>
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-            <Text key={d} style={styles.monthHeaderDayModal}>{d}</Text>
-          ))}
-        </View>
-        {weeks.map((week, wi) => (
-          <View key={wi} style={styles.monthWeek}>
-            {week.map((day, di) => {
-              const dayJobs = getJobsForDate(day);
-              const isCurrentMonth = day.getMonth() === month;
-              const isToday = day.toDateString() === new Date().toDateString();
-              const isSelected = day.toDateString() === selectedDate.toDateString();
-              const visibleJobs = dayJobs.slice(0, MAX_CHIPS);
-              const overflow = dayJobs.length - MAX_CHIPS;
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+    const lastSunday = new Date(lastDayOfMonth);
+    lastSunday.setDate(lastDayOfMonth.getDate() - lastDayOfMonth.getDay());
+    const visibleWeeks = weeks.filter(week => week[0] <= lastSunday || week[6].getMonth() === month);
 
-              return (
-                <TouchableOpacity
-                  key={di}
-                  style={[
-                    styles.expandedDay,
-                    { height: EXPANDED_CELL_HEIGHT },
-                    isToday && !isSelected && styles.expandedDayToday,
-                    isSelected && styles.expandedDaySelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedDate(new Date(day));
-                    closeExpanded();
-                  }}>
-                  <Text style={[
-                    styles.expandedDayNumber,
-                    !isCurrentMonth && styles.monthDayNumberOther,
-                    isToday && !isSelected && styles.monthDayNumberToday,
-                    isSelected && styles.monthDayNumberSelected,
-                  ]}>
-                    {day.getDate()}
-                  </Text>
-                  <View style={styles.chipContainer}>
-                    {visibleJobs.map((job, idx) => (
-                      <View
-                        key={idx}
-                        style={[styles.chip, { backgroundColor: getStatusColor(job.status) }]}>
-                        <Text style={styles.chipClient} numberOfLines={1}>
-                          {job.client?.name ?? job.title}
-                        </Text>
-                        {job.scheduled_time && (
-                          <Text style={styles.chipTime} numberOfLines={1}>
-                            {formatTime(job.scheduled_time)}
-                          </Text>
-                        )}
-                      </View>
-                    ))}
-                    {overflow > 0 && (
-                      <Text style={styles.chipOverflow}>+{overflow} more</Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+    return (
+      <View style={{ width: SCREEN_WIDTH, overflow: 'hidden' }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 8 }}>
+          <View style={styles.monthHeaderModal}>
+            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+              <Text key={d} style={styles.monthHeaderDayModal}>{d}</Text>
+            ))}
           </View>
-        ))}
+          {visibleWeeks.map((week, wi) => (
+            <View key={wi} style={styles.monthWeek}>
+              {week.map((day, di) => {
+                const dayJobs = getJobsForDate(day);
+                const isCurrentMonth = day.getMonth() === month;
+                const isToday = day.toDateString() === new Date().toDateString();
+                const isSelected = day.toDateString() === selectedDate.toDateString();
+
+                return (
+                  <TouchableOpacity
+                    key={di}
+                    style={[
+                      styles.expandedDay,
+                      isToday && !isSelected && styles.expandedDayToday,
+                      isSelected && styles.expandedDaySelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedDate(new Date(day));
+                      closeExpanded();
+                    }}>
+                    <Text style={[
+                      styles.expandedDayNumber,
+                      !isCurrentMonth && styles.monthDayNumberOther,
+                      isToday && !isSelected && styles.monthDayNumberToday,
+                      isSelected && styles.monthDayNumberSelected,
+                    ]}>
+                      {day.getDate()}
+                    </Text>
+                    <View style={styles.chipContainer}>
+                      {dayJobs.map((job, idx) => (
+                        <View
+                          key={idx}
+                          style={[styles.chip, { backgroundColor: getStatusColor(job.status) }]}>
+                          <Text style={styles.chipClient} numberOfLines={1}>
+                            {job.client?.name ?? job.title}
+                          </Text>
+                          {job.scheduled_time && (
+                            <Text style={styles.chipTime} numberOfLines={1}>
+                              {formatTime(job.scheduled_time)}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
       </View>
     );
   }, [getMonthForIndex, getJobsForDate, selectedDate, closeExpanded]);
@@ -467,6 +465,7 @@ export default function CalendarPage() {
             onMomentumScrollEnd={onScrollEnd}
             initialScrollIndex={currentIndex}
             style={{ flex: 1 }}
+            contentContainerStyle={{ alignItems: 'stretch' }}
           />
 
           <TouchableOpacity style={styles.modalHandle} onPress={closeExpanded} activeOpacity={0.7}>
@@ -600,9 +599,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#F9FAFB',
     paddingHorizontal: 2,
-    paddingTop: 3,
-    paddingBottom: 2,
-    overflow: 'hidden',
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   expandedDayToday: {
     borderWidth: 1.5,
@@ -619,37 +617,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 3,
     lineHeight: DAY_NUM_HEIGHT,
     height: DAY_NUM_HEIGHT,
   },
   chipContainer: {
-    flex: 1,
     gap: CHIP_MARGIN,
   },
   chip: {
-    borderRadius: 3,
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    height: CHIP_HEIGHT,
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 3,
+    minHeight: CHIP_HEIGHT,
     justifyContent: 'center',
   },
   chipClient: {
     color: '#FFFFFF',
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: '700',
-    lineHeight: 10,
+    lineHeight: 14,
   },
   chipTime: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 7,
-    lineHeight: 8,
-  },
-  chipOverflow: {
-    fontSize: 7,
-    color: '#6B7280',
-    fontWeight: '600',
-    paddingLeft: 2,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 10,
+    lineHeight: 13,
   },
   dragHandle: {
     backgroundColor: '#FFFFFF',
