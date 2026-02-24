@@ -343,7 +343,7 @@ export default function CalendarPage() {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.calendarSection}>
+      <View>
         <View style={[styles.calendarContainer, { height: COMPACT_GRID_HEIGHT }]}>
           <FlatList
             ref={flatListRef}
@@ -690,12 +690,8 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     fontWeight: '500',
   },
-  calendarSection: {
-    flexShrink: 0,
-  },
   daySection: {
     flex: 1,
-    minHeight: 0,
     paddingTop: 12,
     paddingHorizontal: 16,
   },
