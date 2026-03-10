@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { emitGuestSessionCreated } from '@/lib/guestSessionEvents';
 import * as SecureStore from 'expo-secure-store';
 
 const GUEST_SESSION_KEY = 'tradeflow_guest_session_id';
@@ -132,6 +133,7 @@ export default function LoginPage() {
             setTrialExpired(true);
             return;
           }
+          emitGuestSessionCreated();
           setGuestLoading(false);
           router.replace('/(tabs)');
           return;
@@ -171,6 +173,7 @@ export default function LoginPage() {
         localStorage.setItem(GUEST_SESSION_KEY, data.id);
       }
 
+      emitGuestSessionCreated();
       router.replace('/(tabs)');
     } catch {
       setError('Could not start trial. Please try again.');

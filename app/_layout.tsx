@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { supabase } from '@/lib/supabase';
+import { onGuestSessionCreated } from '@/lib/guestSessionEvents';
 import * as SecureStore from 'expo-secure-store';
 
 const GUEST_SESSION_KEY = 'tradeflow_guest_session_id';
@@ -47,8 +48,13 @@ export default function RootLayout() {
       })();
     });
 
+    const unsubscribeGuest = onGuestSessionCreated(() => {
+      checkGuestSession();
+    });
+
     return () => {
       authListener.subscription.unsubscribe();
+      unsubscribeGuest();
     };
   }, []);
 
