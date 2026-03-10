@@ -13,6 +13,7 @@ import {
   Animated,
   StatusBar,
   Platform,
+  Image,
 } from 'react-native';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
@@ -328,7 +329,11 @@ export default function CalendarPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>TradePro</Text>
+        <Image
+          source={require('@/assets/images/tradepro_emblem.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
 
       <TabBar />
@@ -436,7 +441,11 @@ export default function CalendarPage() {
         onRequestClose={closeExpanded}>
         <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>TradePro</Text>
+            <Image
+              source={require('@/assets/images/tradepro_emblem.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
           </View>
 
           <View style={styles.modalNavRow}>
@@ -487,17 +496,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
-    paddingBottom: 12,
+    paddingTop: 52,
+    paddingBottom: 10,
+    paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    alignItems: 'flex-start',
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
+  logoImage: {
+    width: 120,
+    height: 48,
   },
   monthNavRow: {
     flexDirection: 'row',
@@ -795,6 +804,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    alignItems: 'flex-start',
   },
   modalTitle: {
     fontSize: 28,
