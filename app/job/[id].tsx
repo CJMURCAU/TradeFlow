@@ -229,7 +229,7 @@ export default function JobDetailPage() {
 
     const { error } = await supabase
       .from('jobs')
-      .update({ email_sent: true })
+      .update({ email_sent: true, status: 'completed' })
       .eq('id', job.id);
 
     if (!error) {
