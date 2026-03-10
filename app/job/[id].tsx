@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,6 @@ import {
   Mail,
   Plus,
   Trash2,
-  Save,
   MapPin,
   Navigation,
 } from 'lucide-react-native';
@@ -199,18 +198,18 @@ export default function JobDetailPage() {
     }
   };
 
-  const saveDescription = async () => {
-    if (!job) return;
+  const saveDescriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ description })
-      .eq('id', job.id);
-
-    if (!error) {
-      Alert.alert('Success', 'Description saved');
+  const handleDescriptionChange = useCallback((text: string) => {
+    setDescription(text);
+    if (saveDescriptionDebounceRef.current) {
+      clearTimeout(saveDescriptionDebounceRef.current);
     }
-  };
+    saveDescriptionDebounceRef.current = setTimeout(async () => {
+      if (!job) return;
+      await supabase.from('jobs').update({ description: text }).eq('id', job.id as string);
+    }, 800);
+  }, [job]);
 
   const updateJobStatus = async (status: 'pending' | 'active' | 'completed') => {
     if (!job) return;
@@ -375,16 +374,13 @@ export default function JobDetailPage() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Description</Text>
-            <TouchableOpacity onPress={saveDescription}>
-              <Save size={20} color="#F59E0B" />
-            </TouchableOpacity>
           </View>
           <TextInput
             style={styles.descriptionInput}
             placeholder="Enter job description..."
             placeholderTextColor="#94A3B8"
             value={description}
-            onChangeText={setDescription}
+            onChangeText={handleDescriptionChange}
             multiline
             numberOfLines={4}
           />
