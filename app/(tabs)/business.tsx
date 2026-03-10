@@ -208,7 +208,7 @@ export default function BusinessPage() {
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Job Email</Text>
+          <Text style={styles.label}>Job Card Email</Text>
           <TextInput
             style={styles.input}
             placeholder="email@example.com"
@@ -218,6 +218,7 @@ export default function BusinessPage() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
+          <Text style={styles.fieldHint}>Completed job cards will be sent to this address</Text>
         </View>
 
         <View style={styles.formGroup}>
@@ -369,6 +370,11 @@ const styles = StyleSheet.create({
     color: '#111827',
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  fieldHint: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 6,
   },
   currencyInput: {
     flexDirection: 'row',
