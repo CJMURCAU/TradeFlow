@@ -35,6 +35,7 @@ export default function JobDetailPage() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const currentTimeEntryRef = useRef<TimeEntry | null>(null);
   const isTimerRunningRef = useRef(false);
+  const accumulatedTimeRef = useRef(0);
   const [description, setDescription] = useState('');
   const [newPart, setNewPart] = useState({ name: '', cost: '', quantity: '1' });
   const [showAddPart, setShowAddPart] = useState(false);
@@ -50,7 +51,7 @@ export default function JobDetailPage() {
       if (isTimerRunningRef.current && currentTimeEntryRef.current) {
         const start = new Date(currentTimeEntryRef.current.start_time).getTime();
         const now = Date.now();
-        setElapsedTime(Math.floor((now - start) / 1000));
+        setElapsedTime(accumulatedTimeRef.current + Math.floor((now - start) / 1000));
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -81,6 +82,13 @@ export default function JobDetailPage() {
     if (timeEntriesResponse.data) {
       setTimeEntries(timeEntriesResponse.data);
       const running = timeEntriesResponse.data.find(entry => entry.is_running);
+      const completedEntries = timeEntriesResponse.data.filter(entry => !entry.is_running && entry.end_time);
+      const completedSeconds = completedEntries.reduce((total, entry) => {
+        const start = new Date(entry.start_time).getTime();
+        const end = new Date(entry.end_time!).getTime();
+        return total + Math.floor((end - start) / 1000);
+      }, 0);
+      accumulatedTimeRef.current = completedSeconds;
       if (running) {
         currentTimeEntryRef.current = running;
         isTimerRunningRef.current = true;
@@ -88,31 +96,39 @@ export default function JobDetailPage() {
         setIsTimerRunning(true);
         const start = new Date(running.start_time).getTime();
         const now = Date.now();
-        setElapsedTime(Math.floor((now - start) / 1000));
+        setElapsedTime(completedSeconds + Math.floor((now - start) / 1000));
       } else {
         currentTimeEntryRef.current = null;
         isTimerRunningRef.current = false;
+        setElapsedTime(completedSeconds);
       }
     }
   };
 
   const startTimer = async () => {
-    const { data, error } = await supabase
-      .from('time_entries')
-      .insert({
-        job_id: id,
-        start_time: new Date().toISOString(),
-        is_running: true,
-      })
-      .select()
-      .single();
+    if (!job || job.status === 'completed') return;
+
+    const [timeEntryResult] = await Promise.all([
+      supabase
+        .from('time_entries')
+        .insert({
+          job_id: id,
+          start_time: new Date().toISOString(),
+          is_running: true,
+        })
+        .select()
+        .single(),
+      supabase.from('jobs').update({ status: 'active' }).eq('id', id as string),
+    ]);
+
+    const { data } = timeEntryResult;
 
     if (data) {
       currentTimeEntryRef.current = data;
       isTimerRunningRef.current = true;
       setCurrentTimeEntry(data);
       setIsTimerRunning(true);
-      setElapsedTime(0);
+      setJob(prev => prev ? { ...prev, status: 'active' } : prev);
       fetchJobDetails();
     }
   };
@@ -326,11 +342,17 @@ export default function JobDetailPage() {
           <Text style={styles.sectionTitle}>Timer</Text>
           <View style={styles.timerContainer}>
             <Text style={styles.timerDisplay}>
-              {isTimerRunning ? formatTime(elapsedTime) : formatTime(Math.floor(getTotalTime()))}
+              {formatTime(elapsedTime)}
             </Text>
+            {job.status === 'completed' && (
+              <Text style={styles.timerCompletedNote}>Job completed — timer disabled</Text>
+            )}
             <View style={styles.timerButtons}>
               {!isTimerRunning ? (
-                <TouchableOpacity style={styles.timerButton} onPress={startTimer}>
+                <TouchableOpacity
+                  style={[styles.timerButton, job.status === 'completed' && styles.timerButtonDisabled]}
+                  onPress={startTimer}
+                  disabled={job.status === 'completed'}>
                   <Play size={24} color="#FFFFFF" />
                   <Text style={styles.timerButtonText}>Start</Text>
                 </TouchableOpacity>
@@ -604,6 +626,15 @@ const styles = StyleSheet.create({
   },
   timerButtonStop: {
     backgroundColor: '#EF4444',
+  },
+  timerButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+  },
+  timerCompletedNote: {
+    fontSize: 13,
+    color: '#10B981',
+    fontWeight: '600',
+    marginBottom: 12,
   },
   timerButtonText: {
     color: '#FFFFFF',
