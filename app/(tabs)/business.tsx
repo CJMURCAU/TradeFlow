@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
 import { supabase, BusinessDetails } from '@/lib/supabase';
 import { Save, Lock, Trash2, ChevronDown, ChevronUp } from 'lucide-react-native';
@@ -173,6 +174,11 @@ export default function BusinessPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Image
+          source={require('@/assets/images/tradepro_emblem.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>Business Details</Text>
       </View>
 
@@ -320,14 +326,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
+    paddingTop: 52,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  logoImage: {
+    width: 100,
+    height: 40,
   },
   title: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#111827',
   },

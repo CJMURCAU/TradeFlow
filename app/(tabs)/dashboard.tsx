@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { supabase, Job, TimeEntry } from '@/lib/supabase';
-import { Clock, Briefcase, CheckCircle, AlertCircle } from 'lucide-react-native';
+import { Clock, Briefcase, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
@@ -65,7 +65,12 @@ export default function DashboardPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Dashboard</Text>
+        <Image
+          source={require('@/assets/images/tradepro_emblem.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Text style={styles.pageTitle}>Dashboard</Text>
       </View>
 
       <TabBar />
@@ -138,14 +143,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    padding: 20,
-    paddingTop: 60,
+    paddingTop: 52,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  title: {
-    fontSize: 28,
+  logoImage: {
+    width: 100,
+    height: 40,
+  },
+  pageTitle: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#111827',
   },
