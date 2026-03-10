@@ -128,9 +128,25 @@ export default function LoginPage() {
       }
     }
 
+    const DEVICE_ID_KEY = 'tradeflow_device_id';
+    let deviceId: string | null = null;
+    if (Platform.OS !== 'web') {
+      deviceId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
+      }
+    } else {
+      deviceId = localStorage.getItem(DEVICE_ID_KEY);
+      if (!deviceId) {
+        deviceId = crypto.randomUUID();
+        localStorage.setItem(DEVICE_ID_KEY, deviceId);
+      }
+    }
+
     const { data, error: insertError } = await supabase
       .from('guest_sessions')
-      .insert({ device_identifier: 'web' })
+      .insert({ device_identifier: deviceId })
       .select()
       .single();
 
