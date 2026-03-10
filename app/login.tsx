@@ -16,12 +16,21 @@ import * as SecureStore from 'expo-secure-store';
 
 const GUEST_SESSION_KEY = 'tradeflow_guest_session_id';
 
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trialExpired, setTrialExpired] = useState(false);
 
@@ -30,13 +39,13 @@ export default function LoginPage() {
       setError('Please enter your email and password.');
       return;
     }
-    setLoading(true);
+    setAuthLoading(true);
     setError(null);
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: email.trim(),
       password,
     });
-    setLoading(false);
+    setAuthLoading(false);
     if (signInError) {
       setError(signInError.message);
     } else {
@@ -53,14 +62,14 @@ export default function LoginPage() {
       setError('Password must be at least 6 characters.');
       return;
     }
-    setLoading(true);
+    setAuthLoading(true);
     setError(null);
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
     });
     if (signUpError) {
-      setLoading(false);
+      setAuthLoading(false);
       setError(signUpError.message);
       return;
     }
@@ -69,7 +78,7 @@ export default function LoginPage() {
       await migrateGuestData(data.user.id);
     }
 
-    setLoading(false);
+    setAuthLoading(false);
     router.replace('/(tabs)');
   };
 
@@ -98,72 +107,76 @@ export default function LoginPage() {
   };
 
   const handleGuestTrial = async () => {
-    setLoading(true);
+    setGuestLoading(true);
     setError(null);
 
-    let existingId: string | null = null;
-    if (Platform.OS !== 'web') {
-      existingId = await SecureStore.getItemAsync(GUEST_SESSION_KEY);
-    } else {
-      existingId = localStorage.getItem(GUEST_SESSION_KEY);
-    }
+    try {
+      let existingId: string | null = null;
+      if (Platform.OS !== 'web') {
+        existingId = await SecureStore.getItemAsync(GUEST_SESSION_KEY);
+      } else {
+        existingId = localStorage.getItem(GUEST_SESSION_KEY);
+      }
 
-    if (existingId) {
-      const { data: existing } = await supabase
-        .from('guest_sessions')
-        .select('id, expires_at')
-        .eq('id', existingId)
-        .maybeSingle();
+      if (existingId) {
+        const { data: existing } = await supabase
+          .from('guest_sessions')
+          .select('id, expires_at')
+          .eq('id', existingId)
+          .maybeSingle();
 
-      if (existing) {
-        const expires = new Date(existing.expires_at);
-        if (expires < new Date()) {
-          setLoading(false);
-          setTrialExpired(true);
+        if (existing) {
+          const expires = new Date(existing.expires_at);
+          if (expires < new Date()) {
+            setGuestLoading(false);
+            setTrialExpired(true);
+            return;
+          }
+          setGuestLoading(false);
+          router.replace('/(tabs)');
           return;
         }
-        setLoading(false);
-        router.replace('/(tabs)');
+      }
+
+      const DEVICE_ID_KEY = 'tradeflow_device_id';
+      let deviceId: string | null = null;
+      if (Platform.OS !== 'web') {
+        deviceId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
+        if (!deviceId) {
+          deviceId = generateUUID();
+          await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
+        }
+      } else {
+        deviceId = localStorage.getItem(DEVICE_ID_KEY);
+        if (!deviceId) {
+          deviceId = generateUUID();
+          localStorage.setItem(DEVICE_ID_KEY, deviceId);
+        }
+      }
+
+      const { data, error: insertError } = await supabase
+        .from('guest_sessions')
+        .insert({ device_identifier: deviceId })
+        .select()
+        .single();
+
+      if (insertError || !data) {
+        setError('Could not start trial. Please try again.');
         return;
       }
-    }
 
-    const DEVICE_ID_KEY = 'tradeflow_device_id';
-    let deviceId: string | null = null;
-    if (Platform.OS !== 'web') {
-      deviceId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
+      if (Platform.OS !== 'web') {
+        await SecureStore.setItemAsync(GUEST_SESSION_KEY, data.id);
+      } else {
+        localStorage.setItem(GUEST_SESSION_KEY, data.id);
       }
-    } else {
-      deviceId = localStorage.getItem(DEVICE_ID_KEY);
-      if (!deviceId) {
-        deviceId = crypto.randomUUID();
-        localStorage.setItem(DEVICE_ID_KEY, deviceId);
-      }
-    }
 
-    const { data, error: insertError } = await supabase
-      .from('guest_sessions')
-      .insert({ device_identifier: deviceId })
-      .select()
-      .single();
-
-    setLoading(false);
-
-    if (insertError || !data) {
+      router.replace('/(tabs)');
+    } catch {
       setError('Could not start trial. Please try again.');
-      return;
+    } finally {
+      setGuestLoading(false);
     }
-
-    if (Platform.OS !== 'web') {
-      await SecureStore.setItemAsync(GUEST_SESSION_KEY, data.id);
-    } else {
-      localStorage.setItem(GUEST_SESSION_KEY, data.id);
-    }
-
-    router.replace('/(tabs)');
   };
 
   return (
@@ -229,10 +242,10 @@ export default function LoginPage() {
 
             {mode === 'signin' ? (
               <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                style={[styles.primaryButton, authLoading && styles.buttonDisabled]}
                 onPress={handleSignIn}
-                disabled={loading}>
-                {loading ? (
+                disabled={authLoading}>
+                {authLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.primaryButtonText}>Sign In</Text>
@@ -240,10 +253,10 @@ export default function LoginPage() {
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[styles.primaryButton, loading && styles.buttonDisabled]}
+                style={[styles.primaryButton, authLoading && styles.buttonDisabled]}
                 onPress={handleSignUp}
-                disabled={loading}>
-                {loading ? (
+                disabled={authLoading}>
+                {authLoading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={styles.primaryButtonText}>Create Account</Text>
@@ -261,10 +274,10 @@ export default function LoginPage() {
               <View style={styles.divider} />
             </View>
             <TouchableOpacity
-              style={[styles.trialButton, loading && styles.buttonDisabled]}
+              style={[styles.trialButton, guestLoading && styles.buttonDisabled]}
               onPress={handleGuestTrial}
-              disabled={loading}>
-              {loading ? (
+              disabled={guestLoading}>
+              {guestLoading ? (
                 <ActivityIndicator color="#F59E0B" />
               ) : (
                 <>
