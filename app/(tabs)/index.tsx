@@ -329,6 +329,7 @@ export default function CalendarPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Text style={styles.appName}>TradeFlow</Text>
         <Image
           source={require('@/assets/images/tradepro_emblem.png')}
           style={styles.logoImage}
@@ -441,6 +442,7 @@ export default function CalendarPage() {
         onRequestClose={closeExpanded}>
         <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.modalHeader}>
+            <Text style={styles.appName}>TradeFlow</Text>
             <Image
               source={require('@/assets/images/tradepro_emblem.png')}
               style={styles.logoImage}
@@ -502,11 +504,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  appName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#111827',
   },
   logoImage: {
-    width: 120,
-    height: 48,
+    width: 44,
+    height: 44,
   },
   monthNavRow: {
     flexDirection: 'row',
@@ -801,10 +810,11 @@ const styles = StyleSheet.create({
   modalHeader: {
     height: MODAL_HEADER_HEIGHT,
     paddingHorizontal: 20,
-    justifyContent: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
-    alignItems: 'flex-start',
   },
   modalTitle: {
     fontSize: 28,

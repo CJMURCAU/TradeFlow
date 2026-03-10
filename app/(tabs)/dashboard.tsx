@@ -65,12 +65,12 @@ export default function DashboardPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Text style={styles.pageTitle}>Dashboard</Text>
         <Image
           source={require('@/assets/images/tradepro_emblem.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={styles.pageTitle}>Dashboard</Text>
       </View>
 
       <TabBar />
@@ -154,8 +154,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   logoImage: {
-    width: 100,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   pageTitle: {
     fontSize: 22,

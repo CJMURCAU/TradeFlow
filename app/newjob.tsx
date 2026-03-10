@@ -24,6 +24,7 @@ export default function NewJobPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const calendarFlatListRef = useRef<FlatList>(null);
   const [calendarIndex, setCalendarIndex] = useState(0);
@@ -313,13 +314,34 @@ export default function NewJobPage() {
           )}
 
           {!showNewClientForm && (
+            <View style={styles.clientDropdownWrapper}>
+              <View style={styles.clientSearchBox}>
+                <TextInput
+                  style={styles.clientSearchInput}
+                  placeholder="Search clients..."
+                  placeholderTextColor="#9CA3AF"
+                  value={clientSearch}
+                  onChangeText={setClientSearch}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
             <ScrollView style={styles.clientDropdown} nestedScrollEnabled>
               {clients.length === 0 ? (
                 <View style={styles.noClientsBox}>
                   <Text style={styles.noClientsText}>No clients yet. Add one above!</Text>
                 </View>
               ) : (
-                clients.map(client => (
+                clients
+                  .filter(client => {
+                    if (!clientSearch.trim()) return true;
+                    const q = clientSearch.toLowerCase();
+                    return (
+                      client.company_name?.toLowerCase().includes(q) ||
+                      client.name?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(client => (
                   <TouchableOpacity
                     key={client.id}
                     style={[
@@ -346,6 +368,7 @@ export default function NewJobPage() {
                 ))
               )}
             </ScrollView>
+            </View>
           )}
         </View>
 
@@ -610,11 +633,26 @@ const styles = StyleSheet.create({
     minHeight: 80,
     textAlignVertical: 'top',
   },
-  clientDropdown: {
-    backgroundColor: '#F9FAFB',
+  clientDropdownWrapper: {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    backgroundColor: '#F9FAFB',
+  },
+  clientSearchBox: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  clientSearchInput: {
+    fontSize: 14,
+    color: '#111827',
+  },
+  clientDropdown: {
+    backgroundColor: '#F9FAFB',
     maxHeight: 200,
   },
   noClientsBox: {

@@ -7,9 +7,10 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  TextInput,
 } from 'react-native';
 import { supabase, Job, Client } from '@/lib/supabase';
-import { Trash2, Calendar } from 'lucide-react-native';
+import { Trash2, Calendar, Search } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
@@ -20,6 +21,7 @@ export default function JobsPage() {
   const params = useLocalSearchParams();
   const [jobs, setJobs] = useState<(Job & { client?: Client })[]>([]);
   const [filterStatus, setFilterStatus] = useState<JobStatus>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (params.filter) {
@@ -88,9 +90,17 @@ export default function JobsPage() {
     });
   };
 
-  const filteredJobs = filterStatus === 'all'
-    ? jobs
-    : jobs.filter(job => job.status === filterStatus);
+  const filteredJobs = jobs.filter(job => {
+    const statusMatch = filterStatus === 'all' || job.status === filterStatus;
+    if (!statusMatch) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    const poMatch = job.purchase_order_number?.toLowerCase().includes(q);
+    const jobCardMatch = job.job_card_number?.toLowerCase().includes(q);
+    const clientMatch = job.client?.name?.toLowerCase().includes(q) ||
+      job.client?.company_name?.toLowerCase().includes(q);
+    return poMatch || jobCardMatch || clientMatch;
+  });
 
   return (
     <View style={styles.container}>
@@ -122,6 +132,18 @@ export default function JobsPage() {
             </TouchableOpacity>
           ))}
         </View>
+        <View style={styles.searchContainer}>
+          <Search size={16} color="#9CA3AF" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by PO, job card or client..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
       </View>
 
       <TabBar />
@@ -141,18 +163,25 @@ export default function JobsPage() {
                 onPress={() => router.push(`/job/${job.id}`)}>
                 <View style={styles.jobHeader}>
                   <Text style={styles.jobNumber}>#{job.job_card_number}</Text>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(job.status) + '20' },
-                    ]}>
-                    <Text
+                  <View style={styles.badgeRow}>
+                    <View
                       style={[
-                        styles.statusText,
-                        { color: getStatusColor(job.status) },
+                        styles.statusBadge,
+                        { backgroundColor: getStatusColor(job.status) + '20' },
                       ]}>
-                      {job.status.toUpperCase()}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: getStatusColor(job.status) },
+                        ]}>
+                        {job.status.toUpperCase()}
+                      </Text>
+                    </View>
+                    {job.status === 'completed' && job.email_sent && (
+                      <View style={styles.sentBadge}>
+                        <Text style={styles.sentBadgeText}>SENT</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
                 <Text style={styles.jobTitle}>{job.title}</Text>
@@ -204,8 +233,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   logoImage: {
-    width: 100,
-    height: 40,
+    width: 44,
+    height: 44,
   },
   title: {
     fontSize: 22,
@@ -272,6 +301,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sentBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#10B981' + '20',
+  },
+  sentBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#10B981',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginTop: 10,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111827',
   },
   jobNumber: {
     fontSize: 14,
