@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Image,
 } from 'react-native';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Trash2, Calendar } from 'lucide-react-native';
@@ -95,14 +94,7 @@ export default function JobsPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
-          <Text style={styles.title}>Jobs</Text>
-        </View>
+        <Text style={styles.title}>Jobs</Text>
         <View style={styles.filterContainer}>
           {(['all', 'pending', 'active', 'completed'] as JobStatus[]).map(status => (
             <TouchableOpacity
@@ -190,27 +182,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingTop: 52,
-    paddingBottom: 14,
-    paddingHorizontal: 20,
+    padding: 20,
+    paddingTop: 60,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  headerTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  logoImage: {
-    width: 100,
-    height: 40,
-  },
   title: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#111827',
+    marginBottom: 16,
   },
   filterContainer: {
     flexDirection: 'row',
