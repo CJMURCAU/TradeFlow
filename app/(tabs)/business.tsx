@@ -174,12 +174,12 @@ export default function BusinessPage() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Text style={styles.title}>Business Details</Text>
         <Image
           source={require('@/assets/images/tradepro_emblem.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />
-        <Text style={styles.title}>Business Details</Text>
       </View>
 
       <TabBar />

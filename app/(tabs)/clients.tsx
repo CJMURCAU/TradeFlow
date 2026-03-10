@@ -78,12 +78,12 @@ export default function ClientsPage() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
+          <Text style={styles.title}>Clients</Text>
           <Image
             source={require('@/assets/images/tradepro_emblem.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Clients</Text>
         </View>
         <View style={styles.searchContainer}>
           <Search size={20} color="#6B7280" />

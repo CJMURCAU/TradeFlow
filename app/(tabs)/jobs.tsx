@@ -106,12 +106,12 @@ export default function JobsPage() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
+          <Text style={styles.title}>Jobs</Text>
           <Image
             source={require('@/assets/images/tradepro_emblem.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
-          <Text style={styles.title}>Jobs</Text>
         </View>
         <View style={styles.filterContainer}>
           {(['all', 'pending', 'active', 'completed'] as JobStatus[]).map(status => (
