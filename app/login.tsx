@@ -27,13 +27,32 @@ function generateUUID(): string {
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [trialExpired, setTrialExpired] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    setForgotLoading(true);
+    setError(null);
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim());
+    setForgotLoading(false);
+    if (resetError) {
+      setError(resetError.message);
+    } else {
+      setForgotSent(true);
+    }
+  };
 
   const handleSignIn = async () => {
     if (!email.trim() || !password.trim()) {
@@ -204,18 +223,20 @@ export default function LoginPage() {
         )}
 
         <View style={styles.card}>
-          <View style={styles.tabRow}>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'signin' && styles.tabActive]}
-              onPress={() => { setMode('signin'); setError(null); }}>
-              <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>Sign In</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, mode === 'signup' && styles.tabActive]}
-              onPress={() => { setMode('signup'); setError(null); }}>
-              <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
+          {mode !== 'forgot' && (
+            <View style={styles.tabRow}>
+              <TouchableOpacity
+                style={[styles.tab, mode === 'signin' && styles.tabActive]}
+                onPress={() => { setMode('signin'); setError(null); }}>
+                <Text style={[styles.tabText, mode === 'signin' && styles.tabTextActive]}>Sign In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tab, mode === 'signup' && styles.tabActive]}
+                onPress={() => { setMode('signup'); setError(null); }}>
+                <Text style={[styles.tabText, mode === 'signup' && styles.tabTextActive]}>Create Account</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {error && (
             <View style={styles.errorBox}>
@@ -223,50 +244,107 @@ export default function LoginPage() {
             </View>
           )}
 
-          <View style={styles.form}>
-            <TextInput
-              style={styles.input}
-              placeholder="Email address"
-              placeholderTextColor="#9CA3AF"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#9CA3AF"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+          {mode === 'forgot' ? (
+            <View style={styles.form}>
+              <Text style={styles.forgotTitle}>Reset Password</Text>
+              {forgotSent ? (
+                <>
+                  <Text style={styles.forgotSentText}>
+                    Check your email for a password reset link.
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.primaryButton}
+                    onPress={() => { setMode('signin'); setForgotSent(false); setForgotEmail(''); setError(null); }}>
+                    <Text style={styles.primaryButtonText}>Back to Sign In</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.forgotSubtext}>
+                    Enter your email address and we'll send you a link to reset your password.
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email address"
+                    placeholderTextColor="#9CA3AF"
+                    value={forgotEmail}
+                    onChangeText={setForgotEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={[styles.primaryButton, forgotLoading && styles.buttonDisabled]}
+                    onPress={handleForgotPassword}
+                    disabled={forgotLoading}>
+                    {forgotLoading ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.primaryButtonText}>Send Reset Link</Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.backLink}
+                    onPress={() => { setMode('signin'); setError(null); setForgotEmail(''); }}>
+                    <Text style={styles.backLinkText}>Back to Sign In</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          ) : (
+            <View style={styles.form}>
+              <TextInput
+                style={styles.input}
+                placeholder="Email address"
+                placeholderTextColor="#9CA3AF"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor="#9CA3AF"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
 
-            {mode === 'signin' ? (
-              <TouchableOpacity
-                style={[styles.primaryButton, authLoading && styles.buttonDisabled]}
-                onPress={handleSignIn}
-                disabled={authLoading}>
-                {authLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Sign In</Text>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.primaryButton, authLoading && styles.buttonDisabled]}
-                onPress={handleSignUp}
-                disabled={authLoading}>
-                {authLoading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Create Account</Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
+              {mode === 'signin' && (
+                <TouchableOpacity
+                  style={styles.forgotLink}
+                  onPress={() => { setMode('forgot'); setError(null); setForgotEmail(email); }}>
+                  <Text style={styles.forgotLinkText}>Forgot password?</Text>
+                </TouchableOpacity>
+              )}
+
+              {mode === 'signin' ? (
+                <TouchableOpacity
+                  style={[styles.primaryButton, authLoading && styles.buttonDisabled]}
+                  onPress={handleSignIn}
+                  disabled={authLoading}>
+                  {authLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Sign In</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.primaryButton, authLoading && styles.buttonDisabled]}
+                  onPress={handleSignUp}
+                  disabled={authLoading}>
+                  {authLoading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Create Account</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
         {!trialExpired && (
@@ -456,5 +534,42 @@ const styles = StyleSheet.create({
   trialSubtext: {
     fontSize: 13,
     color: '#9CA3AF',
+  },
+  forgotLink: {
+    alignSelf: 'flex-end',
+    marginTop: -4,
+  },
+  forgotLinkText: {
+    fontSize: 13,
+    color: '#F59E0B',
+    fontWeight: '500',
+  },
+  forgotTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  forgotSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 4,
+  },
+  forgotSentText: {
+    fontSize: 15,
+    color: '#059669',
+    lineHeight: 22,
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  backLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  backLinkText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
   },
 });

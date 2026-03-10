@@ -10,7 +10,7 @@ import {
   Image,
 } from 'react-native';
 import { supabase, BusinessDetails } from '@/lib/supabase';
-import { Save, Lock, Trash2, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Save, Lock, Trash2, ChevronDown, ChevronUp, Mail } from 'lucide-react-native';
 import TabBar from '@/components/TabBar';
 
 export default function BusinessPage() {
@@ -29,6 +29,13 @@ export default function BusinessPage() {
   });
   const [passwordError, setPasswordError] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const [showChangeEmail, setShowChangeEmail] = useState(false);
+  const [emailForm, setEmailForm] = useState({ newEmail: '', confirmEmail: '' });
+  const [emailError, setEmailError] = useState('');
+  const [emailSuccess, setEmailSuccess] = useState('');
+  const [emailLoading, setEmailLoading] = useState(false);
+
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
@@ -71,6 +78,38 @@ export default function BusinessPage() {
     } else {
       Alert.alert('Success', 'Business details saved successfully');
       fetchBusinessDetails();
+    }
+  };
+
+  const handleChangeEmail = async () => {
+    setEmailError('');
+    setEmailSuccess('');
+
+    if (!emailForm.newEmail.trim() || !emailForm.confirmEmail.trim()) {
+      setEmailError('Please fill in both fields.');
+      return;
+    }
+
+    if (emailForm.newEmail.trim() !== emailForm.confirmEmail.trim()) {
+      setEmailError('Email addresses do not match.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(emailForm.newEmail.trim())) {
+      setEmailError('Please enter a valid email address.');
+      return;
+    }
+
+    setEmailLoading(true);
+    const { error } = await supabase.auth.updateUser({ email: emailForm.newEmail.trim() });
+    setEmailLoading(false);
+
+    if (error) {
+      setEmailError(error.message);
+    } else {
+      setEmailForm({ newEmail: '', confirmEmail: '' });
+      setEmailSuccess('A confirmation link has been sent to your new email address. Click the link to complete the change.');
     }
   };
 
@@ -244,6 +283,69 @@ export default function BusinessPage() {
         <View style={styles.divider} />
 
         <Text style={styles.sectionHeading}>Account Settings</Text>
+
+        <TouchableOpacity
+          style={styles.settingsRow}
+          onPress={() => {
+            setShowChangeEmail(!showChangeEmail);
+            setEmailError('');
+            setEmailSuccess('');
+            setEmailForm({ newEmail: '', confirmEmail: '' });
+          }}
+        >
+          <View style={styles.settingsRowLeft}>
+            <View style={styles.settingsIconWrap}>
+              <Mail size={18} color="#374151" />
+            </View>
+            <Text style={styles.settingsRowText}>Change Email</Text>
+          </View>
+          {showChangeEmail ? (
+            <ChevronUp size={18} color="#6B7280" />
+          ) : (
+            <ChevronDown size={18} color="#6B7280" />
+          )}
+        </TouchableOpacity>
+
+        {showChangeEmail && (
+          <View style={styles.passwordForm}>
+            <TextInput
+              style={styles.input}
+              placeholder="New email address"
+              placeholderTextColor="#9CA3AF"
+              value={emailForm.newEmail}
+              onChangeText={text => setEmailForm(prev => ({ ...prev, newEmail: text }))}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <View style={styles.passwordFieldGap} />
+            <TextInput
+              style={styles.input}
+              placeholder="Confirm new email address"
+              placeholderTextColor="#9CA3AF"
+              value={emailForm.confirmEmail}
+              onChangeText={text => setEmailForm(prev => ({ ...prev, confirmEmail: text }))}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {emailError ? (
+              <Text style={styles.errorText}>{emailError}</Text>
+            ) : null}
+            {emailSuccess ? (
+              <Text style={styles.successText}>{emailSuccess}</Text>
+            ) : null}
+            <TouchableOpacity
+              style={[styles.confirmPasswordButton, emailLoading && styles.buttonDisabled]}
+              onPress={handleChangeEmail}
+              disabled={emailLoading}
+            >
+              <Text style={styles.confirmPasswordButtonText}>
+                {emailLoading ? 'Updating...' : 'Update Email'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <TouchableOpacity
           style={styles.settingsRow}
@@ -468,6 +570,13 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     marginTop: 10,
     marginBottom: 4,
+  },
+  successText: {
+    fontSize: 13,
+    color: '#059669',
+    marginTop: 10,
+    marginBottom: 4,
+    lineHeight: 18,
   },
   confirmPasswordButton: {
     backgroundColor: '#111827',

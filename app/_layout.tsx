@@ -123,7 +123,7 @@ export default function RootLayout() {
   const showTrialBanner =
     sessionState === 'guest' &&
     daysLeft !== null &&
-    daysLeft <= 2 &&
+    daysLeft <= 3 &&
     !bannerDismissed;
 
   if (sessionState === 'loading') {
@@ -142,7 +142,9 @@ export default function RootLayout() {
           <Text style={styles.trialBannerText}>
             {daysLeft === 1
               ? 'Your free trial ends tomorrow. Create an account to keep your data.'
-              : `${daysLeft} days left in your free trial. Create an account to keep your data.`}
+              : daysLeft === 2
+              ? '2 days left in your free trial. Create an account to keep your data.'
+              : '3 days left in your free trial. Sign up now to keep your data.'}
           </Text>
           <TouchableOpacity onPress={dismissBanner} style={styles.trialBannerDismiss}>
             <Text style={styles.trialBannerDismissText}>Dismiss</Text>
