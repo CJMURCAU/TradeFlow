@@ -14,9 +14,10 @@ import {
   StatusBar,
   Platform,
   Image,
+  Alert,
 } from 'react-native';
 import { supabase, Job, Client } from '@/lib/supabase';
-import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
@@ -59,6 +60,24 @@ export default function CalendarPage() {
     }, 100);
     return () => clearTimeout(timer);
   }, []);
+
+  const deleteJob = async (jobId: string) => {
+    await supabase.from('parts').delete().eq('job_id', jobId);
+    await supabase.from('time_entries').delete().eq('job_id', jobId);
+    await supabase.from('jobs').delete().eq('id', jobId);
+    setJobs(prev => prev.filter(j => j.id !== jobId));
+  };
+
+  const confirmDeleteJob = (job: Job & { client?: Client }) => {
+    Alert.alert(
+      'Delete Job',
+      `Are you sure you want to delete "${job.title}"? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => deleteJob(job.id) },
+      ]
+    );
+  };
 
   const fetchJobs = async () => {
     const { data: jobsData } = await supabase
@@ -419,10 +438,18 @@ export default function CalendarPage() {
                   <Text style={styles.jobCardTitle}>{job.title}</Text>
                   {job.client && <Text style={styles.jobCardClient}>{job.client.name}</Text>}
                 </View>
-                <View style={[styles.jobCardBadge, { backgroundColor: getStatusColor(job.status) + '20' }]}>
-                  <Text style={[styles.jobCardStatus, { color: getStatusColor(job.status) }]}>
-                    {job.status.toUpperCase()}
-                  </Text>
+                <View style={styles.jobCardRight}>
+                  <View style={[styles.jobCardBadge, { backgroundColor: getStatusColor(job.status) + '20' }]}>
+                    <Text style={[styles.jobCardStatus, { color: getStatusColor(job.status) }]}>
+                      {job.status.toUpperCase()}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => confirmDeleteJob(job)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Trash2 size={17} color="#EF4444" />
+                  </TouchableOpacity>
                 </View>
               </TouchableOpacity>
             ))
@@ -776,11 +803,24 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 13,
   },
+  jobCardRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginLeft: 12,
+  },
   jobCardBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
-    marginLeft: 12,
+  },
+  deleteButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   jobCardStatus: {
     fontSize: 11,
