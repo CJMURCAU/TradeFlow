@@ -9,7 +9,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { supabase, Job, Client, Part, TimeEntry } from '@/lib/supabase';
+import { supabase, Job, Client, Part, TimeEntry, BusinessDetails } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
   ArrowLeft,
@@ -38,12 +38,25 @@ export default function JobDetailPage() {
   const [description, setDescription] = useState('');
   const [newPart, setNewPart] = useState({ name: '', cost: '', quantity: '1' });
   const [showAddPart, setShowAddPart] = useState(false);
+  const [hourlyRate, setHourlyRate] = useState(0);
 
   useEffect(() => {
     if (id) {
       fetchJobDetails();
     }
+    fetchHourlyRate();
   }, [id]);
+
+  const fetchHourlyRate = async () => {
+    const { data } = await supabase
+      .from('business_details')
+      .select('default_hourly_rate')
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      setHourlyRate(data.default_hourly_rate ?? 0);
+    }
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -286,6 +299,11 @@ export default function JobDetailPage() {
     return parts.reduce((total, part) => total + (part.cost * part.quantity), 0);
   };
 
+  const getLabourCost = () => {
+    const hours = getTotalTime() / 3600;
+    return hours * hourlyRate;
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return '#F59E0B';
@@ -468,12 +486,30 @@ export default function JobDetailPage() {
           <Text style={styles.sectionTitle}>Cost Summary</Text>
           <View style={styles.summaryCard}>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Parts:</Text>
-              <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Total Time:</Text>
               <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <View>
+                <Text style={styles.summaryLabel}>Labour Cost:</Text>
+                {hourlyRate > 0 && (
+                  <Text style={styles.summarySubLabel}>${hourlyRate.toFixed(2)}/hr</Text>
+                )}
+              </View>
+              <Text style={styles.summaryValue}>
+                {hourlyRate > 0 ? `$${getLabourCost().toFixed(2)}` : '—'}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Parts Cost:</Text>
+              <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryTotalLabel}>Total:</Text>
+              <Text style={styles.summaryTotalValue}>
+                ${(getLabourCost() + getTotalPartsCost()).toFixed(2)}
+              </Text>
             </View>
           </View>
         </View>
@@ -740,16 +776,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   summaryLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#6B7280',
   },
+  summarySubLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
   summaryValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#111827',
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 8,
+  },
+  summaryTotalLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  summaryTotalValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#F59E0B',
   },
   emailButton: {
     backgroundColor: '#F59E0B',
