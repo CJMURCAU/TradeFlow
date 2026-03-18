@@ -71,9 +71,14 @@ Deno.serve(async (req: Request) => {
       0
     );
 
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const timeFormatted = `${hours}h ${minutes}m`;
+    const timeHours = Math.floor(totalSeconds / 3600);
+    const timeMinutes = Math.floor((totalSeconds % 3600) / 60);
+    const timeSecs = totalSeconds % 60;
+    const timeFormatted = `${String(timeHours).padStart(2, "0")}:${String(timeMinutes).padStart(2, "0")}:${String(timeSecs).padStart(2, "0")}`;
+
+    const hourlyRate = business?.default_hourly_rate ?? 0;
+    const labourCost = (totalSeconds / 3600) * hourlyRate;
+    const totalCost = labourCost + totalPartsCost;
 
     const partsHtml = (parts || []).length > 0
       ? `
@@ -138,15 +143,26 @@ Deno.serve(async (req: Request) => {
       </div>
 
       <div style="padding:16px;border:1px solid #000000;">
-        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Summary</p>
+        <p style="margin:0 0 12px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Cost Summary</p>
         <table style="width:100%;border-collapse:collapse;">
           <tr>
-            <td style="padding:4px 0;font-size:15px;color:#000000;">Total Parts Cost</td>
-            <td style="padding:4px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:15px;color:#000000;">Total Time</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${timeFormatted}</td>
           </tr>
           <tr>
-            <td style="padding:4px 0;font-size:15px;color:#000000;">Total Time</td>
-            <td style="padding:4px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${timeFormatted}</td>
+            <td style="padding:5px 0;font-size:15px;color:#000000;">Labour Cost${hourlyRate > 0 ? ` <span style="font-size:12px;color:#555555;">($${hourlyRate.toFixed(2)}/hr)</span>` : ""}</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${hourlyRate > 0 ? `$${labourCost.toFixed(2)}` : "&mdash;"}</td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td colspan="2" style="padding:4px 0;"><hr style="border:none;border-top:1px solid #000000;margin:4px 0;" /></td>
+          </tr>
+          <tr>
+            <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;">Total</td>
+            <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;text-align:right;">$${totalCost.toFixed(2)}</td>
           </tr>
         </table>
       </div>
