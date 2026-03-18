@@ -227,14 +227,36 @@ export default function JobDetailPage() {
   const sendJobCardEmail = async () => {
     if (!job) return;
 
-    const { error } = await supabase
-      .from('jobs')
-      .update({ email_sent: true, status: 'completed' })
-      .eq('id', job.id);
+    const client = job.client;
+    if (!client?.email) {
+      Alert.alert('No Email', 'This client does not have an email address on file.');
+      return;
+    }
 
-    if (!error) {
-      Alert.alert('Success', 'Job card email marked as sent');
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-job-card`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ jobId: job.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        Alert.alert('Failed to Send', result.error || 'Something went wrong. Please try again.');
+        return;
+      }
+
+      Alert.alert('Email Sent', `Job card emailed to ${client.email}`);
       fetchJobDetails();
+    } catch {
+      Alert.alert('Error', 'Could not connect to email service. Please try again.');
     }
   };
 
