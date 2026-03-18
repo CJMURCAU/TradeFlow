@@ -42,6 +42,9 @@ export default function RootLayout() {
       (async () => {
         if (session) {
           setSessionState('authenticated');
+          if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
+            router.replace('/(tabs)');
+          }
         } else {
           await checkGuestSession();
         }
@@ -107,8 +110,9 @@ export default function RootLayout() {
     if (sessionState === 'loading') return;
 
     const inAuthGroup = segments[0] === 'login';
+    const inAuthCallback = segments[0] === 'auth';
 
-    if (sessionState === 'unauthenticated' && !inAuthGroup) {
+    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback) {
       router.replace('/login');
     } else if ((sessionState === 'authenticated' || sessionState === 'guest') && inAuthGroup) {
       router.replace('/(tabs)');
@@ -135,6 +139,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="auth/callback" />
         <Stack.Screen name="+not-found" />
       </Stack>
       {showTrialBanner && (
