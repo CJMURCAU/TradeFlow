@@ -42,13 +42,6 @@ Deno.serve(async (req: Request) => {
 
     const client = Array.isArray(job.client) ? job.client[0] : job.client;
 
-    if (!client?.email) {
-      return new Response(JSON.stringify({ error: "Client has no email address" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { data: parts } = await supabase
       .from("parts")
       .select("*")
@@ -173,9 +166,14 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const fromEmail = business?.job_email
-      ? `${companyName} <onboarding@resend.dev>`
-      : `${companyName} <onboarding@resend.dev>`;
+    if (!business?.job_email) {
+      return new Response(JSON.stringify({ error: "No job card email set in Business settings. Please add one before sending." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const recipientEmail = business.job_email;
 
     const resendResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -184,11 +182,11 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: fromEmail,
-        to: [client.email],
+        from: `${companyName} <onboarding@resend.dev>`,
+        to: [recipientEmail],
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
         html: emailHtml,
-        reply_to: business?.job_email || undefined,
+        reply_to: recipientEmail,
       }),
     });
 
@@ -205,7 +203,7 @@ Deno.serve(async (req: Request) => {
       .update({ email_sent: true, status: "completed" })
       .eq("id", jobId);
 
-    return new Response(JSON.stringify({ success: true, sentTo: client.email }), {
+    return new Response(JSON.stringify({ success: true, sentTo: recipientEmail }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

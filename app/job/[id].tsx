@@ -240,12 +240,6 @@ export default function JobDetailPage() {
   const sendJobCardEmail = async () => {
     if (!job) return;
 
-    const client = job.client;
-    if (!client?.email) {
-      Alert.alert('No Email', 'This client does not have an email address on file.');
-      return;
-    }
-
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -266,7 +260,7 @@ export default function JobDetailPage() {
         return;
       }
 
-      Alert.alert('Email Sent', `Job card emailed to ${client.email}`);
+      Alert.alert('Email Sent', `Job card emailed to ${result.sentTo}`);
       fetchJobDetails();
     } catch {
       Alert.alert('Error', 'Could not connect to email service. Please try again.');
