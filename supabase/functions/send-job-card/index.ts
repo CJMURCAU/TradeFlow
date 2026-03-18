@@ -109,50 +109,52 @@ Deno.serve(async (req: Request) => {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;">
-  <div style="max-width:600px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-    <div style="background:#F59E0B;padding:32px 40px;">
-      <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;">${companyName}</h1>
-      <p style="margin:8px 0 0;color:#fffbeb;font-size:16px;">Job Card #${job.job_card_number}</p>
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;">
+  <div style="max-width:600px;margin:40px auto;background:#ffffff;">
+    <div style="padding:40px 40px 24px;border-bottom:3px solid #000000;">
+      <h1 style="margin:0 0 6px;color:#000000;font-size:28px;font-weight:700;letter-spacing:-0.5px;">${companyName}</h1>
+      <p style="margin:0;color:#000000;font-size:15px;font-weight:400;letter-spacing:0.03em;">JOB CARD #${job.job_card_number}</p>
     </div>
     <div style="padding:32px 40px;">
-      <h2 style="margin:0 0 4px;color:#111827;font-size:20px;">${job.title}</h2>
-      ${job.purchase_order_number ? `<p style="margin:0 0 16px;color:#6b7280;font-size:14px;">PO: ${job.purchase_order_number}</p>` : ""}
+      <h2 style="margin:0 0 4px;color:#000000;font-size:20px;font-weight:700;">${job.title}</h2>
+      ${job.purchase_order_number ? `<p style="margin:0 0 16px;color:#555555;font-size:14px;">PO: ${job.purchase_order_number}</p>` : ""}
 
-      <div style="background:#f9fafb;border-radius:8px;padding:16px;margin:20px 0;border:1px solid #e5e7eb;">
-        <p style="margin:0 0 4px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Client</p>
-        <p style="margin:0;font-size:16px;color:#111827;font-weight:600;">${client.name}</p>
-        ${client.company_name ? `<p style="margin:4px 0 0;font-size:14px;color:#374151;">${client.company_name}</p>` : ""}
-        ${client.address ? `<p style="margin:4px 0 0;font-size:14px;color:#374151;">${client.address}</p>` : ""}
+      <div style="padding:16px;margin:20px 0;border:1px solid #000000;">
+        <p style="margin:0 0 4px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Client</p>
+        <p style="margin:0;font-size:16px;color:#000000;font-weight:600;">${client.name}</p>
+        ${client.company_name ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.company_name}</p>` : ""}
+        ${client.address ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.address}</p>` : ""}
       </div>
 
       ${job.description ? `
       <div style="margin-bottom:24px;">
-        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Description</p>
-        <p style="margin:0;font-size:15px;color:#374151;line-height:1.6;">${job.description}</p>
+        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Description</p>
+        <p style="margin:0;font-size:15px;color:#000000;line-height:1.6;">${job.description}</p>
       </div>` : ""}
 
       <div style="margin-bottom:24px;">
-        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Parts Used</p>
+        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Parts Used</p>
         ${partsHtml}
       </div>
 
-      <div style="background:#f9fafb;border-radius:8px;padding:16px;border:1px solid #e5e7eb;">
-        <p style="margin:0 0 8px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Summary</p>
-        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-          <span style="font-size:15px;color:#374151;">Total Parts Cost</span>
-          <span style="font-size:15px;font-weight:600;color:#111827;">$${totalPartsCost.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;">
-          <span style="font-size:15px;color:#374151;">Total Time</span>
-          <span style="font-size:15px;font-weight:600;color:#111827;">${timeFormatted}</span>
-        </div>
+      <div style="padding:16px;border:1px solid #000000;">
+        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Summary</p>
+        <table style="width:100%;border-collapse:collapse;">
+          <tr>
+            <td style="padding:4px 0;font-size:15px;color:#000000;">Total Parts Cost</td>
+            <td style="padding:4px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+          </tr>
+          <tr>
+            <td style="padding:4px 0;font-size:15px;color:#000000;">Total Time</td>
+            <td style="padding:4px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${timeFormatted}</td>
+          </tr>
+        </table>
       </div>
 
-      ${tradesmanName ? `<p style="margin:24px 0 0;font-size:14px;color:#6b7280;">Completed by ${tradesmanName}</p>` : ""}
+      ${tradesmanName ? `<p style="margin:24px 0 0;font-size:14px;color:#000000;">Completed by ${tradesmanName}</p>` : ""}
     </div>
-    <div style="background:#f9fafb;padding:20px 40px;border-top:1px solid #e5e7eb;">
-      <p style="margin:0;font-size:13px;color:#9ca3af;text-align:center;">${companyName} &mdash; Job Card #${job.job_card_number}</p>
+    <div style="padding:16px 40px;border-top:1px solid #000000;">
+      <p style="margin:0;font-size:12px;color:#555555;text-align:center;">${companyName} &mdash; Job Card #${job.job_card_number}</p>
     </div>
   </div>
 </body>
