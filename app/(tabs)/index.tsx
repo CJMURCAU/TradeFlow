@@ -9,7 +9,6 @@ import {
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  Modal,
   Animated,
   StatusBar,
   Platform,
@@ -47,7 +46,7 @@ export default function CalendarPage() {
   const flatListRef = useRef<FlatList>(null);
   const modalFlatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(12);
-  const [expanded, setExpanded] = useState(false);
+  const [expandedVisible, setExpandedVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
@@ -150,27 +149,34 @@ export default function CalendarPage() {
     const newIndex = currentIndex + (direction === 'next' ? 1 : -1);
     setCurrentIndex(newIndex);
     flatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
-    modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    if (expandedVisible) {
+      modalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
+    }
     setDisplayMonth(getMonthForIndex(newIndex));
-  }, [currentIndex, getMonthForIndex]);
+  }, [currentIndex, getMonthForIndex, expandedVisible]);
 
   const openExpanded = useCallback(() => {
-    setExpanded(true);
+    setExpandedVisible(true);
     slideAnim.setValue(SCREEN_HEIGHT);
-    Animated.timing(slideAnim, {
+    Animated.spring(slideAnim, {
       toValue: 0,
-      duration: 280,
       useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
     }).start();
-  }, [slideAnim]);
+    setTimeout(() => {
+      modalFlatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
+    }, 0);
+  }, [slideAnim, currentIndex]);
 
   const closeExpanded = useCallback(() => {
-    Animated.timing(slideAnim, {
+    Animated.spring(slideAnim, {
       toValue: SCREEN_HEIGHT,
-      duration: 220,
       useNativeDriver: true,
+      bounciness: 0,
+      speed: 20,
     }).start(() => {
-      setExpanded(false);
+      setExpandedVisible(false);
     });
   }, [slideAnim]);
 
@@ -461,60 +467,55 @@ export default function CalendarPage() {
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      <Modal
-        visible={expanded}
-        transparent
-        animationType="none"
-        statusBarTranslucent
-        onRequestClose={closeExpanded}>
-        <Animated.View style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.appName}>TradeFlow</Text>
-            <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
-          </View>
-
-          <View style={styles.modalNavRow}>
-            <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton}>
-              <ChevronLeft size={22} color="#F59E0B" />
-            </TouchableOpacity>
-            <Text style={styles.monthNavTitle}>{displayMonthTitle}</Text>
-            <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navButton}>
-              <ChevronRight size={22} color="#F59E0B" />
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            ref={modalFlatListRef}
-            data={months}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => `modal-${item}`}
-            renderItem={renderExpandedMonth}
-            getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
-              index,
-            })}
-            onMomentumScrollEnd={onScrollEnd}
-            initialScrollIndex={currentIndex}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ alignItems: 'stretch' }}
+      <Animated.View
+        pointerEvents={expandedVisible ? 'box-none' : 'none'}
+        style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.appName}>TradeFlow</Text>
+          <Image
+            source={require('@/assets/images/tradepro_emblem.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
           />
+        </View>
 
-          <TouchableOpacity style={styles.modalHandle} onPress={closeExpanded} activeOpacity={0.7}>
-            <View style={styles.dragHandleBar} />
-            <View style={styles.dragHandleHintRow}>
-              <ChevronUp size={14} color="#9CA3AF" />
-              <Text style={styles.dragHandleHint}>Tap to collapse</Text>
-            </View>
+        <View style={styles.modalNavRow}>
+          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton}>
+            <ChevronLeft size={22} color="#F59E0B" />
           </TouchableOpacity>
-        </Animated.View>
-      </Modal>
+          <Text style={styles.monthNavTitle}>{displayMonthTitle}</Text>
+          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navButton}>
+            <ChevronRight size={22} color="#F59E0B" />
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          ref={modalFlatListRef}
+          data={months}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(item) => `modal-${item}`}
+          renderItem={renderExpandedMonth}
+          getItemLayout={(_, index) => ({
+            length: SCREEN_WIDTH,
+            offset: SCREEN_WIDTH * index,
+            index,
+          })}
+          onMomentumScrollEnd={onScrollEnd}
+          initialScrollIndex={12}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ alignItems: 'stretch' }}
+        />
+
+        <TouchableOpacity style={styles.modalHandle} onPress={closeExpanded} activeOpacity={0.7}>
+          <View style={styles.dragHandleBar} />
+          <View style={styles.dragHandleHintRow}>
+            <ChevronUp size={14} color="#9CA3AF" />
+            <Text style={styles.dragHandleHint}>Tap to collapse</Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 }
@@ -843,7 +844,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   modalOverlay: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#FFFFFF',
     paddingTop: STATUS_BAR_HEIGHT,
   },
