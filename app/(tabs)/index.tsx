@@ -10,6 +10,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
+  Easing,
   StatusBar,
   Platform,
   Image,
@@ -47,6 +48,7 @@ export default function CalendarPage() {
   const modalFlatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(12);
   const [expandedVisible, setExpandedVisible] = useState(false);
+  const [animating, setAnimating] = useState(false);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
 
   useEffect(() => {
@@ -156,29 +158,38 @@ export default function CalendarPage() {
   }, [currentIndex, getMonthForIndex, expandedVisible]);
 
   const openExpanded = useCallback(() => {
-    setExpandedVisible(true);
+    if (animating) return;
+    setAnimating(true);
     slideAnim.setValue(SCREEN_HEIGHT);
-    Animated.spring(slideAnim, {
+    setExpandedVisible(true);
+    Animated.timing(slideAnim, {
       toValue: 0,
+      duration: 280,
+      easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
-      bounciness: 0,
-      speed: 20,
-    }).start();
-    setTimeout(() => {
-      modalFlatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
-    }, 0);
-  }, [slideAnim, currentIndex]);
+    }).start(({ finished }) => {
+      setAnimating(false);
+      if (finished) {
+        modalFlatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
+      }
+    });
+  }, [slideAnim, currentIndex, animating]);
 
   const closeExpanded = useCallback(() => {
-    Animated.spring(slideAnim, {
+    if (animating) return;
+    setAnimating(true);
+    Animated.timing(slideAnim, {
       toValue: SCREEN_HEIGHT,
+      duration: 240,
+      easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
-      bounciness: 0,
-      speed: 20,
-    }).start(() => {
-      setExpandedVisible(false);
+    }).start(({ finished }) => {
+      setAnimating(false);
+      if (finished) {
+        setExpandedVisible(false);
+      }
     });
-  }, [slideAnim]);
+  }, [slideAnim, animating]);
 
   const renderCompactMonth = useCallback(({ index }: { index: number }) => {
     const monthDate = getMonthForIndex(index);
@@ -467,8 +478,9 @@ export default function CalendarPage() {
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
+      {expandedVisible && (
       <Animated.View
-        pointerEvents={expandedVisible ? 'box-none' : 'none'}
+        pointerEvents={animating ? 'none' : 'box-none'}
         style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.modalHeader}>
           <Text style={styles.appName}>TradeFlow</Text>
@@ -508,7 +520,7 @@ export default function CalendarPage() {
           contentContainerStyle={{ alignItems: 'stretch' }}
         />
 
-        <TouchableOpacity style={styles.modalHandle} onPress={closeExpanded} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.modalHandle} onPress={closeExpanded} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 20, right: 20 }}>
           <View style={styles.dragHandleBar} />
           <View style={styles.dragHandleHintRow}>
             <ChevronUp size={14} color="#9CA3AF" />
@@ -516,6 +528,7 @@ export default function CalendarPage() {
           </View>
         </TouchableOpacity>
       </Animated.View>
+      )}
     </View>
   );
 }
