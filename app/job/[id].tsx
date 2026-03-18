@@ -256,7 +256,9 @@ export default function JobDetailPage() {
       const result = await response.json();
 
       if (!response.ok) {
-        Alert.alert('Failed to Send', result.error || 'Something went wrong. Please try again.');
+        const detail = result.details?.message || result.details?.name || JSON.stringify(result.details) || '';
+        const message = result.error + (detail ? `\n\n${detail}` : '');
+        Alert.alert('Failed to Send', message || 'Something went wrong. Please try again.');
         return;
       }
 
