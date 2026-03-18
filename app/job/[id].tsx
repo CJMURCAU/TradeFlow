@@ -8,6 +8,7 @@ import {
   TextInput,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -22,6 +23,8 @@ import {
   MapPin,
   Navigation,
 } from 'lucide-react-native';
+import * as MailComposer from 'expo-mail-composer';
+import { generateJobCardPdf, deleteJobCardPdf } from '@/lib/jobCardPdf';
 
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
@@ -39,21 +42,24 @@ export default function JobDetailPage() {
   const [newPart, setNewPart] = useState({ name: '', cost: '', quantity: '1' });
   const [showAddPart, setShowAddPart] = useState(false);
   const [hourlyRate, setHourlyRate] = useState(0);
+  const [business, setBusiness] = useState<BusinessDetails | null>(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   useEffect(() => {
     if (id) {
       fetchJobDetails();
     }
-    fetchHourlyRate();
+    fetchBusinessDetails();
   }, [id]);
 
-  const fetchHourlyRate = async () => {
+  const fetchBusinessDetails = async () => {
     const { data } = await supabase
       .from('business_details')
-      .select('default_hourly_rate')
+      .select('*')
       .limit(1)
       .maybeSingle();
     if (data) {
+      setBusiness(data);
       setHourlyRate(data.default_hourly_rate ?? 0);
     }
   };
@@ -237,7 +243,54 @@ export default function JobDetailPage() {
     }
   };
 
-  const sendJobCardEmail = async () => {
+  const sendJobCardNative = async () => {
+    if (!job || isSendingEmail) return;
+
+    if (Platform.OS === 'web') {
+      Alert.alert('Not Supported', 'Native mail is not available on web. Use "Send via Email Service" instead.');
+      return;
+    }
+
+    const isAvailable = await MailComposer.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('No Mail App', 'No mail app is configured on this device. Please set up a mail account or use "Send via Email Service".');
+      return;
+    }
+
+    setIsSendingEmail(true);
+    let pdfUri: string | null = null;
+
+    try {
+      pdfUri = await generateJobCardPdf({ job, parts, timeEntries, business });
+
+      const toAddress = business?.job_email ? [business.job_email] : [];
+      const subject = `Job Card #${job.job_card_number} - ${job.title}`;
+
+      const result = await MailComposer.composeAsync({
+        recipients: toAddress,
+        subject,
+        body: `Please find the job card attached.\n\nJob Card #${job.job_card_number}\n${job.title}`,
+        attachments: [pdfUri],
+      });
+
+      if (result.status === MailComposer.MailComposerStatus.SENT) {
+        await supabase
+          .from('jobs')
+          .update({ email_sent: true })
+          .eq('id', job.id);
+        setJob(prev => prev ? { ...prev, email_sent: true } : prev);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not generate or send the job card. Please try again.');
+    } finally {
+      if (pdfUri) {
+        await deleteJobCardPdf(pdfUri);
+      }
+      setIsSendingEmail(false);
+    }
+  };
+
+  const sendJobCardViaService = async () => {
     if (!job) return;
 
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -515,13 +568,20 @@ export default function JobDetailPage() {
             style={[
               styles.emailButton,
               job.email_sent && styles.emailButtonSent,
+              isSendingEmail && styles.emailButtonDisabled,
             ]}
-            onPress={sendJobCardEmail}
-            disabled={job.email_sent}>
+            onPress={sendJobCardNative}
+            disabled={isSendingEmail}>
             <Mail size={20} color="#FFFFFF" />
             <Text style={styles.emailButtonText}>
-              {job.email_sent ? 'Sent' : 'Send Job Card'}
+              {isSendingEmail ? 'Preparing...' : job.email_sent ? 'Resend Job Card' : 'Send Job Card'}
             </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.emailServiceButton}
+            onPress={sendJobCardViaService}>
+            <Mail size={16} color="#6B7280" />
+            <Text style={styles.emailServiceButtonText}>Send via Email Service</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -811,13 +871,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    marginBottom: 10,
   },
   emailButtonSent: {
     backgroundColor: '#10B981',
+  },
+  emailButtonDisabled: {
+    opacity: 0.6,
   },
   emailButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  emailServiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  emailServiceButtonText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
