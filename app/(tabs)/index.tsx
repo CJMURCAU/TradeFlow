@@ -158,10 +158,10 @@ export default function CalendarPage() {
   }, [currentIndex, getMonthForIndex, expandedVisible]);
 
   const openExpanded = useCallback(() => {
-    if (animating) return;
+    if (animating || expandedVisible) return;
     setAnimating(true);
-    slideAnim.setValue(SCREEN_HEIGHT);
     setExpandedVisible(true);
+    modalFlatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
     Animated.timing(slideAnim, {
       toValue: 0,
       duration: 280,
@@ -169,11 +169,8 @@ export default function CalendarPage() {
       useNativeDriver: true,
     }).start(({ finished }) => {
       setAnimating(false);
-      if (finished) {
-        modalFlatListRef.current?.scrollToIndex({ index: currentIndex, animated: false });
-      }
     });
-  }, [slideAnim, currentIndex, animating]);
+  }, [slideAnim, currentIndex, animating, expandedVisible]);
 
   const closeExpanded = useCallback(() => {
     if (animating) return;
@@ -478,9 +475,8 @@ export default function CalendarPage() {
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {expandedVisible && (
       <Animated.View
-        pointerEvents={animating ? 'none' : 'box-none'}
+        pointerEvents={expandedVisible && !animating ? 'box-none' : 'none'}
         style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.modalHeader}>
           <Text style={styles.appName}>TradeFlow</Text>
@@ -528,7 +524,6 @@ export default function CalendarPage() {
           </View>
         </TouchableOpacity>
       </Animated.View>
-      )}
     </View>
   );
 }
