@@ -20,6 +20,7 @@ export default function BusinessPage() {
     tradesman_name: '',
     job_email: '',
     default_hourly_rate: '',
+    job_card_number_start: '1000',
   });
 
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -56,12 +57,21 @@ export default function BusinessPage() {
         tradesman_name: data.tradesman_name,
         job_email: data.job_email,
         default_hourly_rate: data.default_hourly_rate > 0 ? data.default_hourly_rate.toString() : '',
+        job_card_number_start: (data.job_card_number_start ?? 1000).toString(),
       });
     }
   };
 
   const saveBusinessDetails = async () => {
     if (!businessDetails) return;
+
+    const newStartNumber = parseInt(formData.job_card_number_start, 10);
+    if (isNaN(newStartNumber) || newStartNumber < 1) {
+      Alert.alert('Invalid Number', 'Job card starting number must be a positive whole number.');
+      return;
+    }
+
+    const startNumberChanged = newStartNumber !== (businessDetails.job_card_number_start ?? 1000);
 
     const { error } = await supabase
       .from('business_details')
@@ -70,15 +80,28 @@ export default function BusinessPage() {
         tradesman_name: formData.tradesman_name,
         job_email: formData.job_email,
         default_hourly_rate: parseFloat(formData.default_hourly_rate) || 0,
+        job_card_number_start: newStartNumber,
       })
       .eq('id', businessDetails.id);
 
     if (error) {
       Alert.alert('Error', 'Failed to save business details');
-    } else {
-      Alert.alert('Success', 'Business details saved successfully');
-      fetchBusinessDetails();
+      return;
     }
+
+    if (startNumberChanged) {
+      const { error: renumberError } = await supabase.rpc('renumber_jobs_from', {
+        start_number: newStartNumber,
+      });
+      if (renumberError) {
+        Alert.alert('Warning', 'Settings saved but job cards could not be renumbered. Please try again.');
+        fetchBusinessDetails();
+        return;
+      }
+    }
+
+    Alert.alert('Success', 'Business details saved successfully');
+    fetchBusinessDetails();
   };
 
   const handleChangeEmail = async () => {
@@ -244,6 +267,19 @@ export default function BusinessPage() {
             value={formData.tradesman_name}
             onChangeText={text => setFormData(prev => ({ ...prev, tradesman_name: text }))}
           />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Job Card Starting Number</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. 1000"
+            placeholderTextColor="#9CA3AF"
+            value={formData.job_card_number_start}
+            onChangeText={text => setFormData(prev => ({ ...prev, job_card_number_start: text.replace(/[^0-9]/g, '') }))}
+            keyboardType="number-pad"
+          />
+          <Text style={styles.fieldHint}>Existing job cards will be renumbered from this value when saved</Text>
         </View>
 
         <View style={styles.formGroup}>

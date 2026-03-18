@@ -68,5 +68,6 @@ export type BusinessDetails = {
   tradesman_name: string;
   job_email: string;
   default_hourly_rate: number;
+  job_card_number_start: number;
   created_at: string;
 };
