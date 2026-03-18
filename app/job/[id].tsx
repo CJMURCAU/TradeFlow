@@ -276,9 +276,10 @@ export default function JobDetailPage() {
       if (result.status === MailComposer.MailComposerStatus.SENT) {
         await supabase
           .from('jobs')
-          .update({ email_sent: true })
+          .update({ email_sent: true, status: 'completed' })
           .eq('id', job.id);
-        setJob(prev => prev ? { ...prev, email_sent: true } : prev);
+        setJob(prev => prev ? { ...prev, email_sent: true, status: 'completed' } : prev);
+        fetchJobDetails();
       }
     } catch {
       Alert.alert('Error', 'Could not generate or send the job card. Please try again.');
@@ -315,6 +316,11 @@ export default function JobDetailPage() {
         return;
       }
 
+      await supabase
+        .from('jobs')
+        .update({ status: 'completed' })
+        .eq('id', job.id);
+      setJob(prev => prev ? { ...prev, status: 'completed' } : prev);
       Alert.alert('Email Sent', `Job card emailed to ${result.sentTo}`);
       fetchJobDetails();
     } catch {
