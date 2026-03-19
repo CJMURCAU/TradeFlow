@@ -193,6 +193,8 @@ Deno.serve(async (req: Request) => {
 
     const recipientEmail = business.job_email;
 
+    const senderEmail = business?.job_email || recipientEmail;
+
     const mailtrapResponse = await fetch("https://send.api.mailtrap.io/api/send", {
       method: "POST",
       headers: {
@@ -200,16 +202,23 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: { name: companyName, email: "noreply@tradepro.app" },
+        from: { name: companyName, email: senderEmail },
         to: [{ email: recipientEmail }],
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
         html: emailHtml,
       }),
     });
 
+    const mailtrapRawText = await mailtrapResponse.text();
+
     if (!mailtrapResponse.ok) {
-      const mailtrapError = await mailtrapResponse.json();
-      const errorMessage = mailtrapError?.message || mailtrapError?.errors?.join(", ") || JSON.stringify(mailtrapError);
+      let mailtrapError: unknown;
+      try { mailtrapError = JSON.parse(mailtrapRawText); } catch { mailtrapError = mailtrapRawText; }
+      const errObj = mailtrapError as Record<string, unknown>;
+      const errorMessage =
+        (typeof errObj?.message === "string" ? errObj.message : null) ||
+        (Array.isArray(errObj?.errors) ? (errObj.errors as string[]).join(", ") : null) ||
+        mailtrapRawText;
       return new Response(JSON.stringify({ error: errorMessage, details: mailtrapError }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
