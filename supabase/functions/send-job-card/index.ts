@@ -176,9 +176,9 @@ Deno.serve(async (req: Request) => {
 </body>
 </html>`;
 
-    const resendApiKey = Deno.env.get("RESEND_API_KEY");
-    if (!resendApiKey) {
-      return new Response(JSON.stringify({ error: "RESEND_API_KEY not configured" }), {
+    const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");
+    if (!mailtrapToken) {
+      return new Response(JSON.stringify({ error: "MAILTRAP_API_TOKEN not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -193,25 +193,24 @@ Deno.serve(async (req: Request) => {
 
     const recipientEmail = business.job_email;
 
-    const resendResponse = await fetch("https://api.resend.com/emails", {
+    const mailtrapResponse = await fetch("https://send.api.mailtrap.io/api/send", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${resendApiKey}`,
+        "Authorization": `Bearer ${mailtrapToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${companyName} <onboarding@resend.dev>`,
-        to: [recipientEmail],
+        from: { name: companyName, email: "noreply@tradepro.app" },
+        to: [{ email: recipientEmail }],
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
         html: emailHtml,
-        reply_to: recipientEmail,
       }),
     });
 
-    if (!resendResponse.ok) {
-      const resendError = await resendResponse.json();
-      const errorMessage = resendError?.message || resendError?.name || JSON.stringify(resendError);
-      return new Response(JSON.stringify({ error: errorMessage, details: resendError }), {
+    if (!mailtrapResponse.ok) {
+      const mailtrapError = await mailtrapResponse.json();
+      const errorMessage = mailtrapError?.message || mailtrapError?.errors?.join(", ") || JSON.stringify(mailtrapError);
+      return new Response(JSON.stringify({ error: errorMessage, details: mailtrapError }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
