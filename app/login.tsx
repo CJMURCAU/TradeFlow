@@ -154,7 +154,6 @@ export default function LoginPage() {
           }
           emitGuestSessionCreated();
           setGuestLoading(false);
-          router.replace('/(tabs)');
           return;
         }
       }
@@ -193,7 +192,6 @@ export default function LoginPage() {
       }
 
       emitGuestSessionCreated();
-      router.replace('/(tabs)');
     } catch {
       setError('Could not start trial. Please try again.');
     } finally {
