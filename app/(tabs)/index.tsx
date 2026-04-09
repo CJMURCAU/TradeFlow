@@ -34,6 +34,8 @@ const MODAL_HEADER_HEIGHT = 56;
 const MODAL_NAV_HEIGHT = 52;
 const MODAL_DAY_HEADER = 32;
 const MODAL_HANDLE_HEIGHT = 48;
+const EXPANDED_CELL_MIN_HEIGHT = 80;
+const MODAL_CALENDAR_HEIGHT = MODAL_DAY_HEADER + WEEKS * (EXPANDED_CELL_MIN_HEIGHT + 2) + 16;
 
 const CHIP_HEIGHT = 30;
 const CHIP_MARGIN = 3;
@@ -497,24 +499,26 @@ export default function CalendarPage() {
           </TouchableOpacity>
         </View>
 
-        <FlatList
-          ref={modalFlatListRef}
-          data={months}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => `modal-${item}`}
-          renderItem={renderExpandedMonth}
-          getItemLayout={(_, index) => ({
-            length: SCREEN_WIDTH,
-            offset: SCREEN_WIDTH * index,
-            index,
-          })}
-          onMomentumScrollEnd={onScrollEnd}
-          initialScrollIndex={12}
-          style={{ flex: 1 }}
-          contentContainerStyle={{ alignItems: 'stretch' }}
-        />
+        <View style={styles.modalCalendarWrapper}>
+          <FlatList
+            ref={modalFlatListRef}
+            data={months}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => `modal-${item}`}
+            renderItem={renderExpandedMonth}
+            getItemLayout={(_, index) => ({
+              length: SCREEN_WIDTH,
+              offset: SCREEN_WIDTH * index,
+              index,
+            })}
+            onMomentumScrollEnd={onScrollEnd}
+            initialScrollIndex={12}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ alignItems: 'stretch' }}
+          />
+        </View>
 
         <TouchableOpacity style={styles.modalHandle} onPress={closeExpanded} activeOpacity={0.7} hitSlop={{ top: 12, bottom: 12, left: 20, right: 20 }}>
           <View style={styles.dragHandleBar} />
@@ -889,5 +893,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
     backgroundColor: '#FAFAFA',
+  },
+  modalCalendarWrapper: {
+    height: MODAL_CALENDAR_HEIGHT,
+    overflow: 'hidden',
   },
 });
