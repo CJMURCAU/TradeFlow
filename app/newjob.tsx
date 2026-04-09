@@ -773,7 +773,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 24,
-    maxHeight: '70%',
+    maxHeight: '60%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -814,6 +814,7 @@ const styles = StyleSheet.create({
   calFlatList: {
     flexGrow: 0,
     flexShrink: 1,
+    maxHeight: 320,
   },
   calGridHeader: {
     flexDirection: 'row',
