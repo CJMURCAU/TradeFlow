@@ -215,7 +215,7 @@ export default function LoginPage() {
 
         {trialExpired && (
           <View style={styles.expiredBanner}>
-            <Text style={styles.expiredTitle}>Your 30-day trial has ended</Text>
+            <Text style={styles.expiredTitle}>Your 2-day trial has ended</Text>
             <Text style={styles.expiredText}>Create a free account to keep all your data and continue using TradeFlow.</Text>
           </View>
         )}
@@ -361,7 +361,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <Text style={styles.trialButtonText}>Use as Guest</Text>
-                  <Text style={styles.trialSubtext}>Free 30-day trial - no account needed</Text>
+                  <Text style={styles.trialSubtext}>Free 2-day trial - no account needed</Text>
                 </>
               )}
             </TouchableOpacity>
