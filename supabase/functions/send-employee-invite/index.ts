@@ -92,7 +92,12 @@ Deno.serve(async (req: Request) => {
         .eq("id", employeeId);
     }
 
-    const appUrl = Deno.env.get("EXPO_PUBLIC_APP_URL") || "https://tradeflow.app";
+    // Use the configured app URL, falling back to the Supabase project URL as a host
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const defaultHost = supabaseUrl.replace("https://", "").split(".")[0]
+      ? `https://${supabaseUrl.replace("https://", "").split(".")[0]}.app`
+      : "https://tradeflow.app";
+    const appUrl = Deno.env.get("EXPO_PUBLIC_APP_URL") || defaultHost;
     const inviteLink = `${appUrl}/invite?token=${token}`;
 
     const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");
