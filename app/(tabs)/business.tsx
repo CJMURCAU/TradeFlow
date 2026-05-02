@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,23 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  ActivityIndicator,
 } from 'react-native';
-import { supabase, BusinessDetails } from '@/lib/supabase';
-import { Save, Lock, Trash2, ChevronDown, ChevronUp, Mail } from 'lucide-react-native';
+import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
+import {
+  Save,
+  Lock,
+  Trash2,
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Users,
+  Plus,
+  Send,
+  ToggleLeft,
+  ToggleRight,
+  UserX,
+} from 'lucide-react-native';
 import TabBar from '@/components/TabBar';
 
 export default function BusinessPage() {
@@ -24,10 +38,7 @@ export default function BusinessPage() {
   });
 
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({
-    newPassword: '',
-    confirmPassword: '',
-  });
+  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
 
@@ -39,8 +50,17 @@ export default function BusinessPage() {
 
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Employees section
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({ name: '', email: '' });
+  const [addEmployeeError, setAddEmployeeError] = useState('');
+  const [addEmployeeLoading, setAddEmployeeLoading] = useState(false);
+  const [sendingInvite, setSendingInvite] = useState<string | null>(null);
+
   useEffect(() => {
     fetchBusinessDetails();
+    fetchEmployees();
   }, []);
 
   const fetchBusinessDetails = async () => {
@@ -61,6 +81,14 @@ export default function BusinessPage() {
       });
     }
   };
+
+  const fetchEmployees = useCallback(async () => {
+    const { data } = await supabase
+      .from('employees')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (data) setEmployees(data);
+  }, []);
 
   const saveBusinessDetails = async () => {
     if (!businessDetails) return;
@@ -104,6 +132,95 @@ export default function BusinessPage() {
     fetchBusinessDetails();
   };
 
+  const handleAddEmployee = async () => {
+    setAddEmployeeError('');
+    const name = newEmployee.name.trim();
+    const email = newEmployee.email.trim().toLowerCase();
+
+    if (!name) { setAddEmployeeError('Please enter the employee name.'); return; }
+    if (!email) { setAddEmployeeError('Please enter the employee email.'); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) { setAddEmployeeError('Please enter a valid email address.'); return; }
+
+    setAddEmployeeLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAddEmployeeLoading(false); return; }
+
+    const { error } = await supabase.from('employees').insert({
+      user_id: user.id,
+      name,
+      email,
+      status: 'pending',
+    });
+
+    setAddEmployeeLoading(false);
+
+    if (error) {
+      setAddEmployeeError('Failed to add employee. Please try again.');
+      return;
+    }
+
+    setNewEmployee({ name: '', email: '' });
+    setShowAddEmployee(false);
+    fetchEmployees();
+  };
+
+  const handleSendInvite = async (employee: Employee) => {
+    setSendingInvite(employee.id);
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+    const { data: { session } } = await supabase.auth.getSession();
+
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-employee-invite`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token ?? supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ employeeId: employee.id }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        Alert.alert('Failed to Send', result.error || 'Something went wrong.');
+      } else {
+        Alert.alert('Invite Sent', `Invitation emailed to ${result.sentTo}`);
+      }
+    } catch {
+      Alert.alert('Error', 'Could not connect to email service.');
+    } finally {
+      setSendingInvite(null);
+    }
+  };
+
+  const handleToggleCalendarAccess = async (employee: Employee) => {
+    await supabase
+      .from('employees')
+      .update({ calendar_access: !employee.calendar_access })
+      .eq('id', employee.id);
+    fetchEmployees();
+  };
+
+  const handleRemoveEmployee = (employee: Employee) => {
+    Alert.alert(
+      'Remove Employee',
+      `Are you sure you want to remove ${employee.name}? They will no longer have access to the app.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.from('employees').delete().eq('id', employee.id);
+            fetchEmployees();
+          },
+        },
+      ]
+    );
+  };
+
   const handleChangeEmail = async () => {
     setEmailError('');
     setEmailSuccess('');
@@ -112,12 +229,10 @@ export default function BusinessPage() {
       setEmailError('Please fill in both fields.');
       return;
     }
-
     if (emailForm.newEmail.trim() !== emailForm.confirmEmail.trim()) {
       setEmailError('Email addresses do not match.');
       return;
     }
-
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailForm.newEmail.trim())) {
       setEmailError('Please enter a valid email address.');
@@ -143,12 +258,10 @@ export default function BusinessPage() {
       setPasswordError('Please fill in both fields.');
       return;
     }
-
     if (passwordForm.newPassword.length < 6) {
       setPasswordError('Password must be at least 6 characters.');
       return;
     }
-
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordError('Passwords do not match.');
       return;
@@ -173,11 +286,7 @@ export default function BusinessPage() {
       'Are you sure you want to delete your account? All your data including jobs, clients, and business details will be permanently deleted.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: confirmDeleteAccount,
-        },
+        { text: 'Delete', style: 'destructive', onPress: confirmDeleteAccount },
       ]
     );
   };
@@ -188,49 +297,33 @@ export default function BusinessPage() {
       'This action cannot be undone. Your account and all associated data will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Yes, Delete Everything',
-          style: 'destructive',
-          onPress: executeDeleteAccount,
-        },
+        { text: 'Yes, Delete Everything', style: 'destructive', onPress: executeDeleteAccount },
       ]
     );
   };
 
   const executeDeleteAccount = async () => {
     setDeleteLoading(true);
-
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      setDeleteLoading(false);
-      Alert.alert('Error', 'Unable to identify your account. Please sign in again.');
-      return;
-    }
+    if (!user) { setDeleteLoading(false); Alert.alert('Error', 'Unable to identify your account. Please sign in again.'); return; }
 
     const userId = user.id;
-
     const jobsRes = await supabase.from('jobs').select('id').eq('user_id', userId);
     const jobIds = (jobsRes.data || []).map((j: { id: string }) => j.id);
-
     if (jobIds.length > 0) {
       await supabase.from('parts').delete().in('job_id', jobIds);
       await supabase.from('time_entries').delete().in('job_id', jobIds);
     }
-
     await supabase.from('jobs').delete().eq('user_id', userId);
     await supabase.from('clients').delete().eq('user_id', userId);
     await supabase.from('business_details').delete().eq('user_id', userId);
-
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-
-    if (deleteError) {
-      await supabase.auth.signOut();
-    } else {
-      await supabase.auth.signOut();
-    }
-
+    await supabase.auth.admin.deleteUser(userId);
+    await supabase.auth.signOut();
     setDeleteLoading(false);
+  };
+
+  const getStatusColor = (status: string) => {
+    return status === 'active' ? '#10B981' : '#F59E0B';
   };
 
   return (
@@ -247,6 +340,7 @@ export default function BusinessPage() {
       <TabBar />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Business Details Form */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Company Name</Text>
           <TextInput
@@ -316,8 +410,107 @@ export default function BusinessPage() {
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
 
+        {/* Employees Section */}
         <View style={styles.divider} />
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderLeft}>
+            <Users size={20} color="#111827" />
+            <Text style={styles.sectionHeading}>Employees</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addEmployeeButton}
+            onPress={() => { setShowAddEmployee(!showAddEmployee); setAddEmployeeError(''); }}>
+            <Plus size={18} color="#F59E0B" />
+            <Text style={styles.addEmployeeButtonText}>Add</Text>
+          </TouchableOpacity>
+        </View>
 
+        {showAddEmployee && (
+          <View style={styles.addEmployeeForm}>
+            <TextInput
+              style={styles.input}
+              placeholder="Employee name"
+              placeholderTextColor="#9CA3AF"
+              value={newEmployee.name}
+              onChangeText={text => setNewEmployee(prev => ({ ...prev, name: text }))}
+            />
+            <View style={styles.inputGap} />
+            <TextInput
+              style={styles.input}
+              placeholder="Employee email"
+              placeholderTextColor="#9CA3AF"
+              value={newEmployee.email}
+              onChangeText={text => setNewEmployee(prev => ({ ...prev, email: text }))}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {addEmployeeError ? <Text style={styles.errorText}>{addEmployeeError}</Text> : null}
+            <TouchableOpacity
+              style={[styles.confirmPasswordButton, addEmployeeLoading && styles.buttonDisabled]}
+              onPress={handleAddEmployee}
+              disabled={addEmployeeLoading}>
+              {addEmployeeLoading
+                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                : <Text style={styles.confirmPasswordButtonText}>Add Employee</Text>}
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {employees.length === 0 && !showAddEmployee && (
+          <Text style={styles.noEmployeesText}>No employees added yet. Tap Add to invite someone.</Text>
+        )}
+
+        {employees.map(emp => (
+          <View key={emp.id} style={styles.employeeCard}>
+            <View style={styles.employeeCardTop}>
+              <View style={styles.employeeInfo}>
+                <Text style={styles.employeeName}>{emp.name}</Text>
+                <Text style={styles.employeeEmail}>{emp.email}</Text>
+              </View>
+              <View style={[styles.statusPill, { backgroundColor: getStatusColor(emp.status) + '20' }]}>
+                <Text style={[styles.statusPillText, { color: getStatusColor(emp.status) }]}>
+                  {emp.status.toUpperCase()}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.employeeActions}>
+              <TouchableOpacity
+                style={styles.employeeAction}
+                onPress={() => handleToggleCalendarAccess(emp)}>
+                {emp.calendar_access
+                  ? <ToggleRight size={20} color="#10B981" />
+                  : <ToggleLeft size={20} color="#9CA3AF" />}
+                <Text style={[styles.employeeActionText, emp.calendar_access && { color: '#10B981' }]}>
+                  Full Calendar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.employeeAction}
+                onPress={() => handleSendInvite(emp)}
+                disabled={sendingInvite === emp.id}>
+                {sendingInvite === emp.id
+                  ? <ActivityIndicator size="small" color="#F59E0B" />
+                  : <Send size={18} color="#F59E0B" />}
+                <Text style={[styles.employeeActionText, { color: '#F59E0B' }]}>
+                  {emp.status === 'active' ? 'Resend' : 'Send Invite'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.employeeAction}
+                onPress={() => handleRemoveEmployee(emp)}>
+                <UserX size={18} color="#EF4444" />
+                <Text style={[styles.employeeActionText, { color: '#EF4444' }]}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+
+        {/* Account Settings */}
+        <View style={styles.divider} />
         <Text style={styles.sectionHeading}>Account Settings</Text>
 
         <TouchableOpacity
@@ -327,19 +520,14 @@ export default function BusinessPage() {
             setEmailError('');
             setEmailSuccess('');
             setEmailForm({ newEmail: '', confirmEmail: '' });
-          }}
-        >
+          }}>
           <View style={styles.settingsRowLeft}>
             <View style={styles.settingsIconWrap}>
               <Mail size={18} color="#374151" />
             </View>
             <Text style={styles.settingsRowText}>Change Email</Text>
           </View>
-          {showChangeEmail ? (
-            <ChevronUp size={18} color="#6B7280" />
-          ) : (
-            <ChevronDown size={18} color="#6B7280" />
-          )}
+          {showChangeEmail ? <ChevronUp size={18} color="#6B7280" /> : <ChevronDown size={18} color="#6B7280" />}
         </TouchableOpacity>
 
         {showChangeEmail && (
@@ -365,17 +553,12 @@ export default function BusinessPage() {
               autoCapitalize="none"
               autoCorrect={false}
             />
-            {emailError ? (
-              <Text style={styles.errorText}>{emailError}</Text>
-            ) : null}
-            {emailSuccess ? (
-              <Text style={styles.successText}>{emailSuccess}</Text>
-            ) : null}
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+            {emailSuccess ? <Text style={styles.successText}>{emailSuccess}</Text> : null}
             <TouchableOpacity
               style={[styles.confirmPasswordButton, emailLoading && styles.buttonDisabled]}
               onPress={handleChangeEmail}
-              disabled={emailLoading}
-            >
+              disabled={emailLoading}>
               <Text style={styles.confirmPasswordButtonText}>
                 {emailLoading ? 'Updating...' : 'Update Email'}
               </Text>
@@ -389,19 +572,14 @@ export default function BusinessPage() {
             setShowChangePassword(!showChangePassword);
             setPasswordError('');
             setPasswordForm({ newPassword: '', confirmPassword: '' });
-          }}
-        >
+          }}>
           <View style={styles.settingsRowLeft}>
             <View style={styles.settingsIconWrap}>
               <Lock size={18} color="#374151" />
             </View>
             <Text style={styles.settingsRowText}>Change Password</Text>
           </View>
-          {showChangePassword ? (
-            <ChevronUp size={18} color="#6B7280" />
-          ) : (
-            <ChevronDown size={18} color="#6B7280" />
-          )}
+          {showChangePassword ? <ChevronUp size={18} color="#6B7280" /> : <ChevronDown size={18} color="#6B7280" />}
         </TouchableOpacity>
 
         {showChangePassword && (
@@ -425,14 +603,11 @@ export default function BusinessPage() {
               secureTextEntry
               autoCapitalize="none"
             />
-            {passwordError ? (
-              <Text style={styles.errorText}>{passwordError}</Text>
-            ) : null}
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
             <TouchableOpacity
               style={[styles.confirmPasswordButton, passwordLoading && styles.buttonDisabled]}
               onPress={handleChangePassword}
-              disabled={passwordLoading}
-            >
+              disabled={passwordLoading}>
               <Text style={styles.confirmPasswordButtonText}>
                 {passwordLoading ? 'Updating...' : 'Update Password'}
               </Text>
@@ -443,8 +618,7 @@ export default function BusinessPage() {
         <TouchableOpacity
           style={[styles.settingsRow, styles.deleteRow]}
           onPress={handleDeleteAccount}
-          disabled={deleteLoading}
-        >
+          disabled={deleteLoading}>
           <View style={styles.settingsRowLeft}>
             <View style={[styles.settingsIconWrap, styles.deleteIconWrap]}>
               <Trash2 size={18} color="#EF4444" />
@@ -460,10 +634,7 @@ export default function BusinessPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     paddingTop: 52,
     paddingBottom: 14,
@@ -475,31 +646,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logoImage: {
-    width: 100,
-    height: 40,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  formGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-  },
+  logoImage: { width: 100, height: 40 },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
+  content: { flex: 1, padding: 20 },
+  contentContainer: { paddingBottom: 40 },
+  formGroup: { marginBottom: 24 },
+  label: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 8 },
   input: {
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
@@ -509,11 +661,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  fieldHint: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginTop: 6,
-  },
+  fieldHint: { fontSize: 13, color: '#6B7280', marginTop: 6 },
   currencyInput: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -522,18 +670,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  currencySymbol: {
-    fontSize: 20,
-    color: '#F59E0B',
-    fontWeight: 'bold',
-    paddingLeft: 16,
-  },
-  inputWithCurrency: {
-    flex: 1,
-    padding: 16,
-    fontSize: 16,
-    color: '#111827',
-  },
+  currencySymbol: { fontSize: 20, color: '#F59E0B', fontWeight: 'bold', paddingLeft: 16 },
+  inputWithCurrency: { flex: 1, padding: 16, fontSize: 16, color: '#111827' },
   saveButton: {
     backgroundColor: '#F59E0B',
     borderRadius: 12,
@@ -543,24 +681,73 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
   },
-  saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginLeft: 8,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginTop: 36,
-    marginBottom: 28,
-  },
-  sectionHeading: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+  saveButtonText: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginLeft: 8 },
+  divider: { height: 1, backgroundColor: '#E5E7EB', marginTop: 36, marginBottom: 28 },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 16,
   },
+  sectionHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionHeading: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  addEmployeeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#F59E0B',
+  },
+  addEmployeeButtonText: { fontSize: 14, fontWeight: '600', color: '#F59E0B' },
+  addEmployeeForm: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  inputGap: { height: 12 },
+  noEmployeesText: { fontSize: 14, color: '#9CA3AF', marginBottom: 12, fontStyle: 'italic' },
+  employeeCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  employeeCardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  employeeInfo: { flex: 1 },
+  employeeName: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 },
+  employeeEmail: { fontSize: 13, color: '#6B7280' },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusPillText: { fontSize: 10, fontWeight: '700' },
+  employeeActions: {
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+  },
+  employeeAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  employeeActionText: { fontSize: 12, fontWeight: '500', color: '#6B7280' },
   settingsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -572,10 +759,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  settingsRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  settingsRowLeft: { flexDirection: 'row', alignItems: 'center' },
   settingsIconWrap: {
     width: 36,
     height: 36,
@@ -585,11 +769,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  settingsRowText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-  },
+  settingsRowText: { fontSize: 16, fontWeight: '500', color: '#111827' },
   passwordForm: {
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
@@ -598,22 +778,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  passwordFieldGap: {
-    height: 12,
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#EF4444',
-    marginTop: 10,
-    marginBottom: 4,
-  },
-  successText: {
-    fontSize: 13,
-    color: '#059669',
-    marginTop: 10,
-    marginBottom: 4,
-    lineHeight: 18,
-  },
+  passwordFieldGap: { height: 12 },
+  errorText: { fontSize: 14, color: '#EF4444', marginTop: 10, marginBottom: 4 },
+  successText: { fontSize: 13, color: '#059669', marginTop: 10, marginBottom: 4, lineHeight: 18 },
   confirmPasswordButton: {
     backgroundColor: '#111827',
     borderRadius: 10,
@@ -621,24 +788,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 14,
   },
-  confirmPasswordButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  deleteRow: {
-    borderColor: '#FEE2E2',
-    backgroundColor: '#FFF5F5',
-  },
-  deleteIconWrap: {
-    backgroundColor: '#FEE2E2',
-  },
-  deleteRowText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#EF4444',
-  },
+  confirmPasswordButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  buttonDisabled: { opacity: 0.6 },
+  deleteRow: { borderColor: '#FEE2E2', backgroundColor: '#FFF5F5' },
+  deleteIconWrap: { backgroundColor: '#FEE2E2' },
+  deleteRowText: { fontSize: 16, fontWeight: '500', color: '#EF4444' },
 });

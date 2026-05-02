@@ -1,8 +1,9 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Calendar, LayoutDashboard, Users, Briefcase, Building2 } from 'lucide-react-native';
+import { useRole } from '@/lib/roleContext';
 
-const TABS = [
+const OWNER_TABS = [
   { name: 'Calendar', path: '/(tabs)/', icon: Calendar },
   { name: 'Dashboard', path: '/(tabs)/dashboard', icon: LayoutDashboard },
   { name: 'Clients', path: '/(tabs)/clients', icon: Users },
@@ -10,9 +11,16 @@ const TABS = [
   { name: 'Business', path: '/(tabs)/business', icon: Building2 },
 ];
 
+const EMPLOYEE_TABS = [
+  { name: 'Jobs', path: '/(tabs)/jobs', icon: Briefcase },
+];
+
 export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { role } = useRole();
+
+  const TABS = role === 'employee' ? EMPLOYEE_TABS : OWNER_TABS;
 
   const isActive = (path: string) => {
     if (path === '/(tabs)/') return pathname === '/' || pathname === '/(tabs)/';

@@ -5,6 +5,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { supabase } from '@/lib/supabase';
 import { onGuestSessionCreated } from '@/lib/guestSessionEvents';
+import { RoleProvider } from '@/lib/roleContext';
 import * as SecureStore from 'expo-secure-store';
 
 const GUEST_SESSION_KEY = 'tradeflow_guest_session_id';
@@ -111,8 +112,9 @@ export default function RootLayout() {
 
     const inAuthGroup = segments[0] === 'login';
     const inAuthCallback = segments[0] === 'auth';
+    const inInvite = segments[0] === 'invite';
 
-    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback) {
+    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback && !inInvite) {
       router.replace('/login');
     } else if ((sessionState === 'authenticated' || sessionState === 'guest') && inAuthGroup) {
       router.replace('/(tabs)');
@@ -135,10 +137,11 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <RoleProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="login" />
+        <Stack.Screen name="invite" />
         <Stack.Screen name="auth/callback" />
         <Stack.Screen name="+not-found" />
       </Stack>
@@ -157,7 +160,7 @@ export default function RootLayout() {
         </View>
       )}
       <StatusBar style="light" />
-    </>
+    </RoleProvider>
   );
 }
 

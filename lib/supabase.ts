@@ -71,3 +71,44 @@ export type BusinessDetails = {
   job_card_number_start: number;
   created_at: string;
 };
+
+export type Employee = {
+  id: string;
+  user_id: string;
+  employee_user_id: string | null;
+  name: string;
+  email: string;
+  status: 'pending' | 'active';
+  calendar_access: boolean;
+  invite_token: string | null;
+  created_at: string;
+};
+
+export type JobAssignment = {
+  id: string;
+  job_id: string;
+  employee_id: string;
+  assigned_by: string;
+  completed: boolean;
+  completed_at: string | null;
+  created_at: string;
+};
+
+export type JobEmployeeNote = {
+  id: string;
+  job_id: string;
+  employee_id: string;
+  note: string;
+  created_at: string;
+};
+
+export type EmployeeNotification = {
+  id: string;
+  recipient_user_id: string;
+  message: string;
+  job_id: string | null;
+  read: boolean;
+  created_at: string;
+};
+
+export type UserRole = 'owner' | 'employee';

@@ -1,7 +1,12 @@
 import { Tabs } from 'expo-router';
 import { Calendar, LayoutDashboard, Users, Briefcase, Building2 } from 'lucide-react-native';
+import { useRole } from '@/lib/roleContext';
 
 export default function TabLayout() {
+  const { role } = useRole();
+
+  const isEmployee = role === 'employee';
+
   return (
     <Tabs
       screenOptions={{
@@ -18,6 +23,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Calendar',
+          href: isEmployee ? null : undefined,
           tabBarIcon: ({ size, color }) => (
             <Calendar size={size} color={color} />
           ),
@@ -27,6 +33,7 @@ export default function TabLayout() {
         name="dashboard"
         options={{
           title: 'Dashboard',
+          href: isEmployee ? null : undefined,
           tabBarIcon: ({ size, color }) => (
             <LayoutDashboard size={size} color={color} />
           ),
@@ -36,6 +43,7 @@ export default function TabLayout() {
         name="clients"
         options={{
           title: 'Clients',
+          href: isEmployee ? null : undefined,
           tabBarIcon: ({ size, color }) => (
             <Users size={size} color={color} />
           ),
@@ -54,6 +62,7 @@ export default function TabLayout() {
         name="business"
         options={{
           title: 'Business',
+          href: isEmployee ? null : undefined,
           tabBarIcon: ({ size, color }) => (
             <Building2 size={size} color={color} />
           ),

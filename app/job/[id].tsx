@@ -8,24 +8,18 @@ import {
   TextInput,
   Alert,
   Linking,
+  ActivityIndicator,
 } from 'react-native';
-import { supabase, Job, Client, Part, TimeEntry, BusinessDetails } from '@/lib/supabase';
+import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobEmployeeNote } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import {
-  ArrowLeft,
-  Play,
-  Pause,
-  Square,
-  Mail,
-  Plus,
-  Trash2,
-  MapPin,
-  Navigation,
-} from 'lucide-react-native';
+import { useRole } from '@/lib/roleContext';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, MessageSquare, CircleCheck as CheckCircle } from 'lucide-react-native';
 
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { role, employeeRecord } = useRole();
+
   const [job, setJob] = useState<(Job & { client?: Client }) | null>(null);
   const [parts, setParts] = useState<Part[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -42,12 +36,28 @@ export default function JobDetailPage() {
   const [business, setBusiness] = useState<BusinessDetails | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
 
+  // Owner: employee assignment
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [assignments, setAssignments] = useState<(JobAssignment & { employee?: Employee })[]>([]);
+  const [showAssignDropdown, setShowAssignDropdown] = useState(false);
+  const [assignLoading, setAssignLoading] = useState(false);
+
+  // Employee: notes and mark-as-complete
+  const [myAssignment, setMyAssignment] = useState<JobAssignment | null>(null);
+  const [notes, setNotes] = useState<JobEmployeeNote[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [noteLoading, setNoteLoading] = useState(false);
+  const [markingComplete, setMarkingComplete] = useState(false);
+
   useEffect(() => {
-    if (id) {
-      fetchJobDetails();
-    }
+    if (id) fetchJobDetails();
     fetchBusinessDetails();
   }, [id]);
+
+  useEffect(() => {
+    if (role === 'owner' && id) fetchAssignments();
+    if (role === 'employee' && employeeRecord && id) fetchEmployeeData();
+  }, [role, employeeRecord, id]);
 
   const fetchBusinessDetails = async () => {
     const { data } = await supabase
@@ -55,10 +65,7 @@ export default function JobDetailPage() {
       .select('*')
       .limit(1)
       .maybeSingle();
-    if (data) {
-      setBusiness(data);
-      setHourlyRate(data.default_hourly_rate ?? 0);
-    }
+    if (data) { setBusiness(data); setHourlyRate(data.default_hourly_rate ?? 0); }
   };
 
   useEffect(() => {
@@ -82,17 +89,13 @@ export default function JobDetailPage() {
     if (jobResponse.data) {
       const jobWithClient = {
         ...jobResponse.data,
-        client: Array.isArray(jobResponse.data.client)
-          ? jobResponse.data.client[0]
-          : jobResponse.data.client,
+        client: Array.isArray(jobResponse.data.client) ? jobResponse.data.client[0] : jobResponse.data.client,
       };
       setJob(jobWithClient);
       setDescription(jobWithClient.description);
     }
 
-    if (partsResponse.data) {
-      setParts(partsResponse.data);
-    }
+    if (partsResponse.data) setParts(partsResponse.data);
 
     if (timeEntriesResponse.data) {
       setTimeEntries(timeEntriesResponse.data);
@@ -120,24 +123,125 @@ export default function JobDetailPage() {
     }
   };
 
+  const fetchAssignments = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const [empRes, assignRes] = await Promise.all([
+      supabase.from('employees').select('*').eq('user_id', user.id).eq('status', 'active'),
+      supabase.from('job_assignments').select('*').eq('job_id', id as string),
+    ]);
+
+    if (empRes.data) setEmployees(empRes.data);
+
+    if (assignRes.data) {
+      const empMap = new Map((empRes.data || []).map((e: Employee) => [e.id, e]));
+      const enriched = assignRes.data.map(a => ({ ...a, employee: empMap.get(a.employee_id) }));
+      setAssignments(enriched);
+    }
+  };
+
+  const fetchEmployeeData = async () => {
+    if (!employeeRecord) return;
+
+    const [assignRes, notesRes] = await Promise.all([
+      supabase.from('job_assignments')
+        .select('*')
+        .eq('job_id', id as string)
+        .eq('employee_id', employeeRecord.id)
+        .maybeSingle(),
+      supabase.from('job_employee_notes')
+        .select('*')
+        .eq('job_id', id as string)
+        .eq('employee_id', employeeRecord.id)
+        .order('created_at', { ascending: true }),
+    ]);
+
+    if (assignRes.data) setMyAssignment(assignRes.data);
+    if (notesRes.data) setNotes(notesRes.data);
+  };
+
+  const handleAssignEmployee = async (employee: Employee) => {
+    setAssignLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAssignLoading(false); return; }
+
+    await supabase.from('job_assignments').upsert({
+      job_id: id as string,
+      employee_id: employee.id,
+      assigned_by: user.id,
+    });
+
+    setShowAssignDropdown(false);
+    setAssignLoading(false);
+    fetchAssignments();
+  };
+
+  const handleRemoveAssignment = async (assignmentId: string) => {
+    await supabase.from('job_assignments').delete().eq('id', assignmentId);
+    fetchAssignments();
+  };
+
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !employeeRecord) return;
+    setNoteLoading(true);
+
+    await supabase.from('job_employee_notes').insert({
+      job_id: id as string,
+      employee_id: employeeRecord.id,
+      note: newNote.trim(),
+    });
+
+    setNewNote('');
+    setNoteLoading(false);
+    fetchEmployeeData();
+  };
+
+  const handleMarkComplete = async () => {
+    if (!myAssignment || !employeeRecord || !job) return;
+    setMarkingComplete(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setMarkingComplete(false); return; }
+
+    // Update the assignment as completed
+    await supabase.from('job_assignments')
+      .update({ completed: true, completed_at: new Date().toISOString() })
+      .eq('id', myAssignment.id);
+
+    // Fetch the owner's user_id from the employee record
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('user_id')
+      .eq('id', employeeRecord.id)
+      .maybeSingle();
+
+    if (emp) {
+      await supabase.from('employee_notifications').insert({
+        recipient_user_id: emp.user_id,
+        message: `${employeeRecord.name} has completed job #${job.job_card_number}: ${job.title}`,
+        job_id: id as string,
+      });
+    }
+
+    setMarkingComplete(false);
+    fetchEmployeeData();
+    Alert.alert('Done', 'Job marked as complete. Your employer has been notified.');
+  };
+
   const startTimer = async () => {
     if (!job || job.status === 'completed') return;
 
     const [timeEntryResult] = await Promise.all([
-      supabase
-        .from('time_entries')
-        .insert({
-          job_id: id,
-          start_time: new Date().toISOString(),
-          is_running: true,
-        })
-        .select()
-        .single(),
+      supabase.from('time_entries').insert({
+        job_id: id,
+        start_time: new Date().toISOString(),
+        is_running: true,
+      }).select().single(),
       supabase.from('jobs').update({ status: 'active' }).eq('id', id as string),
     ]);
 
     const { data } = timeEntryResult;
-
     if (data) {
       currentTimeEntryRef.current = data;
       isTimerRunningRef.current = true;
@@ -150,13 +254,8 @@ export default function JobDetailPage() {
 
   const pauseTimer = async () => {
     if (!currentTimeEntry) return;
-
-    const { error } = await supabase
-      .from('time_entries')
-      .update({
-        end_time: new Date().toISOString(),
-        is_running: false,
-      })
+    const { error } = await supabase.from('time_entries')
+      .update({ end_time: new Date().toISOString(), is_running: false })
       .eq('id', currentTimeEntry.id);
 
     if (!error) {
@@ -170,36 +269,20 @@ export default function JobDetailPage() {
 
   const stopTimer = async () => {
     if (!currentTimeEntry) return;
-
-    Alert.alert(
-      'Stop Timer',
-      'Are you sure you want to stop the timer? This will end the current time entry.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Stop',
-          style: 'destructive',
-          onPress: async () => {
-            await pauseTimer();
-          },
-        },
-      ]
-    );
+    Alert.alert('Stop Timer', 'Are you sure you want to stop the timer?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Stop', style: 'destructive', onPress: async () => { await pauseTimer(); } },
+    ]);
   };
 
   const addPart = async () => {
-    if (!newPart.name.trim()) {
-      Alert.alert('Error', 'Please enter a part name');
-      return;
-    }
-
+    if (!newPart.name.trim()) { Alert.alert('Error', 'Please enter a part name'); return; }
     const { error } = await supabase.from('parts').insert({
       job_id: id,
       name: newPart.name,
       cost: parseFloat(newPart.cost) || 0,
       quantity: parseInt(newPart.quantity) || 1,
     });
-
     if (!error) {
       setNewPart({ name: '', cost: '', quantity: '1' });
       setShowAddPart(false);
@@ -209,18 +292,13 @@ export default function JobDetailPage() {
 
   const deletePart = async (partId: string) => {
     const { error } = await supabase.from('parts').delete().eq('id', partId);
-    if (!error) {
-      fetchJobDetails();
-    }
+    if (!error) fetchJobDetails();
   };
 
   const saveDescriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const handleDescriptionChange = useCallback((text: string) => {
     setDescription(text);
-    if (saveDescriptionDebounceRef.current) {
-      clearTimeout(saveDescriptionDebounceRef.current);
-    }
+    if (saveDescriptionDebounceRef.current) clearTimeout(saveDescriptionDebounceRef.current);
     saveDescriptionDebounceRef.current = setTimeout(async () => {
       if (!job) return;
       await supabase.from('jobs').update({ description: text }).eq('id', job.id as string);
@@ -229,23 +307,16 @@ export default function JobDetailPage() {
 
   const updateJobStatus = async (status: 'pending' | 'active' | 'completed') => {
     if (!job) return;
-
-    const { error } = await supabase
-      .from('jobs')
-      .update({ status })
-      .eq('id', job.id);
-
-    if (!error) {
-      fetchJobDetails();
-    }
+    const { error } = await supabase.from('jobs').update({ status }).eq('id', job.id);
+    if (!error) fetchJobDetails();
   };
 
   const sendJobCardViaService = async () => {
     if (!job) return;
-
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+    setIsSendingEmail(true);
     try {
       const response = await fetch(`${supabaseUrl}/functions/v1/send-job-card`, {
         method: 'POST',
@@ -255,25 +326,20 @@ export default function JobDetailPage() {
         },
         body: JSON.stringify({ jobId: job.id }),
       });
-
       const result = await response.json();
-
       if (!response.ok) {
         const detail = result.details?.message || result.details?.name || JSON.stringify(result.details) || '';
-        const message = result.error + (detail ? `\n\n${detail}` : '');
-        Alert.alert('Failed to Send', message || 'Something went wrong. Please try again.');
+        Alert.alert('Failed to Send', result.error + (detail ? `\n\n${detail}` : '') || 'Something went wrong.');
         return;
       }
-
-      await supabase
-        .from('jobs')
-        .update({ status: 'completed' })
-        .eq('id', job.id);
+      await supabase.from('jobs').update({ status: 'completed' }).eq('id', job.id);
       setJob(prev => prev ? { ...prev, status: 'completed' } : prev);
       Alert.alert('Email Sent', `Job card emailed to ${result.sentTo}`);
       fetchJobDetails();
     } catch {
       Alert.alert('Error', 'Could not connect to email service. Please try again.');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -291,22 +357,14 @@ export default function JobDetailPage() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getTotalTime = () => {
-    return timeEntries.reduce((total, entry) => {
-      const start = new Date(entry.start_time).getTime();
-      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-      return total + (end - start);
-    }, 0) / 1000;
-  };
+  const getTotalTime = () => timeEntries.reduce((total, entry) => {
+    const start = new Date(entry.start_time).getTime();
+    const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+    return total + (end - start);
+  }, 0) / 1000;
 
-  const getTotalPartsCost = () => {
-    return parts.reduce((total, part) => total + (part.cost * part.quantity), 0);
-  };
-
-  const getLabourCost = () => {
-    const hours = getTotalTime() / 3600;
-    return hours * hourlyRate;
-  };
+  const getTotalPartsCost = () => parts.reduce((total, part) => total + (part.cost * part.quantity), 0);
+  const getLabourCost = () => (getTotalTime() / 3600) * hourlyRate;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -317,13 +375,15 @@ export default function JobDetailPage() {
     }
   };
 
+  const unassignedActiveEmployees = employees.filter(
+    e => !assignments.find(a => a.employee_id === e.id)
+  );
+
   if (!job) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
+    return <View style={styles.container}><Text style={styles.loadingText}>Loading...</Text></View>;
   }
+
+  const isEmployee = role === 'employee';
 
   return (
     <View style={styles.container}>
@@ -343,11 +403,10 @@ export default function JobDetailPage() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+        {/* Job Info */}
         <View style={styles.section}>
           <Text style={styles.jobTitle}>{job.title}</Text>
-          {job.purchase_order_number && (
-            <Text style={styles.poNumber}>PO: {job.purchase_order_number}</Text>
-          )}
+          {job.purchase_order_number && <Text style={styles.poNumber}>PO: {job.purchase_order_number}</Text>}
           {job.client && <Text style={styles.clientName}>{job.client.name}</Text>}
           {job.client?.address && (
             <TouchableOpacity style={styles.addressButton} onPress={openDirections}>
@@ -358,35 +417,30 @@ export default function JobDetailPage() {
           )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Status</Text>
-          <View style={styles.statusButtons}>
-            {(['pending', 'active', 'completed'] as const).map(status => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.statusButton,
-                  job.status === status && { backgroundColor: getStatusColor(status) },
-                ]}
-                onPress={() => updateJobStatus(status)}>
-                <Text
-                  style={[
-                    styles.statusButtonText,
-                    job.status === status && styles.statusButtonTextActive,
-                  ]}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+        {/* Status — owner only */}
+        {!isEmployee && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Status</Text>
+            <View style={styles.statusButtons}>
+              {(['pending', 'active', 'completed'] as const).map(status => (
+                <TouchableOpacity
+                  key={status}
+                  style={[styles.statusButton, job.status === status && { backgroundColor: getStatusColor(status) }]}
+                  onPress={() => updateJobStatus(status)}>
+                  <Text style={[styles.statusButtonText, job.status === status && styles.statusButtonTextActive]}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
+        )}
 
+        {/* Timer */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Timer</Text>
           <View style={styles.timerContainer}>
-            <Text style={styles.timerDisplay}>
-              {formatTime(elapsedTime)}
-            </Text>
+            <Text style={styles.timerDisplay}>{formatTime(elapsedTime)}</Text>
             {job.status === 'completed' && (
               <Text style={styles.timerCompletedNote}>Job completed — timer disabled</Text>
             )}
@@ -415,6 +469,7 @@ export default function JobDetailPage() {
           </View>
         </View>
 
+        {/* Description */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Description</Text>
@@ -427,122 +482,239 @@ export default function JobDetailPage() {
             onChangeText={handleDescriptionChange}
             multiline
             numberOfLines={4}
+            editable={!isEmployee}
           />
         </View>
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Parts</Text>
-            <TouchableOpacity onPress={() => setShowAddPart(!showAddPart)}>
-              <Plus size={20} color="#F59E0B" />
-            </TouchableOpacity>
+        {/* Parts — owner only */}
+        {!isEmployee && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Parts</Text>
+              <TouchableOpacity onPress={() => setShowAddPart(!showAddPart)}>
+                <Plus size={20} color="#F59E0B" />
+              </TouchableOpacity>
+            </View>
+
+            {showAddPart && (
+              <View style={styles.addPartForm}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Part name"
+                  placeholderTextColor="#94A3B8"
+                  value={newPart.name}
+                  onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
+                />
+                <View style={styles.partRow}>
+                  <TextInput
+                    style={[styles.input, styles.inputSmall]}
+                    placeholder="Cost"
+                    placeholderTextColor="#94A3B8"
+                    value={newPart.cost}
+                    onChangeText={text => setNewPart(prev => ({ ...prev, cost: text }))}
+                    keyboardType="decimal-pad"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.inputSmall]}
+                    placeholder="Qty"
+                    placeholderTextColor="#94A3B8"
+                    value={newPart.quantity}
+                    onChangeText={text => setNewPart(prev => ({ ...prev, quantity: text }))}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                <TouchableOpacity style={styles.addButton} onPress={addPart}>
+                  <Text style={styles.addButtonText}>Add Part</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {parts.map(part => (
+              <View key={part.id} style={styles.partCard}>
+                <View style={styles.partInfo}>
+                  <Text style={styles.partName}>{part.name}</Text>
+                  <Text style={styles.partDetails}>
+                    ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => deletePart(part.id)}>
+                  <Trash2 size={20} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ))}
           </View>
+        )}
 
-          {showAddPart && (
-            <View style={styles.addPartForm}>
-              <TextInput
-                style={styles.input}
-                placeholder="Part name"
-                placeholderTextColor="#94A3B8"
-                value={newPart.name}
-                onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
-              />
-              <View style={styles.partRow}>
-                <TextInput
-                  style={[styles.input, styles.inputSmall]}
-                  placeholder="Cost"
-                  placeholderTextColor="#94A3B8"
-                  value={newPart.cost}
-                  onChangeText={text => setNewPart(prev => ({ ...prev, cost: text }))}
-                  keyboardType="decimal-pad"
-                />
-                <TextInput
-                  style={[styles.input, styles.inputSmall]}
-                  placeholder="Qty"
-                  placeholderTextColor="#94A3B8"
-                  value={newPart.quantity}
-                  onChangeText={text => setNewPart(prev => ({ ...prev, quantity: text }))}
-                  keyboardType="number-pad"
-                />
+        {/* Cost Summary — owner only */}
+        {!isEmployee && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cost Summary</Text>
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Total Time:</Text>
+                <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
               </View>
-              <TouchableOpacity style={styles.addButton} onPress={addPart}>
-                <Text style={styles.addButtonText}>Add Part</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {parts.map(part => (
-            <View key={part.id} style={styles.partCard}>
-              <View style={styles.partInfo}>
-                <Text style={styles.partName}>{part.name}</Text>
-                <Text style={styles.partDetails}>
-                  ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
-                </Text>
+              <View style={styles.summaryRow}>
+                <View>
+                  <Text style={styles.summaryLabel}>Labour Cost:</Text>
+                  {hourlyRate > 0 && <Text style={styles.summarySubLabel}>${hourlyRate.toFixed(2)}/hr</Text>}
+                </View>
+                <Text style={styles.summaryValue}>{hourlyRate > 0 ? `$${getLabourCost().toFixed(2)}` : '—'}</Text>
               </View>
-              <TouchableOpacity onPress={() => deletePart(part.id)}>
-                <Trash2 size={20} color="#EF4444" />
-              </TouchableOpacity>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Parts Cost:</Text>
+                <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryTotalLabel}>Total:</Text>
+                <Text style={styles.summaryTotalValue}>${(getLabourCost() + getTotalPartsCost()).toFixed(2)}</Text>
+              </View>
             </View>
-          ))}
-        </View>
+          </View>
+        )}
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cost Summary</Text>
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Total Time:</Text>
-              <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
+        {/* Assign Employees — owner only */}
+        {!isEmployee && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Users size={18} color="#111827" />
+                <Text style={styles.sectionTitle}>Assigned Employees</Text>
+              </View>
+              {unassignedActiveEmployees.length > 0 && (
+                <TouchableOpacity onPress={() => setShowAssignDropdown(!showAssignDropdown)}>
+                  <Plus size={20} color="#F59E0B" />
+                </TouchableOpacity>
+              )}
             </View>
-            <View style={styles.summaryRow}>
-              <View>
-                <Text style={styles.summaryLabel}>Labour Cost:</Text>
-                {hourlyRate > 0 && (
-                  <Text style={styles.summarySubLabel}>${hourlyRate.toFixed(2)}/hr</Text>
+
+            {showAssignDropdown && (
+              <View style={styles.assignDropdown}>
+                {assignLoading && <ActivityIndicator size="small" color="#F59E0B" />}
+                {unassignedActiveEmployees.map(emp => (
+                  <TouchableOpacity
+                    key={emp.id}
+                    style={styles.assignOption}
+                    onPress={() => handleAssignEmployee(emp)}
+                    disabled={assignLoading}>
+                    <UserCheck size={16} color="#374151" />
+                    <Text style={styles.assignOptionText}>{emp.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {assignments.length === 0 && (
+              <Text style={styles.noAssignmentsText}>No employees assigned yet.</Text>
+            )}
+
+            {assignments.map(a => (
+              <View key={a.id} style={styles.assignmentRow}>
+                <View style={styles.assignmentInfo}>
+                  <Text style={styles.assignmentName}>{a.employee?.name ?? 'Unknown'}</Text>
+                  <Text style={styles.assignmentEmail}>{a.employee?.email ?? ''}</Text>
+                </View>
+                <View style={styles.assignmentRight}>
+                  {a.completed && (
+                    <View style={styles.completedBadge}>
+                      <CheckCircle size={14} color="#10B981" />
+                      <Text style={styles.completedBadgeText}>Done</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity onPress={() => handleRemoveAssignment(a.id)}>
+                    <Trash2 size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Employee Notes & Mark Complete — employee only */}
+        {isEmployee && employeeRecord && (
+          <>
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleRow}>
+                  <MessageSquare size={18} color="#111827" />
+                  <Text style={styles.sectionTitle}>My Notes</Text>
+                </View>
+              </View>
+
+              {notes.map(note => (
+                <View key={note.id} style={styles.noteCard}>
+                  <Text style={styles.noteText}>{note.note}</Text>
+                  <Text style={styles.noteTime}>
+                    {new Date(note.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </Text>
+                </View>
+              ))}
+
+              <View style={styles.addNoteRow}>
+                <TextInput
+                  style={styles.noteInput}
+                  placeholder="Add a note..."
+                  placeholderTextColor="#9CA3AF"
+                  value={newNote}
+                  onChangeText={setNewNote}
+                  multiline
+                />
+                <TouchableOpacity
+                  style={[styles.addNoteButton, (!newNote.trim() || noteLoading) && styles.buttonDisabled]}
+                  onPress={handleAddNote}
+                  disabled={!newNote.trim() || noteLoading}>
+                  {noteLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Plus size={20} color="#FFFFFF" />}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {myAssignment && (
+              <View style={styles.section}>
+                {myAssignment.completed ? (
+                  <View style={styles.alreadyCompletedBanner}>
+                    <CheckCircle size={20} color="#10B981" />
+                    <Text style={styles.alreadyCompletedText}>You marked this job as complete</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.markCompleteButton, markingComplete && styles.buttonDisabled]}
+                    onPress={handleMarkComplete}
+                    disabled={markingComplete}>
+                    {markingComplete
+                      ? <ActivityIndicator color="#FFFFFF" />
+                      : <>
+                          <CheckCircle size={20} color="#FFFFFF" />
+                          <Text style={styles.markCompleteButtonText}>Mark as Complete</Text>
+                        </>}
+                  </TouchableOpacity>
                 )}
               </View>
-              <Text style={styles.summaryValue}>
-                {hourlyRate > 0 ? `$${getLabourCost().toFixed(2)}` : '—'}
-              </Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Parts Cost:</Text>
-              <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryTotalLabel}>Total:</Text>
-              <Text style={styles.summaryTotalValue}>
-                ${(getLabourCost() + getTotalPartsCost()).toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        </View>
+            )}
+          </>
+        )}
 
-        <View style={styles.section}>
-          <TouchableOpacity
-            style={[
-              styles.emailButton,
-              job.email_sent && styles.emailButtonSent,
-              isSendingEmail && styles.emailButtonDisabled,
-            ]}
-            onPress={sendJobCardViaService}
-            disabled={isSendingEmail}>
-            <Mail size={20} color="#FFFFFF" />
-            <Text style={styles.emailButtonText}>
-              {isSendingEmail ? 'Sending...' : job.email_sent ? 'Resend Job Card' : 'Send Job Card'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        {/* Send Job Card — owner only */}
+        {!isEmployee && (
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={[styles.emailButton, job.email_sent && styles.emailButtonSent, isSendingEmail && styles.emailButtonDisabled]}
+              onPress={sendJobCardViaService}
+              disabled={isSendingEmail}>
+              <Mail size={20} color="#FFFFFF" />
+              <Text style={styles.emailButtonText}>
+                {isSendingEmail ? 'Sending...' : job.email_sent ? 'Resend Job Card' : 'Send Job Card'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -552,284 +724,134 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  backButton: {
-    marginRight: 16,
-  },
-  headerContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  loadingText: {
-    color: '#111827',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 100,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  jobTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 8,
-  },
-  poNumber: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
-  },
-  clientName: {
-    fontSize: 16,
-    color: '#F59E0B',
-    fontWeight: '600',
-    marginBottom: 8,
-  },
+  backButton: { marginRight: 16 },
+  headerContent: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  statusText: { fontSize: 12, fontWeight: '700' },
+  content: { flex: 1, padding: 20 },
+  contentContainer: { paddingBottom: 40 },
+  loadingText: { color: '#111827', fontSize: 16, textAlign: 'center', marginTop: 100 },
+  section: { marginBottom: 24 },
+  jobTitle: { fontSize: 24, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
+  poNumber: { fontSize: 14, color: '#6B7280', marginBottom: 4 },
+  clientName: { fontSize: 16, color: '#F59E0B', fontWeight: '600', marginBottom: 8 },
   addressButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginTop: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8,
+    borderWidth: 1, borderColor: '#E5E7EB', marginTop: 8,
   },
-  addressText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#374151',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statusButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
+  addressText: { flex: 1, fontSize: 14, color: '#374151' },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 12 },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  statusButtons: { flexDirection: 'row', gap: 8 },
   statusButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
+    flex: 1, padding: 12, borderRadius: 8,
+    backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center',
   },
-  statusButtonText: {
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  statusButtonTextActive: {
-    color: '#FFFFFF',
-  },
+  statusButtonText: { color: '#6B7280', fontWeight: '600' },
+  statusButtonTextActive: { color: '#FFFFFF' },
   timerContainer: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 20,
+    alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB',
   },
-  timerDisplay: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#F59E0B',
-    marginBottom: 20,
-  },
-  timerButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  timerDisplay: { fontSize: 48, fontWeight: 'bold', color: '#F59E0B', marginBottom: 20 },
+  timerButtons: { flexDirection: 'row', gap: 12 },
   timerButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    backgroundColor: '#3B82F6', paddingHorizontal: 24, paddingVertical: 12,
+    borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  timerButtonStop: {
-    backgroundColor: '#EF4444',
-  },
-  timerButtonDisabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  timerCompletedNote: {
-    fontSize: 13,
-    color: '#10B981',
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  timerButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 16,
-  },
+  timerButtonStop: { backgroundColor: '#EF4444' },
+  timerButtonDisabled: { backgroundColor: '#D1D5DB' },
+  timerCompletedNote: { fontSize: 13, color: '#10B981', fontWeight: '600', marginBottom: 12 },
+  timerButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
   descriptionInput: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#111827',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    minHeight: 100,
-    textAlignVertical: 'top',
+    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16,
+    fontSize: 16, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB',
+    minHeight: 100, textAlignVertical: 'top',
   },
   addPartForm: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16,
+    marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB',
   },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: '#111827',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 12,
+    backgroundColor: '#FFFFFF', borderRadius: 8, padding: 12,
+    fontSize: 16, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 12,
   },
-  partRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  inputSmall: {
-    flex: 1,
-  },
-  addButton: {
-    backgroundColor: '#F59E0B',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  addButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
+  partRow: { flexDirection: 'row', gap: 12 },
+  inputSmall: { flex: 1 },
+  addButton: { backgroundColor: '#F59E0B', padding: 12, borderRadius: 8, alignItems: 'center' },
+  addButtonText: { color: '#FFFFFF', fontWeight: '600' },
   partCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 8,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  partInfo: {
-    flex: 1,
+  partInfo: { flex: 1 },
+  partName: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 4 },
+  partDetails: { fontSize: 14, color: '#6B7280' },
+  summaryCard: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: '#E5E7EB' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  summaryLabel: { fontSize: 15, color: '#6B7280' },
+  summarySubLabel: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  summaryValue: { fontSize: 16, fontWeight: '600', color: '#111827' },
+  summaryDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
+  summaryTotalLabel: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  summaryTotalValue: { fontSize: 20, fontWeight: '800', color: '#F59E0B' },
+  assignDropdown: {
+    backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1,
+    borderColor: '#E5E7EB', marginBottom: 12, overflow: 'hidden',
   },
-  partName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
+  assignOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    padding: 14, borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
   },
-  partDetails: {
-    fontSize: 14,
-    color: '#6B7280',
+  assignOptionText: { fontSize: 15, color: '#111827', fontWeight: '500' },
+  noAssignmentsText: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' },
+  assignmentRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14, marginBottom: 8,
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  summaryCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  assignmentInfo: { flex: 1 },
+  assignmentName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  assignmentEmail: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  assignmentRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  completedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#D1FAE5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
+  completedBadgeText: { fontSize: 11, fontWeight: '700', color: '#10B981' },
+  noteCard: {
+    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14,
+    marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB',
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
+  noteText: { fontSize: 14, color: '#111827', lineHeight: 20 },
+  noteTime: { fontSize: 11, color: '#9CA3AF', marginTop: 6 },
+  addNoteRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
+  noteInput: {
+    flex: 1, backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14,
+    fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB',
+    minHeight: 52, textAlignVertical: 'top',
   },
-  summaryLabel: {
-    fontSize: 15,
-    color: '#6B7280',
+  addNoteButton: {
+    backgroundColor: '#F59E0B', width: 44, height: 44,
+    borderRadius: 10, alignItems: 'center', justifyContent: 'center',
   },
-  summarySubLabel: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginTop: 2,
+  markCompleteButton: {
+    backgroundColor: '#10B981', borderRadius: 12, padding: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  summaryValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+  markCompleteButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  alreadyCompletedBanner: {
+    backgroundColor: '#D1FAE5', borderRadius: 12, padding: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
   },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 8,
-  },
-  summaryTotalLabel: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  summaryTotalValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#F59E0B',
-  },
+  alreadyCompletedText: { fontSize: 15, fontWeight: '600', color: '#059669' },
+  buttonDisabled: { opacity: 0.6 },
   emailButton: {
-    backgroundColor: '#F59E0B',
-    padding: 16,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    backgroundColor: '#F59E0B', padding: 16, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
   },
-  emailButtonSent: {
-    backgroundColor: '#10B981',
-  },
-  emailButtonDisabled: {
-    opacity: 0.6,
-  },
-  emailButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  emailButtonSent: { backgroundColor: '#10B981' },
+  emailButtonDisabled: { opacity: 0.6 },
+  emailButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
