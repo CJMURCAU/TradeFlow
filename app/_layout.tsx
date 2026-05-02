@@ -69,11 +69,9 @@ export default function RootLayout() {
       return;
     }
 
-    const { data } = await supabase
-      .from('guest_sessions')
-      .select('id, expires_at')
-      .eq('id', guestId)
-      .maybeSingle();
+    const { data: rows } = await supabase
+      .rpc('lookup_guest_session', { session_id: guestId });
+    const data = rows?.[0] ?? null;
 
     if (!data) {
       setSessionState('unauthenticated');

@@ -34,11 +34,9 @@ export default function InvitePage() {
   }, [token]);
 
   const validateToken = async () => {
-    const { data: employee } = await supabase
-      .from('employees')
-      .select('id, name, email, status, employee_user_id')
-      .eq('invite_token', token)
-      .maybeSingle();
+    const { data: employees } = await supabase
+      .rpc('lookup_employee_by_invite_token', { token });
+    const employee = employees?.[0] ?? null;
 
     if (!employee) {
       setStage('invalid');
