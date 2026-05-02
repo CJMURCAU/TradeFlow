@@ -8,22 +8,9 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { emitGuestSessionCreated } from '@/lib/guestSessionEvents';
-import * as SecureStore from 'expo-secure-store';
-
-const GUEST_SESSION_KEY = 'tradeflow_guest_session_id';
-
-function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -31,9 +18,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
-  const [guestLoading, setGuestLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [trialExpired, setTrialExpired] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
@@ -84,7 +69,7 @@ export default function LoginPage() {
     }
     setAuthLoading(true);
     setError(null);
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
     });
@@ -93,110 +78,8 @@ export default function LoginPage() {
       setError(signUpError.message);
       return;
     }
-
-    if (data.user) {
-      await migrateGuestData(data.user.id);
-    }
-
     setAuthLoading(false);
     router.replace('/(tabs)');
-  };
-
-  const migrateGuestData = async (newUserId: string) => {
-    let guestSessionId: string | null = null;
-    if (Platform.OS !== 'web') {
-      guestSessionId = await SecureStore.getItemAsync(GUEST_SESSION_KEY);
-    } else {
-      guestSessionId = localStorage.getItem(GUEST_SESSION_KEY);
-    }
-    if (!guestSessionId) return;
-
-    const { data: session } = await supabase
-      .from('guest_sessions')
-      .select('id')
-      .eq('id', guestSessionId)
-      .maybeSingle();
-
-    if (!session) return;
-
-    await Promise.all([
-      supabase.from('jobs').update({ user_id: newUserId }).eq('guest_session_id', guestSessionId),
-      supabase.from('clients').update({ user_id: newUserId }).eq('guest_session_id', guestSessionId),
-      supabase.from('guest_sessions').update({ user_id: newUserId }).eq('id', guestSessionId),
-    ]);
-  };
-
-  const handleGuestTrial = async () => {
-    setGuestLoading(true);
-    setError(null);
-
-    try {
-      let existingId: string | null = null;
-      if (Platform.OS !== 'web') {
-        existingId = await SecureStore.getItemAsync(GUEST_SESSION_KEY);
-      } else {
-        existingId = localStorage.getItem(GUEST_SESSION_KEY);
-      }
-
-      if (existingId) {
-        const { data: existing } = await supabase
-          .from('guest_sessions')
-          .select('id, expires_at')
-          .eq('id', existingId)
-          .maybeSingle();
-
-        if (existing) {
-          const expires = new Date(existing.expires_at);
-          if (expires < new Date()) {
-            setGuestLoading(false);
-            setTrialExpired(true);
-            return;
-          }
-          emitGuestSessionCreated();
-          setGuestLoading(false);
-          return;
-        }
-      }
-
-      const DEVICE_ID_KEY = 'tradeflow_device_id';
-      let deviceId: string | null = null;
-      if (Platform.OS !== 'web') {
-        deviceId = await SecureStore.getItemAsync(DEVICE_ID_KEY);
-        if (!deviceId) {
-          deviceId = generateUUID();
-          await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
-        }
-      } else {
-        deviceId = localStorage.getItem(DEVICE_ID_KEY);
-        if (!deviceId) {
-          deviceId = generateUUID();
-          localStorage.setItem(DEVICE_ID_KEY, deviceId);
-        }
-      }
-
-      const { data, error: insertError } = await supabase
-        .from('guest_sessions')
-        .insert({ device_identifier: deviceId })
-        .select()
-        .single();
-
-      if (insertError || !data) {
-        setError('Could not start trial. Please try again.');
-        return;
-      }
-
-      if (Platform.OS !== 'web') {
-        await SecureStore.setItemAsync(GUEST_SESSION_KEY, data.id);
-      } else {
-        localStorage.setItem(GUEST_SESSION_KEY, data.id);
-      }
-
-      emitGuestSessionCreated();
-    } catch {
-      setError('Could not start trial. Please try again.');
-    } finally {
-      setGuestLoading(false);
-    }
   };
 
   return (
@@ -212,13 +95,6 @@ export default function LoginPage() {
           <Text style={styles.appTitle}>TradeFlow</Text>
           <Text style={styles.tagline}>Job management for tradespeople</Text>
         </View>
-
-        {trialExpired && (
-          <View style={styles.expiredBanner}>
-            <Text style={styles.expiredTitle}>Your 2-day trial has ended</Text>
-            <Text style={styles.expiredText}>Create a free account to keep all your data and continue using TradeFlow.</Text>
-          </View>
-        )}
 
         <View style={styles.card}>
           {mode !== 'forgot' && (
@@ -344,29 +220,6 @@ export default function LoginPage() {
             </View>
           )}
         </View>
-
-        {!trialExpired && (
-          <View style={styles.trialSection}>
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.divider} />
-            </View>
-            <TouchableOpacity
-              style={[styles.trialButton, guestLoading && styles.buttonDisabled]}
-              onPress={handleGuestTrial}
-              disabled={guestLoading}>
-              {guestLoading ? (
-                <ActivityIndicator color="#F59E0B" />
-              ) : (
-                <>
-                  <Text style={styles.trialButtonText}>Use as Guest</Text>
-                  <Text style={styles.trialSubtext}>Free 2-day trial - no account needed</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -401,25 +254,6 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 15,
     color: '#6B7280',
-  },
-  expiredBanner: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#FECACA',
-    marginBottom: 20,
-  },
-  expiredTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#DC2626',
-    marginBottom: 4,
-  },
-  expiredText: {
-    fontSize: 13,
-    color: '#7F1D1D',
-    lineHeight: 18,
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -495,43 +329,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
-  },
-  trialSection: {
-    marginTop: 28,
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    gap: 12,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dividerText: {
-    fontSize: 13,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  trialButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#F59E0B',
-  },
-  trialButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#F59E0B',
-    marginBottom: 2,
-  },
-  trialSubtext: {
-    fontSize: 13,
-    color: '#9CA3AF',
   },
   forgotLink: {
     alignSelf: 'flex-end',
