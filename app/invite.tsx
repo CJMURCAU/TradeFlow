@@ -106,30 +106,21 @@ export default function InvitePage() {
   const linkEmployee = async (userId: string) => {
     setStage('linking');
 
-    // Get the owner's user_id from the employee record
-    const { data: emp } = await supabase
-      .from('employees')
-      .select('user_id')
-      .eq('id', employeeId)
-      .maybeSingle();
-
-    // Update employee record to link this auth user
-    await supabase
-      .from('employees')
-      .update({ employee_user_id: userId, status: 'active' })
-      .eq('id', employeeId);
-
-    // Insert or update user_roles for this employee
-    await supabase.from('user_roles').upsert({
-      user_id: userId,
-      role: 'employee',
-      owner_id: emp?.user_id ?? null,
+    const { data, error } = await supabase.rpc('accept_employee_invite', {
+      p_token: token,
+      p_user_id: userId,
     });
+
+    if (error || !data?.success) {
+      setLoading(false);
+      setError(data?.error ?? error?.message ?? 'Failed to link account. Please try again.');
+      setStage('signup');
+      return;
+    }
 
     setLoading(false);
     setStage('done');
 
-    // Navigate to main app after a short delay
     setTimeout(() => {
       router.replace('/(tabs)');
     }, 1500);
