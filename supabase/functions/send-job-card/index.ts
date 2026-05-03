@@ -194,54 +194,20 @@ Deno.serve(async (req: Request) => {
 
     const recipientEmail = business.job_email;
 
-    // Resolve inbox ID for sandbox sending
-    let inboxId: number | null = null;
-    const inboxesRes = await fetch("https://mailtrap.io/api/accounts", {
-      headers: { "Authorization": `Bearer ${mailtrapToken}` },
+    const mailtrapResponse = await fetch("https://send.api.mailtrap.io/api/send", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${mailtrapToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: { name: companyName, email: "mailtrap@demomailtrap.co" },
+        to: [{ email: recipientEmail }],
+        reply_to: { email: recipientEmail },
+        subject: `Job Card #${job.job_card_number} - ${job.title}`,
+        html: emailHtml,
+      }),
     });
-    if (inboxesRes.ok) {
-      const accounts = await inboxesRes.json();
-      const accountId = Array.isArray(accounts) && accounts[0]?.id;
-      if (accountId) {
-        const inboxRes = await fetch(`https://mailtrap.io/api/accounts/${accountId}/inboxes`, {
-          headers: { "Authorization": `Bearer ${mailtrapToken}` },
-        });
-        if (inboxRes.ok) {
-          const inboxes = await inboxRes.json();
-          if (Array.isArray(inboxes) && inboxes[0]?.id) inboxId = inboxes[0].id;
-        }
-      }
-    }
-
-    const mailtrapResponse = inboxId
-      ? await fetch(`https://sandbox.api.mailtrap.io/api/send/${inboxId}`, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${mailtrapToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: { name: companyName, email: "hello@example.com" },
-            to: [{ email: recipientEmail }],
-            reply_to: { email: recipientEmail },
-            subject: `Job Card #${job.job_card_number} - ${job.title}`,
-            html: emailHtml,
-          }),
-        })
-      : await fetch("https://send.api.mailtrap.io/api/send", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${mailtrapToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: { name: companyName, email: "mailtrap@demomailtrap.co" },
-            to: [{ email: recipientEmail }],
-            reply_to: { email: recipientEmail },
-            subject: `Job Card #${job.job_card_number} - ${job.title}`,
-            html: emailHtml,
-          }),
-        });
 
     const mailtrapRawText = await mailtrapResponse.text();
 
