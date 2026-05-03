@@ -24,6 +24,8 @@ import {
   ToggleLeft,
   ToggleRight,
   UserX,
+  Pencil,
+  X,
 } from 'lucide-react-native';
 import TabBar from '@/components/TabBar';
 
@@ -57,6 +59,10 @@ export default function BusinessPage() {
   const [addEmployeeError, setAddEmployeeError] = useState('');
   const [addEmployeeLoading, setAddEmployeeLoading] = useState(false);
   const [sendingInvite, setSendingInvite] = useState<string | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '' });
+  const [editError, setEditError] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
 
   useEffect(() => {
     fetchBusinessDetails();
@@ -162,6 +168,44 @@ export default function BusinessPage() {
 
     setNewEmployee({ name: '', email: '' });
     setShowAddEmployee(false);
+    fetchEmployees();
+  };
+
+  const handleEditEmployee = (emp: Employee) => {
+    setEditingEmployee(emp.id);
+    setEditForm({ name: emp.name, email: emp.email });
+    setEditError('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingEmployee(null);
+    setEditForm({ name: '', email: '' });
+    setEditError('');
+  };
+
+  const handleSaveEmployee = async (emp: Employee) => {
+    setEditError('');
+    const name = editForm.name.trim();
+    const email = editForm.email.trim().toLowerCase();
+
+    if (!name) { setEditError('Please enter a name.'); return; }
+    if (!email) { setEditError('Please enter an email.'); return; }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) { setEditError('Please enter a valid email address.'); return; }
+
+    setEditLoading(true);
+    const { error } = await supabase
+      .from('employees')
+      .update({ name, email })
+      .eq('id', emp.id);
+    setEditLoading(false);
+
+    if (error) {
+      setEditError('Failed to save changes. Please try again.');
+      return;
+    }
+
+    handleCancelEdit();
     fetchEmployees();
   };
 
@@ -475,37 +519,87 @@ export default function BusinessPage() {
               </View>
             </View>
 
-            <View style={styles.employeeActions}>
-              <TouchableOpacity
-                style={styles.employeeAction}
-                onPress={() => handleToggleCalendarAccess(emp)}>
-                {emp.calendar_access
-                  ? <ToggleRight size={20} color="#10B981" />
-                  : <ToggleLeft size={20} color="#9CA3AF" />}
-                <Text style={[styles.employeeActionText, emp.calendar_access && { color: '#10B981' }]}>
-                  Full Calendar
-                </Text>
-              </TouchableOpacity>
+            {editingEmployee === emp.id ? (
+              <View style={styles.editEmployeeForm}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Employee name"
+                  placeholderTextColor="#9CA3AF"
+                  value={editForm.name}
+                  onChangeText={text => setEditForm(prev => ({ ...prev, name: text }))}
+                />
+                <View style={styles.inputGap} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Employee email"
+                  placeholderTextColor="#9CA3AF"
+                  value={editForm.email}
+                  onChangeText={text => setEditForm(prev => ({ ...prev, email: text }))}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                {editError ? <Text style={styles.errorText}>{editError}</Text> : null}
+                <View style={styles.editFormActions}>
+                  <TouchableOpacity
+                    style={styles.cancelEditButton}
+                    onPress={handleCancelEdit}>
+                    <X size={16} color="#6B7280" />
+                    <Text style={styles.cancelEditButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveEditButton, editLoading && styles.buttonDisabled]}
+                    onPress={() => handleSaveEmployee(emp)}
+                    disabled={editLoading}>
+                    {editLoading
+                      ? <ActivityIndicator size="small" color="#FFFFFF" />
+                      : <>
+                          <Save size={15} color="#FFFFFF" />
+                          <Text style={styles.saveEditButtonText}>Save</Text>
+                        </>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.employeeActions}>
+                <TouchableOpacity
+                  style={styles.employeeAction}
+                  onPress={() => handleToggleCalendarAccess(emp)}>
+                  {emp.calendar_access
+                    ? <ToggleRight size={20} color="#10B981" />
+                    : <ToggleLeft size={20} color="#9CA3AF" />}
+                  <Text style={[styles.employeeActionText, emp.calendar_access && { color: '#10B981' }]}>
+                    Full Calendar
+                  </Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.employeeAction}
-                onPress={() => handleSendInvite(emp)}
-                disabled={sendingInvite === emp.id}>
-                {sendingInvite === emp.id
-                  ? <ActivityIndicator size="small" color="#F59E0B" />
-                  : <Send size={18} color="#F59E0B" />}
-                <Text style={[styles.employeeActionText, { color: '#F59E0B' }]}>
-                  {emp.status === 'active' ? 'Resend' : 'Send Invite'}
-                </Text>
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.employeeAction}
+                  onPress={() => handleEditEmployee(emp)}>
+                  <Pencil size={16} color="#3B82F6" />
+                  <Text style={[styles.employeeActionText, { color: '#3B82F6' }]}>Edit</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.employeeAction}
-                onPress={() => handleRemoveEmployee(emp)}>
-                <UserX size={18} color="#EF4444" />
-                <Text style={[styles.employeeActionText, { color: '#EF4444' }]}>Remove</Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.employeeAction}
+                  onPress={() => handleSendInvite(emp)}
+                  disabled={sendingInvite === emp.id}>
+                  {sendingInvite === emp.id
+                    ? <ActivityIndicator size="small" color="#F59E0B" />
+                    : <Send size={18} color="#F59E0B" />}
+                  <Text style={[styles.employeeActionText, { color: '#F59E0B' }]}>
+                    {emp.status === 'active' ? 'Resend' : 'Send Invite'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.employeeAction}
+                  onPress={() => handleRemoveEmployee(emp)}>
+                  <UserX size={18} color="#EF4444" />
+                  <Text style={[styles.employeeActionText, { color: '#EF4444' }]}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ))}
 
@@ -793,4 +887,39 @@ const styles = StyleSheet.create({
   deleteRow: { borderColor: '#FEE2E2', backgroundColor: '#FFF5F5' },
   deleteIconWrap: { backgroundColor: '#FEE2E2' },
   deleteRowText: { fontSize: 16, fontWeight: '500', color: '#EF4444' },
+  editEmployeeForm: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    paddingTop: 12,
+    gap: 0,
+  },
+  editFormActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  cancelEditButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelEditButtonText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  saveEditButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+  },
+  saveEditButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
 });
