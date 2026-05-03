@@ -103,14 +103,6 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const senderEmail = business ? (
-      await supabase
-        .from("business_details")
-        .select("job_email")
-        .eq("user_id", user.id)
-        .maybeSingle()
-    ).data?.job_email || "noreply@tradeflow.app" : "noreply@tradeflow.app";
-
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -147,7 +139,7 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: { name: companyName, email: senderEmail },
+        from: { name: companyName, email: "hello@tradeflowmanager.com" },
         to: [{ email: employee.email }],
         subject: `${companyName} has invited you to TradeFlow`,
         html: emailHtml,
