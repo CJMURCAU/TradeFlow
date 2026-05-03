@@ -619,7 +619,7 @@ export default function JobDetailPage() {
                   <View style={styles.partInfo}>
                     <Text style={styles.partName}>{part.name}</Text>
                     <Text style={styles.partDetails}>
-                      ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
+                      {`$${part.cost.toFixed(2)} x ${part.quantity} = $${(part.cost * part.quantity).toFixed(2)}`}
                     </Text>
                   </View>
                   <TouchableOpacity onPress={() => deletePart(part.id)}>
