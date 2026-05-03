@@ -6,9 +6,9 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  Alert,
   Image,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
 import {
@@ -51,6 +51,12 @@ export default function BusinessPage() {
   const [emailLoading, setEmailLoading] = useState(false);
 
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<Employee | null>(null);
+  const [deleteAccountStep, setDeleteAccountStep] = useState<0 | 1 | 2>(0);
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [inviteStatus, setInviteStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Employees section
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -97,44 +103,54 @@ export default function BusinessPage() {
   }, []);
 
   const saveBusinessDetails = async () => {
-    if (!businessDetails) return;
-
+    setSaveStatus(null);
     const newStartNumber = parseInt(formData.job_card_number_start, 10);
     if (isNaN(newStartNumber) || newStartNumber < 1) {
-      Alert.alert('Invalid Number', 'Job card starting number must be a positive whole number.');
+      setSaveStatus({ type: 'error', message: 'Job card starting number must be a positive whole number.' });
       return;
     }
 
-    const startNumberChanged = newStartNumber !== (businessDetails.job_card_number_start ?? 1000);
+    setSaveLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaveLoading(false); setSaveStatus({ type: 'error', message: 'Not signed in.' }); return; }
 
-    const { error } = await supabase
-      .from('business_details')
-      .update({
-        company_name: formData.company_name,
-        tradesman_name: formData.tradesman_name,
-        job_email: formData.job_email,
-        default_hourly_rate: parseFloat(formData.default_hourly_rate) || 0,
-        job_card_number_start: newStartNumber,
-      })
-      .eq('id', businessDetails.id);
+    const startNumberChanged = newStartNumber !== (businessDetails?.job_card_number_start ?? 1000);
 
-    if (error) {
-      Alert.alert('Error', 'Failed to save business details');
+    const payload = {
+      company_name: formData.company_name,
+      tradesman_name: formData.tradesman_name,
+      job_email: formData.job_email,
+      default_hourly_rate: parseFloat(formData.default_hourly_rate) || 0,
+      job_card_number_start: newStartNumber,
+    };
+
+    let saveError;
+    if (businessDetails) {
+      const { error } = await supabase.from('business_details').update(payload).eq('id', businessDetails.id);
+      saveError = error;
+    } else {
+      const { error } = await supabase.from('business_details').insert({ ...payload, user_id: user.id });
+      saveError = error;
+    }
+
+    if (saveError) {
+      setSaveLoading(false);
+      setSaveStatus({ type: 'error', message: 'Failed to save business details. Please try again.' });
       return;
     }
 
-    if (startNumberChanged) {
-      const { error: renumberError } = await supabase.rpc('renumber_jobs_from', {
-        start_number: newStartNumber,
-      });
+    if (startNumberChanged && businessDetails) {
+      const { error: renumberError } = await supabase.rpc('renumber_jobs_from', { start_number: newStartNumber });
       if (renumberError) {
-        Alert.alert('Warning', 'Settings saved but job cards could not be renumbered. Please try again.');
+        setSaveLoading(false);
+        setSaveStatus({ type: 'error', message: 'Settings saved but job cards could not be renumbered.' });
         fetchBusinessDetails();
         return;
       }
     }
 
-    Alert.alert('Success', 'Business details saved successfully');
+    setSaveLoading(false);
+    setSaveStatus({ type: 'success', message: 'Business details saved successfully.' });
     fetchBusinessDetails();
   };
 
@@ -211,6 +227,7 @@ export default function BusinessPage() {
 
   const handleSendInvite = async (employee: Employee) => {
     setSendingInvite(employee.id);
+    setInviteStatus(null);
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -231,12 +248,12 @@ export default function BusinessPage() {
 
       const result = await response.json();
       if (!response.ok) {
-        Alert.alert('Failed to Send', result.error || 'Something went wrong.');
+        setInviteStatus({ type: 'error', message: result.error || 'Something went wrong.' });
       } else {
-        Alert.alert('Invite Sent', `Invitation emailed to ${result.sentTo}`);
+        setInviteStatus({ type: 'success', message: `Invitation emailed to ${result.sentTo}` });
       }
     } catch {
-      Alert.alert('Error', 'Could not connect to email service.');
+      setInviteStatus({ type: 'error', message: 'Could not connect to email service.' });
     } finally {
       setSendingInvite(null);
     }
@@ -251,21 +268,14 @@ export default function BusinessPage() {
   };
 
   const handleRemoveEmployee = (employee: Employee) => {
-    Alert.alert(
-      'Remove Employee',
-      `Are you sure you want to remove ${employee.name}? They will no longer have access to the app.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            await supabase.from('employees').delete().eq('id', employee.id);
-            fetchEmployees();
-          },
-        },
-      ]
-    );
+    setRemoveTarget(employee);
+  };
+
+  const confirmRemoveEmployee = async () => {
+    if (!removeTarget) return;
+    await supabase.from('employees').delete().eq('id', removeTarget.id);
+    setRemoveTarget(null);
+    fetchEmployees();
   };
 
   const handleChangeEmail = async () => {
@@ -323,36 +333,17 @@ export default function BusinessPage() {
     } else {
       setPasswordForm({ newPassword: '', confirmPassword: '' });
       setShowChangePassword(false);
-      Alert.alert('Success', 'Password updated successfully.');
+      setPasswordSuccess('Password updated successfully.');
     }
   };
 
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete Account',
-      'Are you sure you want to delete your account? All your data including jobs, clients, and business details will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: confirmDeleteAccount },
-      ]
-    );
-  };
-
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      'Final Confirmation',
-      'This action cannot be undone. Your account and all associated data will be permanently removed.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Yes, Delete Everything', style: 'destructive', onPress: executeDeleteAccount },
-      ]
-    );
-  };
+  const handleDeleteAccount = () => setDeleteAccountStep(1);
 
   const executeDeleteAccount = async () => {
     setDeleteLoading(true);
+    setDeleteAccountStep(0);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setDeleteLoading(false); Alert.alert('Error', 'Unable to identify your account. Please sign in again.'); return; }
+    if (!user) { setDeleteLoading(false); return; }
 
     const userId = user.id;
     const jobsRes = await supabase.from('jobs').select('id').eq('user_id', userId);
@@ -452,9 +443,21 @@ export default function BusinessPage() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.saveButton} onPress={saveBusinessDetails}>
-          <Save size={20} color="#FFFFFF" />
-          <Text style={styles.saveButtonText}>Save Changes</Text>
+        {saveStatus && (
+          <View style={[styles.statusBanner, saveStatus.type === 'success' ? styles.statusBannerSuccess : styles.statusBannerError]}>
+            <Text style={[styles.statusBannerText, saveStatus.type === 'success' ? styles.statusBannerTextSuccess : styles.statusBannerTextError]}>
+              {saveStatus.message}
+            </Text>
+          </View>
+        )}
+        <TouchableOpacity
+          style={[styles.saveButton, saveLoading && styles.buttonDisabled]}
+          onPress={saveBusinessDetails}
+          disabled={saveLoading}>
+          {saveLoading
+            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            : <Save size={20} color="#FFFFFF" />}
+          <Text style={styles.saveButtonText}>{saveLoading ? 'Saving...' : 'Save Changes'}</Text>
         </TouchableOpacity>
 
         {/* Employees Section */}
@@ -501,6 +504,14 @@ export default function BusinessPage() {
                 ? <ActivityIndicator color="#FFFFFF" size="small" />
                 : <Text style={styles.confirmPasswordButtonText}>Add Employee</Text>}
             </TouchableOpacity>
+          </View>
+        )}
+
+        {inviteStatus && (
+          <View style={[styles.statusBanner, inviteStatus.type === 'success' ? styles.statusBannerSuccess : styles.statusBannerError]}>
+            <Text style={[styles.statusBannerText, inviteStatus.type === 'success' ? styles.statusBannerTextSuccess : styles.statusBannerTextError]}>
+              {inviteStatus.message}
+            </Text>
           </View>
         )}
 
@@ -609,6 +620,11 @@ export default function BusinessPage() {
         {/* Account Settings */}
         <View style={styles.divider} />
         <Text style={styles.sectionHeading}>Account Settings</Text>
+        {passwordSuccess ? (
+          <View style={[styles.statusBanner, styles.statusBannerSuccess]}>
+            <Text style={[styles.statusBannerText, styles.statusBannerTextSuccess]}>{passwordSuccess}</Text>
+          </View>
+        ) : null}
 
         <TouchableOpacity
           style={styles.settingsRow}
@@ -726,6 +742,78 @@ export default function BusinessPage() {
           </View>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Remove Employee Modal */}
+      <Modal
+        visible={removeTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRemoveTarget(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Remove Employee</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to remove {removeTarget?.name}? They will no longer have access to the app.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setRemoveTarget(null)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmDanger} onPress={confirmRemoveEmployee}>
+                <Text style={styles.modalConfirmText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Step 1 */}
+      <Modal
+        visible={deleteAccountStep === 1}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteAccountStep(0)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Delete Account</Text>
+            <Text style={styles.modalMessage}>
+              Are you sure you want to delete your account? All your data including jobs, clients, and business details will be permanently deleted.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setDeleteAccountStep(0)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmDanger} onPress={() => setDeleteAccountStep(2)}>
+                <Text style={styles.modalConfirmText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Account Step 2 */}
+      <Modal
+        visible={deleteAccountStep === 2}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteAccountStep(0)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Final Confirmation</Text>
+            <Text style={styles.modalMessage}>
+              This action cannot be undone. Your account and all associated data will be permanently removed.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setDeleteAccountStep(0)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmDanger} onPress={executeDeleteAccount}>
+                <Text style={styles.modalConfirmText}>Delete Everything</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -925,4 +1013,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
   },
   saveEditButtonText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  statusBanner: { borderRadius: 10, padding: 12, marginBottom: 12 },
+  statusBannerSuccess: { backgroundColor: '#D1FAE5' },
+  statusBannerError: { backgroundColor: '#FEE2E2' },
+  statusBannerText: { fontSize: 14, fontWeight: '500' },
+  statusBannerTextSuccess: { color: '#059669' },
+  statusBannerTextError: { color: '#DC2626' },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  modalBox: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24,
+    width: '100%', maxWidth: 360,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 10 },
+  modalMessage: { fontSize: 14, color: '#4B5563', lineHeight: 20, marginBottom: 20 },
+  modalButtons: { flexDirection: 'row', gap: 10 },
+  modalCancel: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#F3F4F6', alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  modalConfirmDanger: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#EF4444', alignItems: 'center',
+  },
+  modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });
