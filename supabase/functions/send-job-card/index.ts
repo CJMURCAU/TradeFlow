@@ -55,6 +55,7 @@ Deno.serve(async (req: Request) => {
     const { data: business } = await supabase
       .from("business_details")
       .select("*")
+      .eq("user_id", job.user_id)
       .maybeSingle();
 
     const totalPartsCost = (parts || []).reduce(
