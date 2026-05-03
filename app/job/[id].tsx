@@ -577,94 +577,6 @@ export default function JobDetailPage() {
           </View>
         )}
 
-        {/* Assign Employees — owner only, only shown if employees exist */}
-        {!isEmployee && employees.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionTitleRow}>
-                <Users size={18} color="#111827" />
-                <Text style={styles.sectionTitle}>Assigned Employees</Text>
-              </View>
-            </View>
-
-            {/* Dropdown selector */}
-            {unassignedActiveEmployees.length > 0 && (
-              <View style={styles.dropdownWrapper}>
-                <TouchableOpacity
-                  style={styles.dropdownTrigger}
-                  onPress={() => setShowAssignDropdown(v => !v)}
-                  activeOpacity={0.7}>
-                  <UserCheck size={16} color="#6B7280" />
-                  <Text style={styles.dropdownTriggerText}>Assign an employee...</Text>
-                  <ChevronDown size={16} color="#9CA3AF" style={{ marginLeft: 'auto' }} />
-                </TouchableOpacity>
-
-                {showAssignDropdown && (
-                  <View style={styles.dropdownMenu}>
-                    {assignLoading && (
-                      <View style={styles.dropdownLoadingRow}>
-                        <ActivityIndicator size="small" color="#F59E0B" />
-                      </View>
-                    )}
-                    {unassignedActiveEmployees.map((emp, idx) => (
-                      <TouchableOpacity
-                        key={emp.id}
-                        style={[
-                          styles.dropdownItem,
-                          idx < unassignedActiveEmployees.length - 1 && styles.dropdownItemBorder,
-                        ]}
-                        onPress={() => handleAssignEmployee(emp)}
-                        disabled={assignLoading}>
-                        <View style={styles.dropdownItemAvatar}>
-                          <Text style={styles.dropdownItemAvatarText}>
-                            {emp.name.charAt(0).toUpperCase()}
-                          </Text>
-                        </View>
-                        <View style={styles.dropdownItemInfo}>
-                          <Text style={styles.dropdownItemName}>{emp.name}</Text>
-                          {emp.email ? <Text style={styles.dropdownItemEmail}>{emp.email}</Text> : null}
-                        </View>
-                        <UserCheck size={16} color="#F59E0B" />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {assignments.length === 0 ? (
-              <Text style={styles.noAssignmentsText}>No employees assigned yet.</Text>
-            ) : (
-              assignments.map(a => (
-                <View key={a.id} style={styles.assignmentRow}>
-                  <View style={styles.assignmentAvatar}>
-                    <Text style={styles.assignmentAvatarText}>
-                      {(a.employee?.name ?? '?').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <View style={styles.assignmentInfo}>
-                    <Text style={styles.assignmentName}>{a.employee?.name ?? 'Unknown'}</Text>
-                    <Text style={styles.assignmentEmail}>{a.employee?.email ?? ''}</Text>
-                  </View>
-                  <View style={styles.assignmentRight}>
-                    {a.completed && (
-                      <View style={styles.completedBadge}>
-                        <CheckCircle size={14} color="#10B981" />
-                        <Text style={styles.completedBadgeText}>Done</Text>
-                      </View>
-                    )}
-                    <TouchableOpacity
-                      style={styles.removeButton}
-                      onPress={() => handleRemoveAssignment(a.id)}>
-                      <Trash2 size={16} color="#EF4444" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )}
-          </View>
-        )}
-
         {/* Employee Notes & Mark Complete — employee only */}
         {isEmployee && employeeRecord && (
           <>
@@ -726,6 +638,99 @@ export default function JobDetailPage() {
               </View>
             )}
           </>
+        )}
+
+        {/* Assign Employees — owner only */}
+        {!isEmployee && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Users size={18} color="#111827" />
+                <Text style={styles.sectionTitle}>Assign to Employee</Text>
+              </View>
+            </View>
+
+            <View style={styles.dropdownWrapper}>
+              <TouchableOpacity
+                style={[styles.dropdownTrigger, employees.length === 0 && styles.dropdownTriggerDisabled]}
+                onPress={() => employees.length > 0 && setShowAssignDropdown(v => !v)}
+                activeOpacity={employees.length > 0 ? 0.7 : 1}>
+                <UserCheck size={16} color={employees.length > 0 ? '#6B7280' : '#D1D5DB'} />
+                <Text style={[styles.dropdownTriggerText, employees.length === 0 && styles.dropdownTriggerTextDisabled]}>
+                  {employees.length === 0
+                    ? 'No active employees'
+                    : unassignedActiveEmployees.length === 0
+                      ? 'All employees assigned'
+                      : 'Assign an employee...'}
+                </Text>
+                {employees.length > 0 && unassignedActiveEmployees.length > 0 && (
+                  <ChevronDown size={16} color="#9CA3AF" style={{ marginLeft: 'auto' }} />
+                )}
+              </TouchableOpacity>
+
+              {showAssignDropdown && unassignedActiveEmployees.length > 0 && (
+                <View style={styles.dropdownMenu}>
+                  {assignLoading && (
+                    <View style={styles.dropdownLoadingRow}>
+                      <ActivityIndicator size="small" color="#F59E0B" />
+                    </View>
+                  )}
+                  {unassignedActiveEmployees.map((emp, idx) => (
+                    <TouchableOpacity
+                      key={emp.id}
+                      style={[
+                        styles.dropdownItem,
+                        idx < unassignedActiveEmployees.length - 1 && styles.dropdownItemBorder,
+                      ]}
+                      onPress={() => handleAssignEmployee(emp)}
+                      disabled={assignLoading}>
+                      <View style={styles.dropdownItemAvatar}>
+                        <Text style={styles.dropdownItemAvatarText}>
+                          {emp.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={styles.dropdownItemInfo}>
+                        <Text style={styles.dropdownItemName}>{emp.name}</Text>
+                        {emp.email ? <Text style={styles.dropdownItemEmail}>{emp.email}</Text> : null}
+                      </View>
+                      <UserCheck size={16} color="#F59E0B" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {assignments.length > 0 && (
+              <View style={styles.assignmentsList}>
+                {assignments.map(a => (
+                  <View key={a.id} style={styles.assignmentRow}>
+                    <View style={styles.assignmentAvatar}>
+                      <Text style={styles.assignmentAvatarText}>
+                        {(a.employee?.name ?? '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={styles.assignmentInfo}>
+                      <Text style={styles.assignmentName}>{a.employee?.name ?? 'Unknown'}</Text>
+                      <Text style={styles.assignmentEmail}>{a.employee?.email ?? ''}</Text>
+                    </View>
+                    <View style={styles.assignmentRight}>
+                      {a.completed && (
+                        <View style={styles.completedBadge}>
+                          <CheckCircle size={14} color="#10B981" />
+                          <Text style={styles.completedBadgeText}>Done</Text>
+                        </View>
+                      )}
+                      <TouchableOpacity
+                        style={styles.removeButton}
+                        onPress={() => handleRemoveAssignment(a.id)}>
+                        <Trash2 size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
         )}
 
         {/* Send Job Card — owner only */}
@@ -904,7 +909,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
+  dropdownTriggerDisabled: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
   dropdownTriggerText: { fontSize: 15, color: '#6B7280', flex: 1 },
+  dropdownTriggerTextDisabled: { color: '#D1D5DB' },
   dropdownMenu: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -940,6 +947,7 @@ const styles = StyleSheet.create({
   dropdownItemName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   dropdownItemEmail: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
   // Assignments list
+  assignmentsList: { marginTop: 8 },
   noAssignmentsText: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' },
   assignmentRow: {
     flexDirection: 'row',
