@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const { employeeId } = await req.json();
+    const { employeeId, appUrl: clientAppUrl } = await req.json();
     if (!employeeId) {
       return new Response(JSON.stringify({ error: "employeeId is required" }), {
         status: 400,
@@ -92,12 +92,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", employeeId);
     }
 
-    // Use the configured app URL, falling back to the Supabase project URL as a host
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const defaultHost = supabaseUrl.replace("https://", "").split(".")[0]
-      ? `https://${supabaseUrl.replace("https://", "").split(".")[0]}.app`
-      : "https://tradeflow.app";
-    const appUrl = Deno.env.get("EXPO_PUBLIC_APP_URL") || defaultHost;
+    const appUrl = clientAppUrl || "https://tradeflow.app";
     const inviteLink = `${appUrl}/invite?token=${token}`;
 
     const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");

@@ -223,7 +223,10 @@ export default function BusinessPage() {
           'Authorization': `Bearer ${session?.access_token ?? supabaseAnonKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ employeeId: employee.id }),
+        body: JSON.stringify({
+          employeeId: employee.id,
+          appUrl: typeof window !== 'undefined' ? window.location.origin : '',
+        }),
       });
 
       const result = await response.json();
