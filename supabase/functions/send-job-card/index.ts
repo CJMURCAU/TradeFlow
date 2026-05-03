@@ -200,7 +200,7 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: { name: companyName, email: "hello@demomailtrap.co" },
+        from: { name: companyName, email: "mailtrap@demomailtrap.co" },
         to: [{ email: recipientEmail }],
         reply_to: [{ email: recipientEmail }],
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
