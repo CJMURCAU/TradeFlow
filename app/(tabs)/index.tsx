@@ -14,11 +14,11 @@ import {
   StatusBar,
   Platform,
   Image,
-  Alert,
+  Modal,
 } from 'react-native';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -52,10 +52,13 @@ export default function CalendarPage() {
   const [expandedVisible, setExpandedVisible] = useState(false);
   const [animating, setAnimating] = useState(false);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
 
-  useEffect(() => {
-    fetchJobs();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchJobs();
+    }, [])
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -72,14 +75,7 @@ export default function CalendarPage() {
   };
 
   const confirmDeleteJob = (job: Job & { client?: Client }) => {
-    Alert.alert(
-      'Delete Job',
-      `Are you sure you want to delete "${job.title}"? This cannot be undone.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteJob(job.id) },
-      ]
-    );
+    setDeleteTarget(job);
   };
 
   const fetchJobs = async () => {
@@ -476,6 +472,36 @@ export default function CalendarPage() {
       <TouchableOpacity style={styles.fab} onPress={() => router.push('/newjob')}>
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      <Modal
+        visible={deleteTarget !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteTarget(null)}>
+        <View style={styles.deleteModalOverlay}>
+          <View style={styles.deleteModalBox}>
+            <Text style={styles.deleteModalTitle}>Delete Job</Text>
+            <Text style={styles.deleteModalMessage}>
+              Are you sure you want to delete "{deleteTarget?.title}"? This cannot be undone.
+            </Text>
+            <View style={styles.deleteModalButtons}>
+              <TouchableOpacity
+                style={styles.deleteModalCancel}
+                onPress={() => setDeleteTarget(null)}>
+                <Text style={styles.deleteModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.deleteModalConfirm}
+                onPress={() => {
+                  if (deleteTarget) deleteJob(deleteTarget.id);
+                  setDeleteTarget(null);
+                }}>
+                <Text style={styles.deleteModalConfirmText}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Animated.View
         pointerEvents={expandedVisible && !animating ? 'box-none' : 'none'}
@@ -897,5 +923,59 @@ const styles = StyleSheet.create({
   modalCalendarWrapper: {
     height: MODAL_CALENDAR_HEIGHT,
     overflow: 'hidden',
+  },
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  deleteModalBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+  },
+  deleteModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 10,
+  },
+  deleteModalMessage: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  deleteModalCancel: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  deleteModalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  deleteModalConfirm: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+  },
+  deleteModalConfirmText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
