@@ -18,9 +18,11 @@ const EMPLOYEE_TABS = [
 export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { role } = useRole();
+  const { role, loading } = useRole();
 
   const TABS = role === 'employee' ? EMPLOYEE_TABS : OWNER_TABS;
+
+  if (loading) return null;
 
   const isActive = (path: string) => {
     if (path === '/(tabs)/') return pathname === '/' || pathname === '/(tabs)/';

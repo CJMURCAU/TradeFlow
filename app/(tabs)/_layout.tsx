@@ -1,11 +1,24 @@
-import { Tabs } from 'expo-router';
+import { useEffect } from 'react';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Calendar, LayoutDashboard, Users, Briefcase, Building2 } from 'lucide-react-native';
 import { useRole } from '@/lib/roleContext';
 
+const EMPLOYEE_RESTRICTED = ['index', 'dashboard', 'clients', 'business'];
+
 export default function TabLayout() {
-  const { role } = useRole();
+  const { role, loading } = useRole();
+  const router = useRouter();
+  const segments = useSegments();
 
   const isEmployee = role === 'employee';
+
+  useEffect(() => {
+    if (loading || !isEmployee) return;
+    const currentTab = segments[segments.length - 1];
+    if (EMPLOYEE_RESTRICTED.includes(currentTab)) {
+      router.replace('/(tabs)/jobs');
+    }
+  }, [role, loading, segments]);
 
   return (
     <Tabs
