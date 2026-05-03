@@ -6,14 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Linking,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobEmployeeNote } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
-import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, MessageSquare, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, MessageSquare, CircleCheck as CheckCircle, ChevronDown } from 'lucide-react-native';
 
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
@@ -32,9 +32,15 @@ export default function JobDetailPage() {
   const [description, setDescription] = useState('');
   const [newPart, setNewPart] = useState({ name: '', cost: '', quantity: '1' });
   const [showAddPart, setShowAddPart] = useState(false);
+  const [partError, setPartError] = useState('');
   const [hourlyRate, setHourlyRate] = useState(0);
   const [business, setBusiness] = useState<BusinessDetails | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Modals
+  const [stopTimerModal, setStopTimerModal] = useState(false);
+  const [markCompleteModal, setMarkCompleteModal] = useState(false);
 
   // Owner: employee assignment
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -48,6 +54,7 @@ export default function JobDetailPage() {
   const [newNote, setNewNote] = useState('');
   const [noteLoading, setNoteLoading] = useState(false);
   const [markingComplete, setMarkingComplete] = useState(false);
+  const [markedCompleteSuccess, setMarkedCompleteSuccess] = useState(false);
 
   useEffect(() => {
     if (id) fetchJobDetails();
@@ -200,16 +207,15 @@ export default function JobDetailPage() {
   const handleMarkComplete = async () => {
     if (!myAssignment || !employeeRecord || !job) return;
     setMarkingComplete(true);
+    setMarkCompleteModal(false);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setMarkingComplete(false); return; }
 
-    // Update the assignment as completed
     await supabase.from('job_assignments')
       .update({ completed: true, completed_at: new Date().toISOString() })
       .eq('id', myAssignment.id);
 
-    // Fetch the owner's user_id from the employee record
     const { data: emp } = await supabase
       .from('employees')
       .select('user_id')
@@ -225,8 +231,8 @@ export default function JobDetailPage() {
     }
 
     setMarkingComplete(false);
+    setMarkedCompleteSuccess(true);
     fetchEmployeeData();
-    Alert.alert('Done', 'Job marked as complete. Your employer has been notified.');
   };
 
   const startTimer = async () => {
@@ -267,16 +273,11 @@ export default function JobDetailPage() {
     }
   };
 
-  const stopTimer = async () => {
-    if (!currentTimeEntry) return;
-    Alert.alert('Stop Timer', 'Are you sure you want to stop the timer?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Stop', style: 'destructive', onPress: async () => { await pauseTimer(); } },
-    ]);
-  };
+  const stopTimer = () => setStopTimerModal(true);
 
   const addPart = async () => {
-    if (!newPart.name.trim()) { Alert.alert('Error', 'Please enter a part name'); return; }
+    setPartError('');
+    if (!newPart.name.trim()) { setPartError('Please enter a part name'); return; }
     const { error } = await supabase.from('parts').insert({
       job_id: id,
       name: newPart.name,
@@ -317,6 +318,7 @@ export default function JobDetailPage() {
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
     setIsSendingEmail(true);
+    setEmailStatus(null);
     try {
       const response = await fetch(`${supabaseUrl}/functions/v1/send-job-card`, {
         method: 'POST',
@@ -329,15 +331,15 @@ export default function JobDetailPage() {
       const result = await response.json();
       if (!response.ok) {
         const detail = result.details?.message || result.details?.name || JSON.stringify(result.details) || '';
-        Alert.alert('Failed to Send', result.error + (detail ? `\n\n${detail}` : '') || 'Something went wrong.');
+        setEmailStatus({ type: 'error', message: result.error + (detail ? `\n\n${detail}` : '') || 'Something went wrong.' });
         return;
       }
       await supabase.from('jobs').update({ status: 'completed' }).eq('id', job.id);
       setJob(prev => prev ? { ...prev, status: 'completed' } : prev);
-      Alert.alert('Email Sent', `Job card emailed to ${result.sentTo}`);
+      setEmailStatus({ type: 'success', message: `Job card emailed to ${result.sentTo}` });
       fetchJobDetails();
     } catch {
-      Alert.alert('Error', 'Could not connect to email service. Please try again.');
+      setEmailStatus({ type: 'error', message: 'Could not connect to email service. Please try again.' });
     } finally {
       setIsSendingEmail(false);
     }
@@ -491,7 +493,7 @@ export default function JobDetailPage() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Parts</Text>
-              <TouchableOpacity onPress={() => setShowAddPart(!showAddPart)}>
+              <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
                 <Plus size={20} color="#F59E0B" />
               </TouchableOpacity>
             </View>
@@ -523,6 +525,7 @@ export default function JobDetailPage() {
                     keyboardType="number-pad"
                   />
                 </View>
+                {partError ? <Text style={styles.errorText}>{partError}</Text> : null}
                 <TouchableOpacity style={styles.addButton} onPress={addPart}>
                   <Text style={styles.addButtonText}>Add Part</Text>
                 </TouchableOpacity>
@@ -574,60 +577,91 @@ export default function JobDetailPage() {
           </View>
         )}
 
-        {/* Assign Employees — owner only */}
-        {!isEmployee && (
+        {/* Assign Employees — owner only, only shown if employees exist */}
+        {!isEmployee && employees.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <View style={styles.sectionTitleRow}>
                 <Users size={18} color="#111827" />
                 <Text style={styles.sectionTitle}>Assigned Employees</Text>
               </View>
-              {unassignedActiveEmployees.length > 0 && (
-                <TouchableOpacity onPress={() => setShowAssignDropdown(!showAssignDropdown)}>
-                  <Plus size={20} color="#F59E0B" />
-                </TouchableOpacity>
-              )}
             </View>
 
-            {showAssignDropdown && (
-              <View style={styles.assignDropdown}>
-                {assignLoading && <ActivityIndicator size="small" color="#F59E0B" />}
-                {unassignedActiveEmployees.map(emp => (
-                  <TouchableOpacity
-                    key={emp.id}
-                    style={styles.assignOption}
-                    onPress={() => handleAssignEmployee(emp)}
-                    disabled={assignLoading}>
-                    <UserCheck size={16} color="#374151" />
-                    <Text style={styles.assignOptionText}>{emp.name}</Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Dropdown selector */}
+            {unassignedActiveEmployees.length > 0 && (
+              <View style={styles.dropdownWrapper}>
+                <TouchableOpacity
+                  style={styles.dropdownTrigger}
+                  onPress={() => setShowAssignDropdown(v => !v)}
+                  activeOpacity={0.7}>
+                  <UserCheck size={16} color="#6B7280" />
+                  <Text style={styles.dropdownTriggerText}>Assign an employee...</Text>
+                  <ChevronDown size={16} color="#9CA3AF" style={{ marginLeft: 'auto' }} />
+                </TouchableOpacity>
+
+                {showAssignDropdown && (
+                  <View style={styles.dropdownMenu}>
+                    {assignLoading && (
+                      <View style={styles.dropdownLoadingRow}>
+                        <ActivityIndicator size="small" color="#F59E0B" />
+                      </View>
+                    )}
+                    {unassignedActiveEmployees.map((emp, idx) => (
+                      <TouchableOpacity
+                        key={emp.id}
+                        style={[
+                          styles.dropdownItem,
+                          idx < unassignedActiveEmployees.length - 1 && styles.dropdownItemBorder,
+                        ]}
+                        onPress={() => handleAssignEmployee(emp)}
+                        disabled={assignLoading}>
+                        <View style={styles.dropdownItemAvatar}>
+                          <Text style={styles.dropdownItemAvatarText}>
+                            {emp.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.dropdownItemInfo}>
+                          <Text style={styles.dropdownItemName}>{emp.name}</Text>
+                          {emp.email ? <Text style={styles.dropdownItemEmail}>{emp.email}</Text> : null}
+                        </View>
+                        <UserCheck size={16} color="#F59E0B" />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
 
-            {assignments.length === 0 && (
+            {assignments.length === 0 ? (
               <Text style={styles.noAssignmentsText}>No employees assigned yet.</Text>
+            ) : (
+              assignments.map(a => (
+                <View key={a.id} style={styles.assignmentRow}>
+                  <View style={styles.assignmentAvatar}>
+                    <Text style={styles.assignmentAvatarText}>
+                      {(a.employee?.name ?? '?').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.assignmentInfo}>
+                    <Text style={styles.assignmentName}>{a.employee?.name ?? 'Unknown'}</Text>
+                    <Text style={styles.assignmentEmail}>{a.employee?.email ?? ''}</Text>
+                  </View>
+                  <View style={styles.assignmentRight}>
+                    {a.completed && (
+                      <View style={styles.completedBadge}>
+                        <CheckCircle size={14} color="#10B981" />
+                        <Text style={styles.completedBadgeText}>Done</Text>
+                      </View>
+                    )}
+                    <TouchableOpacity
+                      style={styles.removeButton}
+                      onPress={() => handleRemoveAssignment(a.id)}>
+                      <Trash2 size={16} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
             )}
-
-            {assignments.map(a => (
-              <View key={a.id} style={styles.assignmentRow}>
-                <View style={styles.assignmentInfo}>
-                  <Text style={styles.assignmentName}>{a.employee?.name ?? 'Unknown'}</Text>
-                  <Text style={styles.assignmentEmail}>{a.employee?.email ?? ''}</Text>
-                </View>
-                <View style={styles.assignmentRight}>
-                  {a.completed && (
-                    <View style={styles.completedBadge}>
-                      <CheckCircle size={14} color="#10B981" />
-                      <Text style={styles.completedBadgeText}>Done</Text>
-                    </View>
-                  )}
-                  <TouchableOpacity onPress={() => handleRemoveAssignment(a.id)}>
-                    <Trash2 size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
           </View>
         )}
 
@@ -671,7 +705,7 @@ export default function JobDetailPage() {
 
             {myAssignment && (
               <View style={styles.section}>
-                {myAssignment.completed ? (
+                {myAssignment.completed || markedCompleteSuccess ? (
                   <View style={styles.alreadyCompletedBanner}>
                     <CheckCircle size={20} color="#10B981" />
                     <Text style={styles.alreadyCompletedText}>You marked this job as complete</Text>
@@ -679,7 +713,7 @@ export default function JobDetailPage() {
                 ) : (
                   <TouchableOpacity
                     style={[styles.markCompleteButton, markingComplete && styles.buttonDisabled]}
-                    onPress={handleMarkComplete}
+                    onPress={() => setMarkCompleteModal(true)}
                     disabled={markingComplete}>
                     {markingComplete
                       ? <ActivityIndicator color="#FFFFFF" />
@@ -697,11 +731,20 @@ export default function JobDetailPage() {
         {/* Send Job Card — owner only */}
         {!isEmployee && (
           <View style={styles.section}>
+            {emailStatus && (
+              <View style={[styles.emailStatusBanner, emailStatus.type === 'success' ? styles.emailStatusSuccess : styles.emailStatusError]}>
+                <Text style={[styles.emailStatusText, emailStatus.type === 'success' ? styles.emailStatusTextSuccess : styles.emailStatusTextError]}>
+                  {emailStatus.message}
+                </Text>
+              </View>
+            )}
             <TouchableOpacity
               style={[styles.emailButton, job.email_sent && styles.emailButtonSent, isSendingEmail && styles.emailButtonDisabled]}
               onPress={sendJobCardViaService}
               disabled={isSendingEmail}>
-              <Mail size={20} color="#FFFFFF" />
+              {isSendingEmail
+                ? <ActivityIndicator color="#FFFFFF" size="small" />
+                : <Mail size={20} color="#FFFFFF" />}
               <Text style={styles.emailButtonText}>
                 {isSendingEmail ? 'Sending...' : job.email_sent ? 'Resend Job Card' : 'Send Job Card'}
               </Text>
@@ -709,6 +752,54 @@ export default function JobDetailPage() {
           </View>
         )}
       </ScrollView>
+
+      {/* Stop Timer Confirmation Modal */}
+      <Modal
+        visible={stopTimerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStopTimerModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Stop Timer</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to stop the timer?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setStopTimerModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmDanger}
+                onPress={() => { setStopTimerModal(false); pauseTimer(); }}>
+                <Text style={styles.modalConfirmText}>Stop</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Mark Complete Confirmation Modal */}
+      <Modal
+        visible={markCompleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMarkCompleteModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Mark as Complete</Text>
+            <Text style={styles.modalMessage}>
+              This will notify your employer that you've finished this job. Are you sure?
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.modalCancel} onPress={() => setMarkCompleteModal(false)}>
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmGreen} onPress={handleMarkComplete}>
+                <Text style={styles.modalConfirmText}>Confirm</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -781,6 +872,7 @@ const styles = StyleSheet.create({
   },
   partRow: { flexDirection: 'row', gap: 12 },
   inputSmall: { flex: 1 },
+  errorText: { fontSize: 13, color: '#EF4444', marginBottom: 10 },
   addButton: { backgroundColor: '#F59E0B', padding: 12, borderRadius: 8, alignItems: 'center' },
   addButtonText: { color: '#FFFFFF', fontWeight: '600' },
   partCard: {
@@ -799,27 +891,90 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
   summaryTotalLabel: { fontSize: 17, fontWeight: '700', color: '#111827' },
   summaryTotalValue: { fontSize: 20, fontWeight: '800', color: '#F59E0B' },
-  assignDropdown: {
-    backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1,
-    borderColor: '#E5E7EB', marginBottom: 12, overflow: 'hidden',
+  // Dropdown
+  dropdownWrapper: { marginBottom: 12 },
+  dropdownTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
   },
-  assignOption: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    padding: 14, borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
+  dropdownTriggerText: { fontSize: 15, color: '#6B7280', flex: 1 },
+  dropdownMenu: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    marginTop: 4,
+    overflow: 'hidden',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
-  assignOptionText: { fontSize: 15, color: '#111827', fontWeight: '500' },
+  dropdownLoadingRow: { padding: 14, alignItems: 'center' },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  dropdownItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  dropdownItemAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dropdownItemAvatarText: { fontSize: 15, fontWeight: '700', color: '#D97706' },
+  dropdownItemInfo: { flex: 1 },
+  dropdownItemName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  dropdownItemEmail: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
+  // Assignments list
   noAssignmentsText: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' },
   assignmentRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14, marginBottom: 8,
-    borderWidth: 1, borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
+  assignmentAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  assignmentAvatarText: { fontSize: 16, fontWeight: '700', color: '#D97706' },
   assignmentInfo: { flex: 1 },
   assignmentName: { fontSize: 15, fontWeight: '600', color: '#111827' },
   assignmentEmail: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   assignmentRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  completedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#D1FAE5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20 },
+  completedBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#D1FAE5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20,
+  },
   completedBadgeText: { fontSize: 11, fontWeight: '700', color: '#10B981' },
+  removeButton: {
+    width: 32, height: 32, borderRadius: 8,
+    backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
+  },
   noteCard: {
     backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14,
     marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB',
@@ -847,6 +1002,14 @@ const styles = StyleSheet.create({
   },
   alreadyCompletedText: { fontSize: 15, fontWeight: '600', color: '#059669' },
   buttonDisabled: { opacity: 0.6 },
+  emailStatusBanner: {
+    borderRadius: 10, padding: 12, marginBottom: 10,
+  },
+  emailStatusSuccess: { backgroundColor: '#D1FAE5' },
+  emailStatusError: { backgroundColor: '#FEE2E2' },
+  emailStatusText: { fontSize: 14, fontWeight: '500' },
+  emailStatusTextSuccess: { color: '#059669' },
+  emailStatusTextError: { color: '#DC2626' },
   emailButton: {
     backgroundColor: '#F59E0B', padding: 16, borderRadius: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -854,4 +1017,30 @@ const styles = StyleSheet.create({
   emailButtonSent: { backgroundColor: '#10B981' },
   emailButtonDisabled: { opacity: 0.6 },
   emailButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
+  // Modals
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  modalBox: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24,
+    width: '100%', maxWidth: 360,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 10 },
+  modalMessage: { fontSize: 14, color: '#4B5563', lineHeight: 20, marginBottom: 20 },
+  modalButtons: { flexDirection: 'row', gap: 10 },
+  modalCancel: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#F3F4F6', alignItems: 'center',
+  },
+  modalCancelText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  modalConfirmDanger: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#EF4444', alignItems: 'center',
+  },
+  modalConfirmGreen: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#10B981', alignItems: 'center',
+  },
+  modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
 });
