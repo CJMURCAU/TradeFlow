@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRouter, Stack } from 'expo-router';
@@ -21,17 +21,25 @@ export default function NewClientPage() {
     email: '',
     address: '',
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const createClient = async () => {
+    setError('');
     if (!formData.company_name.trim()) {
-      Alert.alert('Error', 'Please enter a company name');
+      setError('Please enter a company name');
       return;
     }
 
+    setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { Alert.alert('Error', 'You must be signed in to create a client'); return; }
+    if (!user) {
+      setError('You must be signed in to create a client');
+      setLoading(false);
+      return;
+    }
 
-    const { data, error } = await supabase
+    const { data, error: insertError } = await supabase
       .from('clients')
       .insert({
         user_id: user.id,
@@ -44,12 +52,12 @@ export default function NewClientPage() {
       .select()
       .single();
 
-    if (error) {
-      Alert.alert('Error', 'Failed to create client');
+    setLoading(false);
+
+    if (insertError) {
+      setError('Failed to create client. Please try again.');
     } else if (data) {
-      Alert.alert('Success', 'Client created successfully', [
-        { text: 'OK', onPress: () => router.push(`/client/${data.id}`) },
-      ]);
+      router.replace(`/client/${data.id}`);
     }
   };
 
@@ -124,9 +132,18 @@ export default function NewClientPage() {
           />
         </View>
 
-        <TouchableOpacity style={styles.createButton} onPress={createClient}>
-          <Save size={20} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Create Client</Text>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.createButton, loading && styles.buttonDisabled]}
+          onPress={createClient}
+          disabled={loading}>
+          {loading
+            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            : <>
+                <Save size={20} color="#FFFFFF" />
+                <Text style={styles.createButtonText}>Create Client</Text>
+              </>}
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -184,6 +201,11 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    marginBottom: 12,
+  },
   createButton: {
     backgroundColor: '#F59E0B',
     padding: 16,
@@ -193,6 +215,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 8,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   createButtonText: {
     color: '#FFFFFF',

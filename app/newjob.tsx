@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
+  ActivityIndicator,
   Modal,
   FlatList,
   Dimensions,
@@ -26,6 +26,10 @@ export default function NewJobPage() {
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [jobError, setJobError] = useState('');
+  const [jobLoading, setJobLoading] = useState(false);
+  const [clientError, setClientError] = useState('');
+  const [clientLoading, setClientLoading] = useState(false);
   const calendarFlatListRef = useRef<FlatList>(null);
   const [calendarIndex, setCalendarIndex] = useState(0);
   const [newClientData, setNewClientData] = useState({
@@ -66,13 +70,15 @@ export default function NewJobPage() {
   };
 
   const createClient = async () => {
+    setClientError('');
     if (!newClientData.company_name.trim()) {
-      Alert.alert('Error', 'Please enter a company name');
+      setClientError('Please enter a company name');
       return;
     }
 
+    setClientLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { Alert.alert('Error', 'You must be signed in'); return; }
+    if (!user) { setClientError('You must be signed in'); setClientLoading(false); return; }
 
     const { data, error } = await supabase
       .from('clients')
@@ -87,55 +93,55 @@ export default function NewJobPage() {
       .select()
       .single();
 
+    setClientLoading(false);
+
     if (error) {
-      Alert.alert('Error', 'Failed to create client');
+      setClientError('Failed to create client. Please try again.');
     } else if (data) {
-      setClients([...clients, data]);
+      setClients(prev => [...prev, data]);
       setFormData(prev => ({ ...prev, client_id: data.id }));
       setNewClientData({ company_name: '', name: '', phone: '', email: '', address: '' });
       setShowNewClientForm(false);
-      Alert.alert('Success', 'Client created successfully');
     }
   };
 
   const createJob = async () => {
+    setJobError('');
     if (!formData.title.trim()) {
-      Alert.alert('Error', 'Please enter a job title');
+      setJobError('Please enter a job title');
       return;
     }
-
     if (!formData.client_id) {
-      Alert.alert('Error', 'Please select a client');
+      setJobError('Please select a client');
       return;
     }
 
+    setJobLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { Alert.alert('Error', 'You must be signed in'); return; }
+    if (!user) { setJobError('You must be signed in'); setJobLoading(false); return; }
 
     const scheduledDateTime = `${formData.date}T${formData.hour}:${formData.minute}:00`;
 
-    const jobData = {
-      user_id: user.id,
-      client_id: formData.client_id,
-      title: formData.title,
-      purchase_order_number: formData.purchase_order_number,
-      description: formData.description,
-      status: 'pending',
-      scheduled_time: new Date(scheduledDateTime).toISOString(),
-    };
-
     const { data, error } = await supabase
       .from('jobs')
-      .insert(jobData)
+      .insert({
+        user_id: user.id,
+        client_id: formData.client_id,
+        title: formData.title,
+        purchase_order_number: formData.purchase_order_number,
+        description: formData.description,
+        status: 'pending',
+        scheduled_time: new Date(scheduledDateTime).toISOString(),
+      })
       .select()
       .single();
 
+    setJobLoading(false);
+
     if (error) {
-      Alert.alert('Error', 'Failed to create job');
+      setJobError('Failed to create job. Please try again.');
     } else if (data) {
-      Alert.alert('Success', 'Job created successfully', [
-        { text: 'OK', onPress: () => router.push(`/job/${data.id}`) },
-      ]);
+      router.replace(`/job/${data.id}`);
     }
   };
 
@@ -305,17 +311,24 @@ export default function NewJobPage() {
                 multiline
                 numberOfLines={2}
               />
+              {clientError ? <Text style={styles.errorText}>{clientError}</Text> : null}
               <View style={styles.clientFormButtons}>
                 <TouchableOpacity
                   style={styles.cancelClientButton}
                   onPress={() => {
                     setShowNewClientForm(false);
+                    setClientError('');
                     setNewClientData({ company_name: '', name: '', phone: '', email: '', address: '' });
                   }}>
                   <Text style={styles.cancelClientText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveClientButton} onPress={createClient}>
-                  <Text style={styles.saveClientText}>Save Client</Text>
+                <TouchableOpacity
+                  style={[styles.saveClientButton, clientLoading && styles.buttonDisabled]}
+                  onPress={createClient}
+                  disabled={clientLoading}>
+                  {clientLoading
+                    ? <ActivityIndicator color="#FFFFFF" size="small" />
+                    : <Text style={styles.saveClientText}>Save Client</Text>}
                 </TouchableOpacity>
               </View>
             </View>
@@ -477,9 +490,18 @@ export default function NewJobPage() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.createButton} onPress={createJob}>
-          <Save size={20} color="#FFFFFF" />
-          <Text style={styles.createButtonText}>Create Job</Text>
+        {jobError ? <Text style={styles.errorText}>{jobError}</Text> : null}
+
+        <TouchableOpacity
+          style={[styles.createButton, jobLoading && styles.buttonDisabled]}
+          onPress={createJob}
+          disabled={jobLoading}>
+          {jobLoading
+            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            : <>
+                <Save size={20} color="#FFFFFF" />
+                <Text style={styles.createButtonText}>Create Job</Text>
+              </>}
         </TouchableOpacity>
       </ScrollView>
 
@@ -877,6 +899,14 @@ const styles = StyleSheet.create({
   },
   calGridDayNumPast: {
     color: '#D1D5DB',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#EF4444',
+    marginBottom: 12,
+  },
+  buttonDisabled: {
+    opacity: 0.6,
   },
   createButton: {
     backgroundColor: '#F59E0B',
