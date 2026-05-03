@@ -193,8 +193,6 @@ Deno.serve(async (req: Request) => {
 
     const recipientEmail = business.job_email;
 
-    const senderEmail = business?.job_email || recipientEmail;
-
     const mailtrapResponse = await fetch("https://send.api.mailtrap.io/api/send", {
       method: "POST",
       headers: {
@@ -202,8 +200,9 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: { name: companyName, email: senderEmail },
+        from: { name: companyName, email: "hello@demomailtrap.co" },
         to: [{ email: recipientEmail }],
+        reply_to: [{ email: recipientEmail }],
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
         html: emailHtml,
       }),
