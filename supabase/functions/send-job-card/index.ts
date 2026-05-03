@@ -203,7 +203,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         from: { name: companyName, email: "mailtrap@demomailtrap.co" },
         to: [{ email: recipientEmail }],
-        reply_to: [{ email: recipientEmail }],
+        reply_to: { email: recipientEmail },
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
         html: emailHtml,
       }),
