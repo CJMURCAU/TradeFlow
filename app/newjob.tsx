@@ -71,9 +71,13 @@ export default function NewJobPage() {
       return;
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { Alert.alert('Error', 'You must be signed in'); return; }
+
     const { data, error } = await supabase
       .from('clients')
       .insert({
+        user_id: user.id,
         company_name: newClientData.company_name,
         name: newClientData.name,
         phone: newClientData.phone,
@@ -105,9 +109,13 @@ export default function NewJobPage() {
       return;
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { Alert.alert('Error', 'You must be signed in'); return; }
+
     const scheduledDateTime = `${formData.date}T${formData.hour}:${formData.minute}:00`;
 
     const jobData = {
+      user_id: user.id,
       client_id: formData.client_id,
       title: formData.title,
       purchase_order_number: formData.purchase_order_number,

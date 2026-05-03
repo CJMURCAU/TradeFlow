@@ -28,9 +28,13 @@ export default function NewClientPage() {
       return;
     }
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { Alert.alert('Error', 'You must be signed in to create a client'); return; }
+
     const { data, error } = await supabase
       .from('clients')
       .insert({
+        user_id: user.id,
         company_name: formData.company_name,
         name: formData.name,
         phone: formData.phone,
