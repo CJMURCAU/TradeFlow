@@ -10,10 +10,10 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobEmployeeNote } from '@/lib/supabase';
+import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
-import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, MessageSquare, CircleCheck as CheckCircle, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown } from 'lucide-react-native';
 
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
@@ -48,11 +48,8 @@ export default function JobDetailPage() {
   const [showAssignDropdown, setShowAssignDropdown] = useState(false);
   const [assignLoading, setAssignLoading] = useState(false);
 
-  // Employee: notes and mark-as-complete
+  // Employee: mark-as-complete
   const [myAssignment, setMyAssignment] = useState<JobAssignment | null>(null);
-  const [notes, setNotes] = useState<JobEmployeeNote[]>([]);
-  const [newNote, setNewNote] = useState('');
-  const [noteLoading, setNoteLoading] = useState(false);
   const [markingComplete, setMarkingComplete] = useState(false);
   const [markedCompleteSuccess, setMarkedCompleteSuccess] = useState(false);
 
@@ -151,21 +148,13 @@ export default function JobDetailPage() {
   const fetchEmployeeData = async () => {
     if (!employeeRecord) return;
 
-    const [assignRes, notesRes] = await Promise.all([
-      supabase.from('job_assignments')
-        .select('*')
-        .eq('job_id', id as string)
-        .eq('employee_id', employeeRecord.id)
-        .maybeSingle(),
-      supabase.from('job_employee_notes')
-        .select('*')
-        .eq('job_id', id as string)
-        .eq('employee_id', employeeRecord.id)
-        .order('created_at', { ascending: true }),
-    ]);
+    const { data } = await supabase.from('job_assignments')
+      .select('*')
+      .eq('job_id', id as string)
+      .eq('employee_id', employeeRecord.id)
+      .maybeSingle();
 
-    if (assignRes.data) setMyAssignment(assignRes.data);
-    if (notesRes.data) setNotes(notesRes.data);
+    if (data) setMyAssignment(data);
   };
 
   const handleAssignEmployee = async (employee: Employee) => {
@@ -187,21 +176,6 @@ export default function JobDetailPage() {
   const handleRemoveAssignment = async (assignmentId: string) => {
     await supabase.from('job_assignments').delete().eq('id', assignmentId);
     fetchAssignments();
-  };
-
-  const handleAddNote = async () => {
-    if (!newNote.trim() || !employeeRecord) return;
-    setNoteLoading(true);
-
-    await supabase.from('job_employee_notes').insert({
-      job_id: id as string,
-      employee_id: employeeRecord.id,
-      note: newNote.trim(),
-    });
-
-    setNewNote('');
-    setNoteLoading(false);
-    fetchEmployeeData();
   };
 
   const handleMarkComplete = async () => {
@@ -294,6 +268,24 @@ export default function JobDetailPage() {
   const deletePart = async (partId: string) => {
     const { error } = await supabase.from('parts').delete().eq('id', partId);
     if (!error) fetchJobDetails();
+  };
+
+  const addEmployeePart = async () => {
+    setPartError('');
+    if (!newPart.name.trim()) { setPartError('Please enter an item name'); return; }
+    if (!employeeRecord) return;
+    const { error } = await supabase.from('parts').insert({
+      job_id: id,
+      name: newPart.name,
+      cost: parseFloat(newPart.cost) || 0,
+      quantity: parseInt(newPart.quantity) || 1,
+      employee_id: employeeRecord.id,
+    });
+    if (!error) {
+      setNewPart({ name: '', cost: '', quantity: '1' });
+      setShowAddPart(false);
+      fetchJobDetails();
+    }
   };
 
   const saveDescriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -577,42 +569,64 @@ export default function JobDetailPage() {
           </View>
         )}
 
-        {/* Employee Notes & Mark Complete — employee only */}
+        {/* Costs & Mark Complete — employee only */}
         {isEmployee && employeeRecord && (
           <>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleRow}>
-                  <MessageSquare size={18} color="#111827" />
-                  <Text style={styles.sectionTitle}>My Notes</Text>
-                </View>
-              </View>
-
-              {notes.map(note => (
-                <View key={note.id} style={styles.noteCard}>
-                  <Text style={styles.noteText}>{note.note}</Text>
-                  <Text style={styles.noteTime}>
-                    {new Date(note.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-              ))}
-
-              <View style={styles.addNoteRow}>
-                <TextInput
-                  style={styles.noteInput}
-                  placeholder="Add a note..."
-                  placeholderTextColor="#9CA3AF"
-                  value={newNote}
-                  onChangeText={setNewNote}
-                  multiline
-                />
-                <TouchableOpacity
-                  style={[styles.addNoteButton, (!newNote.trim() || noteLoading) && styles.buttonDisabled]}
-                  onPress={handleAddNote}
-                  disabled={!newNote.trim() || noteLoading}>
-                  {noteLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Plus size={20} color="#FFFFFF" />}
+                <Text style={styles.sectionTitle}>Costs</Text>
+                <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
+                  <Plus size={20} color="#F59E0B" />
                 </TouchableOpacity>
               </View>
+
+              {showAddPart && (
+                <View style={styles.addPartForm}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Item name"
+                    placeholderTextColor="#94A3B8"
+                    value={newPart.name}
+                    onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
+                  />
+                  <View style={styles.partRow}>
+                    <TextInput
+                      style={[styles.input, styles.inputSmall]}
+                      placeholder="Cost"
+                      placeholderTextColor="#94A3B8"
+                      value={newPart.cost}
+                      onChangeText={text => setNewPart(prev => ({ ...prev, cost: text }))}
+                      keyboardType="decimal-pad"
+                    />
+                    <TextInput
+                      style={[styles.input, styles.inputSmall]}
+                      placeholder="Qty"
+                      placeholderTextColor="#94A3B8"
+                      value={newPart.quantity}
+                      onChangeText={text => setNewPart(prev => ({ ...prev, quantity: text }))}
+                      keyboardType="number-pad"
+                    />
+                  </View>
+                  {partError ? <Text style={styles.errorText}>{partError}</Text> : null}
+                  <TouchableOpacity style={styles.addButton} onPress={addEmployeePart}>
+                    <Text style={styles.addButtonText}>Add Cost</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {parts.filter(p => p.employee_id === employeeRecord.id).map(part => (
+                <View key={part.id} style={styles.partCard}>
+                  <View style={styles.partInfo}>
+                    <Text style={styles.partName}>{part.name}</Text>
+                    <Text style={styles.partDetails}>
+                      ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity onPress={() => deletePart(part.id)}>
+                    <Trash2 size={20} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
 
             {myAssignment && (
@@ -982,22 +996,6 @@ const styles = StyleSheet.create({
   removeButton: {
     width: 32, height: 32, borderRadius: 8,
     backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center',
-  },
-  noteCard: {
-    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14,
-    marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  noteText: { fontSize: 14, color: '#111827', lineHeight: 20 },
-  noteTime: { fontSize: 11, color: '#9CA3AF', marginTop: 6 },
-  addNoteRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-end' },
-  noteInput: {
-    flex: 1, backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14,
-    fontSize: 14, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB',
-    minHeight: 52, textAlignVertical: 'top',
-  },
-  addNoteButton: {
-    backgroundColor: '#F59E0B', width: 44, height: 44,
-    borderRadius: 10, alignItems: 'center', justifyContent: 'center',
   },
   markCompleteButton: {
     backgroundColor: '#10B981', borderRadius: 12, padding: 16,

@@ -51,6 +51,7 @@ export type Part = {
   cost: number;
   quantity: number;
   created_at: string;
+  employee_id?: string | null;
 };
 
 export type TimeEntry = {
