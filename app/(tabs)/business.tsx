@@ -98,9 +98,12 @@ export default function BusinessPage() {
   };
 
   const fetchEmployees = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data } = await supabase
       .from('employees')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: true });
     if (data) setEmployees(data);
   }, []);
