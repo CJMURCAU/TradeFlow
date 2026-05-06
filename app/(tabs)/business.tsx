@@ -67,7 +67,7 @@ export default function BusinessPage() {
   const [addEmployeeLoading, setAddEmployeeLoading] = useState(false);
   const [sendingInvite, setSendingInvite] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', email: '' });
+  const [editForm, setEditForm] = useState({ name: '', email: '', hourly_rate: '' });
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
 
@@ -192,13 +192,17 @@ export default function BusinessPage() {
 
   const handleEditEmployee = (emp: Employee) => {
     setEditingEmployee(emp.id);
-    setEditForm({ name: emp.name, email: emp.email });
+    setEditForm({
+      name: emp.name,
+      email: emp.email,
+      hourly_rate: emp.hourly_rate != null ? emp.hourly_rate.toString() : '',
+    });
     setEditError('');
   };
 
   const handleCancelEdit = () => {
     setEditingEmployee(null);
-    setEditForm({ name: '', email: '' });
+    setEditForm({ name: '', email: '', hourly_rate: '' });
     setEditError('');
   };
 
@@ -212,10 +216,17 @@ export default function BusinessPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) { setEditError('Please enter a valid email address.'); return; }
 
+    const rateStr = editForm.hourly_rate.trim();
+    const hourly_rate = rateStr === '' ? null : parseFloat(rateStr);
+    if (rateStr !== '' && (isNaN(hourly_rate!) || hourly_rate! < 0)) {
+      setEditError('Please enter a valid hourly rate.');
+      return;
+    }
+
     setEditLoading(true);
     const { error } = await supabase
       .from('employees')
-      .update({ name, email })
+      .update({ name, email, hourly_rate })
       .eq('id', emp.id);
     setEditLoading(false);
 
@@ -532,6 +543,9 @@ export default function BusinessPage() {
               <View style={styles.employeeInfo}>
                 <Text style={styles.employeeName}>{emp.name}</Text>
                 <Text style={styles.employeeEmail}>{emp.email}</Text>
+                {emp.hourly_rate != null && (
+                  <Text style={styles.employeeRate}>${emp.hourly_rate.toFixed(2)}/hr</Text>
+                )}
               </View>
               <View style={[styles.statusPill, { backgroundColor: getStatusColor(emp.status) + '20' }]}>
                 <Text style={[styles.statusPillText, { color: getStatusColor(emp.status) }]}>
@@ -560,6 +574,19 @@ export default function BusinessPage() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
+                <View style={styles.inputGap} />
+                <View style={styles.currencyInput}>
+                  <Text style={styles.currencySymbol}>$</Text>
+                  <TextInput
+                    style={styles.inputWithCurrency}
+                    placeholder="Hourly rate (optional)"
+                    placeholderTextColor="#9CA3AF"
+                    value={editForm.hourly_rate}
+                    onChangeText={text => setEditForm(prev => ({ ...prev, hourly_rate: text }))}
+                    keyboardType="decimal-pad"
+                  />
+                  <Text style={styles.currencyUnit}>/hr</Text>
+                </View>
                 {editError ? <Text style={styles.errorText}>{editError}</Text> : null}
                 <View style={styles.editFormActions}>
                   <TouchableOpacity
@@ -875,6 +902,7 @@ const styles = StyleSheet.create({
   },
   currencySymbol: { fontSize: 20, color: '#F59E0B', fontWeight: 'bold', paddingLeft: 16 },
   inputWithCurrency: { flex: 1, padding: 16, fontSize: 16, color: '#111827' },
+  currencyUnit: { fontSize: 14, color: '#9CA3AF', paddingRight: 14 },
   saveButton: {
     backgroundColor: '#F59E0B',
     borderRadius: 12,
@@ -932,6 +960,7 @@ const styles = StyleSheet.create({
   employeeInfo: { flex: 1 },
   employeeName: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 2 },
   employeeEmail: { fontSize: 13, color: '#6B7280' },
+  employeeRate: { fontSize: 13, color: '#10B981', fontWeight: '600', marginTop: 2 },
   statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusPillText: { fontSize: 10, fontWeight: '700' },
   employeeActions: {

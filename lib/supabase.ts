@@ -57,6 +57,7 @@ export type Part = {
 export type TimeEntry = {
   id: string;
   job_id: string;
+  employee_id: string | null;
   start_time: string;
   end_time: string | null;
   is_running: boolean;
@@ -81,6 +82,7 @@ export type Employee = {
   email: string;
   status: 'pending' | 'active';
   calendar_access: boolean;
+  hourly_rate: number | null;
   invite_token: string | null;
   created_at: string;
 };

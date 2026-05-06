@@ -212,12 +212,17 @@ export default function JobDetailPage() {
   const startTimer = async () => {
     if (!job || job.status === 'completed') return;
 
+    const timeEntryPayload: Record<string, unknown> = {
+      job_id: id,
+      start_time: new Date().toISOString(),
+      is_running: true,
+    };
+    if (role === 'employee' && employeeRecord) {
+      timeEntryPayload.employee_id = employeeRecord.id;
+    }
+
     const [timeEntryResult] = await Promise.all([
-      supabase.from('time_entries').insert({
-        job_id: id,
-        start_time: new Date().toISOString(),
-        is_running: true,
-      }).select().single(),
+      supabase.from('time_entries').insert(timeEntryPayload).select().single(),
       supabase.from('jobs').update({ status: 'active' }).eq('id', id as string),
     ]);
 
@@ -358,7 +363,21 @@ export default function JobDetailPage() {
   }, 0) / 1000;
 
   const getTotalPartsCost = () => parts.reduce((total, part) => total + (part.cost * part.quantity), 0);
-  const getLabourCost = () => (getTotalTime() / 3600) * hourlyRate;
+
+  const getLabourCost = () => {
+    if (employees.length === 0) {
+      return (getTotalTime() / 3600) * hourlyRate;
+    }
+    const empRateMap = new Map(employees.map(e => [e.id, e.hourly_rate]));
+    return timeEntries.reduce((total, entry) => {
+      const start = new Date(entry.start_time).getTime();
+      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+      const hours = (end - start) / 3600000;
+      const empRate = entry.employee_id != null ? empRateMap.get(entry.employee_id) : undefined;
+      const rate = empRate != null ? empRate : hourlyRate;
+      return total + hours * rate;
+    }, 0);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -549,13 +568,65 @@ export default function JobDetailPage() {
                 <Text style={styles.summaryLabel}>Total Time:</Text>
                 <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
               </View>
-              <View style={styles.summaryRow}>
-                <View>
-                  <Text style={styles.summaryLabel}>Labour Cost:</Text>
-                  {hourlyRate > 0 && <Text style={styles.summarySubLabel}>${hourlyRate.toFixed(2)}/hr</Text>}
-                </View>
-                <Text style={styles.summaryValue}>{hourlyRate > 0 ? `$${getLabourCost().toFixed(2)}` : '—'}</Text>
-              </View>
+
+              {/* Per-employee labour breakdown */}
+              {(() => {
+                const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate }]));
+                const perEmployee = new Map<string, { name: string; seconds: number; rate: number }>();
+
+                timeEntries.forEach(entry => {
+                  const start = new Date(entry.start_time).getTime();
+                  const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+                  const secs = Math.floor((end - start) / 1000);
+                  const key = entry.employee_id ?? '__owner__';
+                  const empInfo = entry.employee_id != null ? empRateMap.get(entry.employee_id) : undefined;
+                  const name = empInfo?.name ?? 'Owner';
+                  const rate = empInfo?.rate != null ? empInfo.rate : hourlyRate;
+                  const existing = perEmployee.get(key);
+                  if (existing) {
+                    existing.seconds += secs;
+                  } else {
+                    perEmployee.set(key, { name, seconds: secs, rate });
+                  }
+                });
+
+                const rows = Array.from(perEmployee.values());
+                if (rows.length <= 1) {
+                  return (
+                    <View style={styles.summaryRow}>
+                      <View>
+                        <Text style={styles.summaryLabel}>Labour Cost:</Text>
+                        {hourlyRate > 0 && <Text style={styles.summarySubLabel}>${hourlyRate.toFixed(2)}/hr</Text>}
+                      </View>
+                      <Text style={styles.summaryValue}>{hourlyRate > 0 ? `$${getLabourCost().toFixed(2)}` : '—'}</Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <>
+                    <Text style={styles.summaryBreakdownHeading}>Labour Cost:</Text>
+                    {rows.map(row => (
+                      <View key={row.name} style={styles.summaryBreakdownRow}>
+                        <View>
+                          <Text style={styles.summaryBreakdownName}>{row.name}</Text>
+                          <Text style={styles.summarySubLabel}>
+                            {formatTime(row.seconds)} @ ${row.rate.toFixed(2)}/hr
+                          </Text>
+                        </View>
+                        <Text style={styles.summaryValue}>
+                          ${((row.seconds / 3600) * row.rate).toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                    <View style={styles.summaryBreakdownTotalRow}>
+                      <Text style={styles.summaryLabel}>Labour Total:</Text>
+                      <Text style={styles.summaryValue}>${getLabourCost().toFixed(2)}</Text>
+                    </View>
+                  </>
+                );
+              })()}
+
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Parts Cost:</Text>
                 <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
@@ -910,6 +981,16 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: '#E5E7EB', marginVertical: 8 },
   summaryTotalLabel: { fontSize: 17, fontWeight: '700', color: '#111827' },
   summaryTotalValue: { fontSize: 20, fontWeight: '800', color: '#F59E0B' },
+  summaryBreakdownHeading: { fontSize: 15, color: '#6B7280', marginBottom: 6 },
+  summaryBreakdownRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 8, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: '#E5E7EB',
+  },
+  summaryBreakdownName: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  summaryBreakdownTotalRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 10, marginTop: 2,
+  },
   // Dropdown
   dropdownWrapper: { marginBottom: 12 },
   dropdownTrigger: {
