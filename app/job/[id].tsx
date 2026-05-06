@@ -60,7 +60,7 @@ export default function JobDetailPage() {
 
   useEffect(() => {
     if (role === 'owner' && id) fetchAssignments();
-    if (role === 'employee' && employeeRecord && id) fetchEmployeeData();
+    if (role === 'employee' && id) fetchEmployeeData();
   }, [role, employeeRecord, id]);
 
   const fetchBusinessDetails = async () => {
@@ -146,12 +146,25 @@ export default function JobDetailPage() {
   };
 
   const fetchEmployeeData = async () => {
-    if (!employeeRecord) return;
+    let empId = employeeRecord?.id ?? null;
+
+    if (!empId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: emp } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('employee_user_id', user.id)
+        .maybeSingle();
+      empId = emp?.id ?? null;
+    }
+
+    if (!empId) return;
 
     const { data } = await supabase.from('job_assignments')
       .select('*')
       .eq('job_id', id as string)
-      .eq('employee_id', employeeRecord.id)
+      .eq('employee_id', empId)
       .maybeSingle();
 
     if (data) setMyAssignment(data);
@@ -640,18 +653,32 @@ export default function JobDetailPage() {
           </View>
         )}
 
-        {/* Costs & Mark Complete — employee only */}
-        {isEmployee && employeeRecord && (
+        {/* Hours Worked + Costs + Mark Complete — employee only */}
+        {isEmployee && (
           <>
+            {/* Hours worked summary */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Hours Worked</Text>
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Total Time:</Text>
+                  <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Costs submitted by this employee */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Costs</Text>
-                <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
-                  <Plus size={20} color="#F59E0B" />
-                </TouchableOpacity>
+                {employeeRecord && (
+                  <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
+                    <Plus size={20} color="#F59E0B" />
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {showAddPart && (
+              {showAddPart && employeeRecord && (
                 <View style={styles.addPartForm}>
                   <TextInput
                     style={styles.input}
@@ -685,19 +712,24 @@ export default function JobDetailPage() {
                 </View>
               )}
 
-              {parts.filter(p => p.employee_id === employeeRecord.id).map(part => (
-                <View key={part.id} style={styles.partCard}>
-                  <View style={styles.partInfo}>
-                    <Text style={styles.partName}>{part.name}</Text>
-                    <Text style={styles.partDetails}>
-                      {`$${part.cost.toFixed(2)} x ${part.quantity} = $${(part.cost * part.quantity).toFixed(2)}`}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={() => deletePart(part.id)}>
-                    <Trash2 size={20} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ))}
+              {employeeRecord
+                ? parts.filter(p => p.employee_id === employeeRecord.id).map(part => (
+                    <View key={part.id} style={styles.partCard}>
+                      <View style={styles.partInfo}>
+                        <Text style={styles.partName}>{part.name}</Text>
+                        <Text style={styles.partDetails}>
+                          {`$${part.cost.toFixed(2)} x ${part.quantity} = $${(part.cost * part.quantity).toFixed(2)}`}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => deletePart(part.id)}>
+                        <Trash2 size={20} color="#EF4444" />
+                      </TouchableOpacity>
+                    </View>
+                  ))
+                : parts.filter(p => p.employee_id == null).length === 0 && (
+                    <Text style={styles.emptyText}>No costs submitted yet.</Text>
+                  )
+              }
             </View>
 
             {myAssignment && (
@@ -1089,6 +1121,7 @@ const styles = StyleSheet.create({
   },
   alreadyCompletedText: { fontSize: 15, fontWeight: '600', color: '#059669' },
   buttonDisabled: { opacity: 0.6 },
+  emptyText: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' },
   emailStatusBanner: {
     borderRadius: 10, padding: 12, marginBottom: 10,
   },
