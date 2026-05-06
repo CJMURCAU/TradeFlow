@@ -26,6 +26,7 @@ import {
   UserX,
   Pencil,
   X,
+  LogOut,
 } from 'lucide-react-native';
 import TabBar from '@/components/TabBar';
 
@@ -337,6 +338,10 @@ export default function BusinessPage() {
       setShowChangePassword(false);
       setPasswordSuccess('Password updated successfully.');
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
   const handleDeleteAccount = () => setDeleteAccountStep(1);
@@ -731,6 +736,17 @@ export default function BusinessPage() {
         )}
 
         <TouchableOpacity
+          style={[styles.settingsRow, styles.logoutRow]}
+          onPress={handleLogout}>
+          <View style={styles.settingsRowLeft}>
+            <View style={[styles.settingsIconWrap, styles.logoutIconWrap]}>
+              <LogOut size={18} color="#F59E0B" />
+            </View>
+            <Text style={styles.logoutRowText}>Log Out</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.settingsRow, styles.deleteRow]}
           onPress={handleDeleteAccount}
           disabled={deleteLoading}>
@@ -977,6 +993,9 @@ const styles = StyleSheet.create({
   },
   confirmPasswordButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
   buttonDisabled: { opacity: 0.6 },
+  logoutRow: { borderColor: '#FEF3C7', backgroundColor: '#FFFBEB' },
+  logoutIconWrap: { backgroundColor: '#FEF3C7' },
+  logoutRowText: { fontSize: 16, fontWeight: '500', color: '#D97706' },
   deleteRow: { borderColor: '#FEE2E2', backgroundColor: '#FFF5F5' },
   deleteIconWrap: { backgroundColor: '#FEE2E2' },
   deleteRowText: { fontSize: 16, fontWeight: '500', color: '#EF4444' },
