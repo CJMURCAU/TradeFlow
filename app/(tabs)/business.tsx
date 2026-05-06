@@ -76,10 +76,12 @@ export default function BusinessPage() {
   }, []);
 
   const fetchBusinessDetails = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const { data } = await supabase
       .from('business_details')
       .select('*')
-      .limit(1)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (data) {
@@ -126,7 +128,7 @@ export default function BusinessPage() {
 
     let saveError;
     if (businessDetails) {
-      const { error } = await supabase.from('business_details').update(payload).eq('id', businessDetails.id);
+      const { error } = await supabase.from('business_details').update(payload).eq('user_id', user.id);
       saveError = error;
     } else {
       const { error } = await supabase.from('business_details').insert({ ...payload, user_id: user.id });
