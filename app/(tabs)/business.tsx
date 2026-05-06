@@ -62,7 +62,7 @@ export default function BusinessPage() {
   // Employees section
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [showAddEmployee, setShowAddEmployee] = useState(false);
-  const [newEmployee, setNewEmployee] = useState({ name: '', email: '' });
+  const [newEmployee, setNewEmployee] = useState({ name: '', email: '', hourly_rate: '' });
   const [addEmployeeError, setAddEmployeeError] = useState('');
   const [addEmployeeLoading, setAddEmployeeLoading] = useState(false);
   const [sendingInvite, setSendingInvite] = useState<string | null>(null);
@@ -167,6 +167,13 @@ export default function BusinessPage() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) { setAddEmployeeError('Please enter a valid email address.'); return; }
 
+    const rateStr = newEmployee.hourly_rate.trim();
+    const hourly_rate = rateStr === '' ? null : parseFloat(rateStr);
+    if (rateStr !== '' && (isNaN(hourly_rate!) || hourly_rate! < 0)) {
+      setAddEmployeeError('Please enter a valid hourly rate.');
+      return;
+    }
+
     setAddEmployeeLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setAddEmployeeLoading(false); return; }
@@ -175,6 +182,7 @@ export default function BusinessPage() {
       user_id: user.id,
       name,
       email,
+      hourly_rate,
       status: 'pending',
     });
 
@@ -185,7 +193,7 @@ export default function BusinessPage() {
       return;
     }
 
-    setNewEmployee({ name: '', email: '' });
+    setNewEmployee({ name: '', email: '', hourly_rate: '' });
     setShowAddEmployee(false);
     fetchEmployees();
   };
@@ -513,6 +521,19 @@ export default function BusinessPage() {
               autoCapitalize="none"
               autoCorrect={false}
             />
+            <View style={styles.inputGap} />
+            <View style={styles.currencyInput}>
+              <Text style={styles.currencySymbol}>$</Text>
+              <TextInput
+                style={styles.inputWithCurrency}
+                placeholder="Hourly rate (optional)"
+                placeholderTextColor="#9CA3AF"
+                value={newEmployee.hourly_rate}
+                onChangeText={text => setNewEmployee(prev => ({ ...prev, hourly_rate: text }))}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.currencyUnit}>/hr</Text>
+            </View>
             {addEmployeeError ? <Text style={styles.errorText}>{addEmployeeError}</Text> : null}
             <TouchableOpacity
               style={[styles.confirmPasswordButton, addEmployeeLoading && styles.buttonDisabled]}
