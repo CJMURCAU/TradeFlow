@@ -434,7 +434,15 @@ export default function JobDetailPage() {
         <View style={styles.section}>
           <Text style={styles.jobTitle}>{job.title}</Text>
           {job.purchase_order_number && <Text style={styles.poNumber}>PO: {job.purchase_order_number}</Text>}
-          {job.client && <Text style={styles.clientName}>{job.client.name}</Text>}
+          {job.client?.company_name && (
+            <Text style={styles.clientCompany}>{job.client.company_name}</Text>
+          )}
+          {job.client?.name && (
+            <Text style={styles.clientName}>{job.client.name}</Text>
+          )}
+          {job.client?.phone && (
+            <Text style={styles.clientPhone}>{job.client.phone}</Text>
+          )}
           {job.client?.address && (
             <TouchableOpacity style={styles.addressButton} onPress={openDirections}>
               <MapPin size={16} color="#6B7280" />
@@ -944,8 +952,10 @@ const styles = StyleSheet.create({
   loadingText: { color: '#111827', fontSize: 16, textAlign: 'center', marginTop: 100 },
   section: { marginBottom: 24 },
   jobTitle: { fontSize: 24, fontWeight: 'bold', color: '#111827', marginBottom: 8 },
-  poNumber: { fontSize: 14, color: '#6B7280', marginBottom: 4 },
-  clientName: { fontSize: 16, color: '#F59E0B', fontWeight: '600', marginBottom: 8 },
+  poNumber: { fontSize: 14, color: '#6B7280', marginBottom: 8 },
+  clientCompany: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 2 },
+  clientName: { fontSize: 15, color: '#374151', fontWeight: '500', marginBottom: 2 },
+  clientPhone: { fontSize: 14, color: '#6B7280', marginBottom: 8 },
   addressButton: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8,
