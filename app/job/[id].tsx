@@ -192,7 +192,7 @@ export default function JobDetailPage() {
   };
 
   const handleMarkComplete = async () => {
-    if (!myAssignment || !employeeRecord || !job) return;
+    if (!myAssignment || !job) return;
     setMarkingComplete(true);
     setMarkCompleteModal(false);
 
@@ -203,16 +203,17 @@ export default function JobDetailPage() {
       .update({ completed: true, completed_at: new Date().toISOString() })
       .eq('id', myAssignment.id);
 
+    const empId = employeeRecord?.id ?? myAssignment.employee_id;
     const { data: emp } = await supabase
       .from('employees')
-      .select('user_id')
-      .eq('id', employeeRecord.id)
+      .select('user_id, name')
+      .eq('id', empId)
       .maybeSingle();
 
     if (emp) {
       await supabase.from('employee_notifications').insert({
         recipient_user_id: emp.user_id,
-        message: `${employeeRecord.name} has completed job #${job.job_card_number}: ${job.title}`,
+        message: `${emp.name} has completed job #${job.job_card_number}: ${job.title}`,
         job_id: id as string,
       });
     }
@@ -671,14 +672,12 @@ export default function JobDetailPage() {
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Costs</Text>
-                {employeeRecord && (
-                  <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
-                    <Plus size={20} color="#F59E0B" />
-                  </TouchableOpacity>
-                )}
+                <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
+                  <Plus size={20} color="#F59E0B" />
+                </TouchableOpacity>
               </View>
 
-              {showAddPart && employeeRecord && (
+              {showAddPart && (
                 <View style={styles.addPartForm}>
                   <TextInput
                     style={styles.input}
@@ -712,8 +711,9 @@ export default function JobDetailPage() {
                 </View>
               )}
 
-              {employeeRecord
-                ? parts.filter(p => p.employee_id === employeeRecord.id).map(part => (
+              {parts.filter(p => employeeRecord ? p.employee_id === employeeRecord.id : p.employee_id != null).length === 0
+                ? <Text style={styles.emptyText}>No costs submitted yet.</Text>
+                : parts.filter(p => employeeRecord ? p.employee_id === employeeRecord.id : p.employee_id != null).map(part => (
                     <View key={part.id} style={styles.partCard}>
                       <View style={styles.partInfo}>
                         <Text style={styles.partName}>{part.name}</Text>
@@ -726,9 +726,6 @@ export default function JobDetailPage() {
                       </TouchableOpacity>
                     </View>
                   ))
-                : parts.filter(p => p.employee_id == null).length === 0 && (
-                    <Text style={styles.emptyText}>No costs submitted yet.</Text>
-                  )
               }
             </View>
 
