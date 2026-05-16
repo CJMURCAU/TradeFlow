@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  useWindowDimensions,
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -44,6 +45,7 @@ const DAY_NUM_HEIGHT = 20;
 
 export default function CalendarPage() {
   const router = useRouter();
+  const { width: winWidth, height: winHeight } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [displayMonth, setDisplayMonth] = useState(new Date());
   const [jobs, setJobs] = useState<(Job & { client?: Client })[]>([]);
@@ -409,7 +411,7 @@ export default function CalendarPage() {
       </View>
 
       <View>
-        <View style={[styles.calendarContainer, { height: COMPACT_GRID_HEIGHT }]}>
+        <View style={[styles.calendarContainer, { height: Math.min(COMPACT_GRID_HEIGHT, winHeight * 0.45) }]}>
           <FlatList
             ref={flatListRef}
             data={months}
@@ -419,8 +421,8 @@ export default function CalendarPage() {
             keyExtractor={(item) => item.toString()}
             renderItem={renderCompactMonth}
             getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
+              length: winWidth,
+              offset: winWidth * index,
               index,
             })}
             onMomentumScrollEnd={onScrollEnd}
@@ -580,8 +582,8 @@ export default function CalendarPage() {
             keyExtractor={(item) => `modal-${item}`}
             renderItem={renderExpandedMonth}
             getItemLayout={(_, index) => ({
-              length: SCREEN_WIDTH,
-              offset: SCREEN_WIDTH * index,
+              length: winWidth,
+              offset: winWidth * index,
               index,
             })}
             onMomentumScrollEnd={onScrollEnd}
