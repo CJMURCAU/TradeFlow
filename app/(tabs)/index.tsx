@@ -572,7 +572,7 @@ export default function CalendarPage() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.modalCalendarWrapper}>
+        <View style={[styles.modalCalendarWrapper, { height: Math.min(MODAL_CALENDAR_HEIGHT, winHeight * 0.52) }]}>
           <FlatList
             ref={modalFlatListRef}
             data={months}
@@ -940,9 +940,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
     backgroundColor: '#FFFFFF',
     paddingTop: STATUS_BAR_HEIGHT,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
   },
   modalHeader: {
     height: MODAL_HEADER_HEIGHT,
@@ -975,7 +979,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   modalCalendarWrapper: {
-    height: MODAL_CALENDAR_HEIGHT,
     overflow: 'hidden',
   },
   deleteModalOverlay: {
