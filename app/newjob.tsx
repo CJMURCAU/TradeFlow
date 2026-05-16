@@ -14,7 +14,7 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -22,6 +22,7 @@ const CAL_WIDTH = SCREEN_WIDTH - 32;
 
 export default function NewJobPage() {
   const router = useRouter();
+  const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   const [clients, setClients] = useState<Client[]>([]);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
@@ -51,11 +52,15 @@ export default function NewJobPage() {
 
   useEffect(() => {
     fetchClients();
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    setFormData(prev => ({ ...prev, date: `${year}-${month}-${day}` }));
+    if (dateParam) {
+      setFormData(prev => ({ ...prev, date: dateParam }));
+    } else {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      setFormData(prev => ({ ...prev, date: `${year}-${month}-${day}` }));
+    }
   }, []);
 
   const fetchClients = async () => {

@@ -433,7 +433,12 @@ export default function CalendarPage() {
               <Text style={styles.emptyDayText}>No jobs scheduled</Text>
               <TouchableOpacity
                 style={styles.addJobButton}
-                onPress={() => router.push('/newjob')}>
+                onPress={() => {
+                  const y = selectedDate.getFullYear();
+                  const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                  const d = String(selectedDate.getDate()).padStart(2, '0');
+                  router.push(`/newjob?date=${y}-${m}-${d}`);
+                }}>
                 <Text style={styles.addJobButtonText}>+ Schedule a Job</Text>
               </TouchableOpacity>
             </View>
@@ -469,7 +474,12 @@ export default function CalendarPage() {
         </ScrollView>
       </View>
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push('/newjob')}>
+      <TouchableOpacity style={styles.fab} onPress={() => {
+        const y = selectedDate.getFullYear();
+        const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const d = String(selectedDate.getDate()).padStart(2, '0');
+        router.push(`/newjob?date=${y}-${m}-${d}`);
+      }}>
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
