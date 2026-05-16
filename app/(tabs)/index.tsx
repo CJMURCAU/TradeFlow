@@ -17,6 +17,8 @@ import {
   Image,
   Modal,
 } from 'react-native';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
+import Reanimated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -55,6 +57,42 @@ export default function CalendarPage() {
   const [animating, setAnimating] = useState(false);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
+
+  const fabX = useSharedValue(0);
+  const fabY = useSharedValue(0);
+  const fabStartX = useSharedValue(0);
+  const fabStartY = useSharedValue(0);
+  const fabIsDragging = useSharedValue(false);
+
+  const navigateToNewJob = useCallback(() => {
+    const y = selectedDate.getFullYear();
+    const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+    const d = String(selectedDate.getDate()).padStart(2, '0');
+    router.push(`/newjob?date=${y}-${m}-${d}`);
+  }, [selectedDate, router]);
+
+  const fabGesture = Gesture.Pan()
+    .onBegin(() => {
+      fabStartX.value = fabX.value;
+      fabStartY.value = fabY.value;
+      fabIsDragging.value = false;
+    })
+    .onUpdate((e) => {
+      if (Math.abs(e.translationX) > 6 || Math.abs(e.translationY) > 6) {
+        fabIsDragging.value = true;
+      }
+      fabX.value = fabStartX.value + e.translationX;
+      fabY.value = fabStartY.value + e.translationY;
+    })
+    .onEnd(() => {
+      if (!fabIsDragging.value) {
+        runOnJS(navigateToNewJob)();
+      }
+    });
+
+  const fabAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: fabX.value }, { translateY: fabY.value }],
+  }));
 
 
   useFocusEffect(
@@ -478,17 +516,11 @@ export default function CalendarPage() {
         </ScrollView>
       </View>
 
-      <TouchableOpacity
-        style={styles.fab}
-        activeOpacity={0.85}
-        onPress={() => {
-          const y = selectedDate.getFullYear();
-          const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-          const d = String(selectedDate.getDate()).padStart(2, '0');
-          router.push(`/newjob?date=${y}-${m}-${d}`);
-        }}>
-        <Plus size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      <GestureDetector gesture={fabGesture}>
+        <Reanimated.View style={[styles.fab, fabAnimatedStyle]}>
+          <Plus size={28} color="#FFFFFF" />
+        </Reanimated.View>
+      </GestureDetector>
 
       <Modal
         visible={deleteTarget !== null}
