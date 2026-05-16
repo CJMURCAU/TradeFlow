@@ -11,7 +11,6 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
-  PanResponder,
   Easing,
   StatusBar,
   Platform,
@@ -57,32 +56,6 @@ export default function CalendarPage() {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
 
-  const fabPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
-  const fabOffset = useRef({ x: 0, y: 0 });
-  const fabDragging = useRef(false);
-
-  const fabPanResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gs) =>
-        Math.abs(gs.dx) > 4 || Math.abs(gs.dy) > 4,
-      onPanResponderGrant: () => {
-        fabDragging.current = false;
-        fabPos.setOffset({ x: fabOffset.current.x, y: fabOffset.current.y });
-        fabPos.setValue({ x: 0, y: 0 });
-      },
-      onPanResponderMove: (_, gs) => {
-        fabDragging.current = true;
-        fabPos.setValue({ x: gs.dx, y: gs.dy });
-      },
-      onPanResponderRelease: (_, gs) => {
-        fabPos.flattenOffset();
-        const newX = fabOffset.current.x + gs.dx;
-        const newY = fabOffset.current.y + gs.dy;
-        fabOffset.current = { x: newX, y: newY };
-      },
-    })
-  ).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -505,21 +478,17 @@ export default function CalendarPage() {
         </ScrollView>
       </View>
 
-      <Animated.View
-        style={[styles.fab, { transform: fabPos.getTranslateTransform() }]}
-        {...fabPanResponder.panHandlers}>
-        <TouchableOpacity
-          style={styles.fabInner}
-          onPress={() => {
-            if (fabDragging.current) return;
-            const y = selectedDate.getFullYear();
-            const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
-            const d = String(selectedDate.getDate()).padStart(2, '0');
-            router.push(`/newjob?date=${y}-${m}-${d}`);
-          }}>
-          <Plus size={28} color="#FFFFFF" />
-        </TouchableOpacity>
-      </Animated.View>
+      <TouchableOpacity
+        style={styles.fab}
+        activeOpacity={0.85}
+        onPress={() => {
+          const y = selectedDate.getFullYear();
+          const m = String(selectedDate.getMonth() + 1).padStart(2, '0');
+          const d = String(selectedDate.getDate()).padStart(2, '0');
+          router.push(`/newjob?date=${y}-${m}-${d}`);
+        }}>
+        <Plus size={28} color="#FFFFFF" />
+      </TouchableOpacity>
 
       <Modal
         visible={deleteTarget !== null}
@@ -923,19 +892,14 @@ const styles = StyleSheet.create({
     height: 60,
     borderRadius: 30,
     backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
     elevation: 5,
     zIndex: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-  },
-  fabInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   modalOverlay: {
     position: 'absolute',
