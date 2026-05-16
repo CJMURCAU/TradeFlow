@@ -167,13 +167,13 @@ export default function CalendarPage() {
   }, []);
 
   const onScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const newIndex = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    const itemWidth = winWidth || SCREEN_WIDTH;
+    const newIndex = Math.round(e.nativeEvent.contentOffset.x / itemWidth);
     if (newIndex !== currentIndex) {
       setCurrentIndex(newIndex);
-      const newMonth = getMonthForIndex(newIndex);
-      setDisplayMonth(newMonth);
+      setDisplayMonth(getMonthForIndex(newIndex));
     }
-  }, [currentIndex, getMonthForIndex]);
+  }, [currentIndex, getMonthForIndex, winWidth]);
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newIndex = currentIndex + (direction === 'next' ? 1 : -1);
@@ -426,6 +426,7 @@ export default function CalendarPage() {
               index,
             })}
             onMomentumScrollEnd={onScrollEnd}
+            onScrollEndDrag={onScrollEnd}
             initialScrollIndex={12}
             style={{ flex: 1 }}
           />
@@ -587,6 +588,7 @@ export default function CalendarPage() {
               index,
             })}
             onMomentumScrollEnd={onScrollEnd}
+            onScrollEndDrag={onScrollEnd}
             initialScrollIndex={12}
             style={{ flex: 1 }}
             contentContainerStyle={{ alignItems: 'stretch' }}
