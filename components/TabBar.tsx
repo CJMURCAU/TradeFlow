@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { Calendar, LayoutDashboard, Users, Briefcase, Building2, LogOut } from 'lucide-react-native';
+import { Calendar, LayoutDashboard, Users, Briefcase, Building2, LogOut, UsersRound } from 'lucide-react-native';
 import { useRole } from '@/lib/roleContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,7 @@ const OWNER_TABS = [
   { name: 'Dashboard', path: '/(tabs)/dashboard', icon: LayoutDashboard },
   { name: 'Clients', path: '/(tabs)/clients', icon: Users },
   { name: 'Jobs', path: '/(tabs)/jobs', icon: Briefcase },
+  { name: 'Team', path: '/(tabs)/team', icon: UsersRound },
   { name: 'Business', path: '/(tabs)/business', icon: Building2 },
 ];
 
