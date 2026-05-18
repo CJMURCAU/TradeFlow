@@ -1,8 +1,9 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { Calendar, LayoutDashboard, Users, Briefcase, Building2 } from 'lucide-react-native';
+import { Calendar, LayoutDashboard, Users, Briefcase, Building2, LogOut } from 'lucide-react-native';
 import { useRole } from '@/lib/roleContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabase';
 
 const OWNER_TABS = [
   { name: 'Calendar', path: '/(tabs)/', icon: Calendar },
@@ -31,6 +32,10 @@ export default function TabBar() {
     return pathname.startsWith(path.replace('/(tabs)', ''));
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom || 8 }]}>
       {TABS.map(tab => {
@@ -47,6 +52,12 @@ export default function TabBar() {
           </TouchableOpacity>
         );
       })}
+      {role === 'employee' && (
+        <TouchableOpacity style={styles.logoutTab} onPress={handleLogout} activeOpacity={0.7}>
+          <LogOut size={20} color="#EF4444" strokeWidth={2} />
+          <Text style={styles.logoutLabel}>Log Out</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -74,5 +85,17 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     color: '#F59E0B',
+  },
+  logoutTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    paddingVertical: 4,
+  },
+  logoutLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#EF4444',
   },
 });
