@@ -57,6 +57,11 @@ export default function CalendarPage() {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
 
+  const SHEET_PEEK = 130;
+  const SHEET_OPEN = Math.round(SCREEN_HEIGHT * 0.5);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetAnim = useRef(new Animated.Value(SHEET_PEEK)).current;
+
   const fabPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const fabOffset = useRef({ x: 0, y: 0 });
   const fabDragDistance = useRef(0);
@@ -228,6 +233,26 @@ export default function CalendarPage() {
     });
   }, [slideAnim, animating]);
 
+  const openSheet = useCallback(() => {
+    setSheetOpen(true);
+    Animated.spring(sheetAnim, {
+      toValue: SHEET_OPEN,
+      useNativeDriver: false,
+      bounciness: 4,
+      speed: 14,
+    }).start();
+  }, [sheetAnim, SHEET_OPEN]);
+
+  const closeSheet = useCallback(() => {
+    setSheetOpen(false);
+    Animated.spring(sheetAnim, {
+      toValue: SHEET_PEEK,
+      useNativeDriver: false,
+      bounciness: 2,
+      speed: 16,
+    }).start();
+  }, [sheetAnim, SHEET_PEEK]);
+
   const renderCompactMonth = useCallback(({ index }: { index: number }) => {
     const monthDate = getMonthForIndex(index);
     const year = monthDate.getFullYear();
@@ -272,7 +297,10 @@ export default function CalendarPage() {
                     isToday && !isSelected && styles.monthDayToday,
                     isSelected && styles.monthDaySelected,
                   ]}
-                  onPress={() => setSelectedDate(new Date(day))}>
+                  onPress={() => {
+                    setSelectedDate(new Date(day));
+                    openSheet();
+                  }}>
                   <Text style={[
                     styles.monthDayNumber,
                     !isCurrentMonth && styles.monthDayNumberOther,
@@ -296,7 +324,7 @@ export default function CalendarPage() {
         ))}
       </View>
     );
-  }, [getMonthForIndex, getJobsForDate, selectedDate]);
+  }, [getMonthForIndex, getJobsForDate, selectedDate, openSheet]);
 
   const renderExpandedMonth = useCallback(({ index }: { index: number }) => {
     const monthDate = getMonthForIndex(index);
@@ -468,9 +496,29 @@ export default function CalendarPage() {
         </View>
       </View>
 
-      <View style={styles.daySection}>
-        <Text style={styles.dayTitle}>{formattedSelectedDate}</Text>
-        <ScrollView showsVerticalScrollIndicator={false} style={styles.dayScroll} contentContainerStyle={styles.dayScrollContent}>
+      <Animated.View style={[styles.sheet, { height: sheetAnim, bottom: insets.bottom }]}>
+        <TouchableOpacity
+          style={styles.sheetHandle}
+          onPress={sheetOpen ? closeSheet : openSheet}
+          activeOpacity={0.7}>
+          <View style={styles.sheetHandleBar} />
+          <View style={styles.sheetHandleRow}>
+            <Text style={styles.dayTitle}>{formattedSelectedDate}</Text>
+            {selectedDayJobs.length > 0 && (
+              <View style={styles.sheetJobCount}>
+                <Text style={styles.sheetJobCountText}>{selectedDayJobs.length}</Text>
+              </View>
+            )}
+            {sheetOpen
+              ? <ChevronDown size={16} color="#9CA3AF" />
+              : <ChevronUp size={16} color="#9CA3AF" />}
+          </View>
+        </TouchableOpacity>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          style={styles.dayScroll}
+          contentContainerStyle={styles.dayScrollContent}>
           {selectedDayJobs.length === 0 ? (
             <View style={styles.emptyDay}>
               <Text style={styles.emptyDayText}>No jobs scheduled</Text>
@@ -515,7 +563,7 @@ export default function CalendarPage() {
             ))
           )}
         </ScrollView>
-      </View>
+      </Animated.View>
 
       <Animated.View
         style={[styles.fab, { transform: fabPos.getTranslateTransform() }]}
@@ -826,22 +874,67 @@ const styles = StyleSheet.create({
     color: '#4B5563',
     fontWeight: '500',
   },
-  daySection: {
-    flex: 1,
-    paddingTop: 12,
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 12,
+    overflow: 'hidden',
+  },
+  sheetHandle: {
     paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  sheetHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D1D5DB',
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  sheetHandleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sheetJobCount: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetJobCountText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   dayTitle: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 10,
   },
   dayScroll: {
     flex: 1,
   },
   dayScrollContent: {
-    paddingBottom: 100,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   emptyDay: {
     alignItems: 'center',
