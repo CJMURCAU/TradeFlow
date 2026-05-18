@@ -304,11 +304,15 @@ export default function JobsPage() {
                     )}
                   </View>
                 </View>
+                {job.client && (
+                  <Text style={styles.jobClient}>
+                    {job.client.company_name || job.client.name}
+                  </Text>
+                )}
                 <Text style={styles.jobTitle}>{job.title}</Text>
                 {job.purchase_order_number && (
                   <Text style={styles.jobPO}>PO: {job.purchase_order_number}</Text>
                 )}
-                {job.client && <Text style={styles.jobClient}>{job.client.name}</Text>}
                 <View style={styles.jobFooter}>
                   <View style={styles.jobDate}>
                     <Calendar size={14} color="#6B7280" />
@@ -437,9 +441,9 @@ const styles = StyleSheet.create({
   jobNumber: { fontSize: 14, fontWeight: '600', color: '#F59E0B' },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
   statusText: { fontSize: 10, fontWeight: '700' },
-  jobTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 4 },
+  jobTitle: { fontSize: 14, fontWeight: '400', color: '#6B7280', marginBottom: 4 },
   jobPO: { fontSize: 12, color: '#6B7280', marginBottom: 4 },
-  jobClient: { fontSize: 14, color: '#6B7280', marginBottom: 8 },
+  jobClient: { fontSize: 18, fontWeight: 'bold', color: '#111827', marginBottom: 4 },
   jobFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   jobDate: { flexDirection: 'row', alignItems: 'center' },
   jobDateText: { fontSize: 12, color: '#6B7280', marginLeft: 6 },

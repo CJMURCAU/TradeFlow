@@ -543,8 +543,12 @@ export default function CalendarPage() {
                   <Text style={styles.jobCardTime}>
                     {job.scheduled_time ? formatTime(job.scheduled_time) : 'No time'}
                   </Text>
+                  {job.client && (
+                    <Text style={styles.jobCardClient}>
+                      {job.client.company_name || job.client.name}
+                    </Text>
+                  )}
                   <Text style={styles.jobCardTitle}>{job.title}</Text>
-                  {job.client && <Text style={styles.jobCardClient}>{job.client.name}</Text>}
                 </View>
                 <View style={styles.jobCardRight}>
                   <View style={[styles.jobCardBadge, { backgroundColor: getStatusColor(job.status) + '20' }]}>
@@ -978,14 +982,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   jobCardTitle: {
+    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '400',
+    marginBottom: 2,
+  },
+  jobCardClient: {
     color: '#111827',
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 2,
-  },
-  jobCardClient: {
-    color: '#6B7280',
-    fontSize: 13,
   },
   jobCardRight: {
     flexDirection: 'row',
