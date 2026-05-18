@@ -12,12 +12,11 @@ import {
   NativeScrollEvent,
   Animated,
   Easing,
-  StatusBar,
-  Platform,
   Image,
   Modal,
 } from 'react-native';
 import { PanResponder } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -31,7 +30,7 @@ const DAY_HEADER_HEIGHT = 24;
 const WEEKS = 6;
 const COMPACT_GRID_HEIGHT = DAY_HEADER_HEIGHT + WEEKS * (COMPACT_CELL_HEIGHT + 4);
 
-const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 44;
+// STATUS_BAR_HEIGHT is resolved at runtime via useSafeAreaInsets().top in the component
 const MODAL_HEADER_HEIGHT = 56;
 const MODAL_NAV_HEIGHT = 52;
 const MODAL_DAY_HEADER = 32;
@@ -45,6 +44,7 @@ const DAY_NUM_HEIGHT = 20;
 
 export default function CalendarPage() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width: winWidth, height: winHeight } = useWindowDimensions();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [displayMonth, setDisplayMonth] = useState(new Date());
@@ -555,7 +555,7 @@ export default function CalendarPage() {
 
       <Animated.View
         pointerEvents={expandedVisible && !animating ? 'box-none' : 'none'}
-        style={[styles.modalOverlay, { transform: [{ translateY: slideAnim }] }]}>
+        style={[styles.modalOverlay, { paddingTop: insets.top, transform: [{ translateY: slideAnim }] }]}>
         <View style={styles.modalHeader}>
           <Text style={styles.appName}>TradeFlow</Text>
           <Image
@@ -940,7 +940,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingTop: STATUS_BAR_HEIGHT,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,

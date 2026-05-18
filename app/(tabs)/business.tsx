@@ -9,6 +9,8 @@ import {
   Image,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
 import {
@@ -406,6 +408,9 @@ export default function BusinessPage() {
 
       <TabBar />
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Business Details Form */}
         <View style={styles.formGroup}>
@@ -811,6 +816,7 @@ export default function BusinessPage() {
           </View>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Remove Employee Modal */}
       <Modal

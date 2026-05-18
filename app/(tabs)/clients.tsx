@@ -8,6 +8,8 @@ import {
   TextInput,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
@@ -75,7 +77,9 @@ export default function ClientsPage() {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Clients</Text>
@@ -148,7 +152,7 @@ export default function ClientsPage() {
         onPress={() => router.push('/newclient')}>
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

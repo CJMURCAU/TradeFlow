@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Calendar, LayoutDashboard, Users, Briefcase, Building2 } from 'lucide-react-native';
 import { useRole } from '@/lib/roleContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const OWNER_TABS = [
   { name: 'Calendar', path: '/(tabs)/', icon: Calendar },
@@ -19,6 +20,7 @@ export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
   const { role, loading } = useRole();
+  const insets = useSafeAreaInsets();
 
   const TABS = role === 'employee' ? EMPLOYEE_TABS : OWNER_TABS;
 
@@ -30,7 +32,7 @@ export default function TabBar() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: insets.bottom || 8 }]}>
       {TABS.map(tab => {
         const active = isActive(tab.path);
         const Icon = tab.icon;
