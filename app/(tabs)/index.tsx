@@ -192,6 +192,18 @@ export default function CalendarPage() {
     }
   }, [currentIndex, getMonthForIndex, winWidth]);
 
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
+
+  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
+    if (viewableItems.length > 0) {
+      const newIndex = viewableItems[0].index;
+      if (newIndex !== null && newIndex !== currentIndex) {
+        setCurrentIndex(newIndex);
+        setDisplayMonth(getMonthForIndex(newIndex));
+      }
+    }
+  }, [currentIndex, getMonthForIndex]);
+
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newIndex = currentIndex + (direction === 'next' ? 1 : -1);
     setCurrentIndex(newIndex);
@@ -367,7 +379,7 @@ export default function CalendarPage() {
     const visibleWeeks = weeks.filter(week => week[0] <= lastSunday || week[6].getMonth() === month);
 
     return (
-      <View style={{ width: SCREEN_WIDTH, overflow: 'hidden' }}>
+      <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 8 }}>
@@ -482,6 +494,8 @@ export default function CalendarPage() {
             })}
             onMomentumScrollEnd={onScrollEnd}
             onScrollEndDrag={onScrollEnd}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             initialScrollIndex={12}
             style={{ flex: 1 }}
           />
@@ -642,7 +656,7 @@ export default function CalendarPage() {
           </TouchableOpacity>
         </View>
 
-        <View style={[styles.modalCalendarWrapper, { height: Math.min(MODAL_CALENDAR_HEIGHT, winHeight * 0.52) }]}>
+        <View style={styles.modalCalendarWrapper}>
           <FlatList
             ref={modalFlatListRef}
             data={months}
@@ -658,6 +672,8 @@ export default function CalendarPage() {
             })}
             onMomentumScrollEnd={onScrollEnd}
             onScrollEndDrag={onScrollEnd}
+            onViewableItemsChanged={onViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
             initialScrollIndex={12}
             style={{ flex: 1 }}
             contentContainerStyle={{ alignItems: 'stretch' }}
@@ -1068,12 +1084,14 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
+    bottom: 0,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 8,
+    flexDirection: 'column',
   },
   modalHeader: {
     height: MODAL_HEADER_HEIGHT,
@@ -1106,6 +1124,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAFAFA',
   },
   modalCalendarWrapper: {
+    flex: 1,
     overflow: 'hidden',
   },
   deleteModalOverlay: {
