@@ -17,8 +17,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
-import { GestureDetector, Gesture } from 'react-native-gesture-handler';
-import Reanimated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { PanResponder } from 'react-native';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -58,11 +57,9 @@ export default function CalendarPage() {
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
 
-  const fabX = useSharedValue(0);
-  const fabY = useSharedValue(0);
-  const fabStartX = useSharedValue(0);
-  const fabStartY = useSharedValue(0);
-  const fabIsDragging = useSharedValue(false);
+  const fabPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const fabOffset = useRef({ x: 0, y: 0 });
+  const fabDragDistance = useRef(0);
 
   const navigateToNewJob = useCallback(() => {
     const y = selectedDate.getFullYear();
@@ -71,28 +68,32 @@ export default function CalendarPage() {
     router.push(`/newjob?date=${y}-${m}-${d}`);
   }, [selectedDate, router]);
 
-  const fabGesture = Gesture.Pan()
-    .onBegin(() => {
-      fabStartX.value = fabX.value;
-      fabStartY.value = fabY.value;
-      fabIsDragging.value = false;
+  const fabPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        fabDragDistance.current = 0;
+        fabPos.setOffset({ x: fabOffset.current.x, y: fabOffset.current.y });
+        fabPos.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: (_, gs) => {
+        fabDragDistance.current = Math.max(fabDragDistance.current, Math.abs(gs.dx), Math.abs(gs.dy));
+        fabPos.setValue({ x: gs.dx, y: gs.dy });
+      },
+      onPanResponderRelease: (_, gs) => {
+        fabPos.flattenOffset();
+        fabOffset.current = {
+          x: fabOffset.current.x + gs.dx,
+          y: fabOffset.current.y + gs.dy,
+        };
+        if (fabDragDistance.current < 6) {
+          navigateToNewJob();
+        }
+      },
     })
-    .onUpdate((e) => {
-      if (Math.abs(e.translationX) > 6 || Math.abs(e.translationY) > 6) {
-        fabIsDragging.value = true;
-      }
-      fabX.value = fabStartX.value + e.translationX;
-      fabY.value = fabStartY.value + e.translationY;
-    })
-    .onEnd(() => {
-      if (!fabIsDragging.value) {
-        runOnJS(navigateToNewJob)();
-      }
-    });
-
-  const fabAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: fabX.value }, { translateY: fabY.value }],
-  }));
+  ).current;
 
 
   useFocusEffect(
@@ -516,11 +517,11 @@ export default function CalendarPage() {
         </ScrollView>
       </View>
 
-      <GestureDetector gesture={fabGesture}>
-        <Reanimated.View style={[styles.fab, fabAnimatedStyle]}>
-          <Plus size={28} color="#FFFFFF" />
-        </Reanimated.View>
-      </GestureDetector>
+      <Animated.View
+        style={[styles.fab, { transform: fabPos.getTranslateTransform() }]}
+        {...fabPanResponder.panHandlers}>
+        <Plus size={28} color="#FFFFFF" />
+      </Animated.View>
 
       <Modal
         visible={deleteTarget !== null}
