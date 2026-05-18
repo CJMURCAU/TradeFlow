@@ -395,7 +395,7 @@ export default function CalendarPage() {
                           key={idx}
                           style={[styles.chip, { backgroundColor: getStatusColor(job.status) }]}>
                           <Text style={styles.chipClient} numberOfLines={1}>
-                            {job.client?.name ?? job.title}
+                            {job.client?.company_name || job.client?.name || job.title}
                           </Text>
                           {job.scheduled_time && (
                             <Text style={styles.chipTime} numberOfLines={1}>
