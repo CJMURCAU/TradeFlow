@@ -309,14 +309,29 @@ export default function CalendarPage() {
                   ]}>
                     {day.getDate()}
                   </Text>
-                  <View style={styles.monthDayDots}>
-                    {dayJobs.slice(0, 3).map((job, idx) => (
-                      <View
-                        key={idx}
-                        style={[styles.monthDayDot, { backgroundColor: getStatusColor(job.status) }]}
-                      />
-                    ))}
-                  </View>
+                  {(() => {
+                    const total = dayJobs.length;
+                    const useSmall = total > 3;
+                    const dotSize = useSmall ? 6 : 8;
+                    const visible = dayJobs.slice(0, 6);
+                    const overflow = total > 6 ? total - 6 : 0;
+                    return (
+                      <View style={[styles.monthDayDots, useSmall && styles.monthDayDotsWrap]}>
+                        {visible.map((job, idx) => (
+                          <View
+                            key={idx}
+                            style={[
+                              styles.monthDayDot,
+                              { backgroundColor: getStatusColor(job.status), width: dotSize, height: dotSize, borderRadius: dotSize / 2 },
+                            ]}
+                          />
+                        ))}
+                        {overflow > 0 && (
+                          <Text style={styles.dotOverflow}>+{overflow}</Text>
+                        )}
+                      </View>
+                    );
+                  })()}
                 </TouchableOpacity>
               );
             })}
@@ -429,7 +444,7 @@ export default function CalendarPage() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Text style={styles.appName}>TradeFlow</Text>
         <Image
           source={require('@/assets/images/tradepro_emblem.png')}
@@ -668,7 +683,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   header: {
-    paddingTop: 52,
+    paddingTop: 0,
     paddingBottom: 10,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
@@ -775,11 +790,26 @@ const styles = StyleSheet.create({
     height: 10,
     alignItems: 'center',
   },
+  monthDayDotsWrap: {
+    flexWrap: 'wrap',
+    width: 26,
+    height: 18,
+    alignItems: 'flex-start',
+    alignContent: 'flex-start',
+  },
   monthDayDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
     marginHorizontal: 1,
+    marginBottom: 1,
+  },
+  dotOverflow: {
+    fontSize: 7,
+    color: '#D1D5DB',
+    lineHeight: 8,
+    marginLeft: 1,
+    alignSelf: 'flex-end',
   },
   expandedDay: {
     flex: 1,
