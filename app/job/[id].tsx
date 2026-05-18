@@ -525,7 +525,7 @@ export default function JobDetailPage() {
         {!isEmployee && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Parts</Text>
+              <Text style={styles.sectionTitle}>Costs</Text>
               <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
                 <Plus size={20} color="#F59E0B" />
               </TouchableOpacity>
@@ -650,7 +650,7 @@ export default function JobDetailPage() {
               })()}
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Parts Cost:</Text>
+                <Text style={styles.summaryLabel}>Costs:</Text>
                 <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
               </View>
               <View style={styles.summaryDivider} />
