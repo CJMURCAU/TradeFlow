@@ -768,13 +768,13 @@ const styles = StyleSheet.create({
   monthDayDots: {
     flexDirection: 'row',
     marginTop: 3,
-    height: 6,
+    height: 10,
     alignItems: 'center',
   },
   monthDayDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     marginHorizontal: 1,
   },
   expandedDay: {
