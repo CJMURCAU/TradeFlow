@@ -617,7 +617,7 @@ export default function JobDetailPage() {
               <View style={styles.addPartForm}>
                 <TextInput
                   style={styles.input}
-                  placeholder="Name"
+                  placeholder="Cost name"
                   placeholderTextColor="#94A3B8"
                   value={newPart.name}
                   onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
@@ -755,7 +755,7 @@ export default function JobDetailPage() {
                 <View style={styles.addPartForm}>
                   <TextInput
                     style={styles.input}
-                    placeholder="Name"
+                    placeholder="Cost name"
                     placeholderTextColor="#94A3B8"
                     value={newPart.name}
                     onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
