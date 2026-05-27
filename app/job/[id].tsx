@@ -392,14 +392,12 @@ export default function JobDetailPage() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getTotalTime = () => timeEntries.reduce((total, entry) => {
-    const start = new Date(entry.start_time).getTime();
-    const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-    return total + (end - start);
-  }, 0) / 1000;
+  // Set of employee IDs whose assignments are marked completed
+  const completedAssignmentEmployeeIds = new Set(
+    assignments.filter(a => a.completed).map(a => a.employee_id)
+  );
 
-  const getTotalPartsCost = () => parts.reduce((total, part) => total + (part.cost * part.quantity), 0);
-
+  // Owner's own time (no employee_id) — running entry ticks live
   const getOwnerLabourSeconds = () =>
     timeEntries
       .filter(e => e.employee_id == null)
@@ -409,16 +407,18 @@ export default function JobDetailPage() {
         return total + (end - start) / 1000;
       }, 0);
 
+  // Employee labour rows — only count employees whose assignment is completed,
+  // and only count entries that have a real end_time (no live ticking)
   const getEmployeeLabourRows = (): { id: string; name: string; seconds: number; rate: number }[] => {
     const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate ?? hourlyRate }]));
     const rowMap = new Map<string, { id: string; name: string; seconds: number; rate: number }>();
     timeEntries
-      .filter(e => e.employee_id != null)
+      .filter(e => e.employee_id != null && completedAssignmentEmployeeIds.has(e.employee_id!) && e.end_time != null)
       .forEach(entry => {
         const empId = entry.employee_id!;
         const empInfo = empRateMap.get(empId) ?? { name: 'Employee', rate: hourlyRate };
         const start = new Date(entry.start_time).getTime();
-        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+        const end = new Date(entry.end_time!).getTime();
         const secs = (end - start) / 1000;
         const existing = rowMap.get(empId);
         if (existing) {
@@ -435,6 +435,41 @@ export default function JobDetailPage() {
     const empCost = getEmployeeLabourRows().reduce((sum, row) => sum + (row.seconds / 3600) * row.rate, 0);
     return ownerCost + empCost;
   };
+
+  // Owner total time = owner entries + completed employee entries (no live ticking for employees)
+  const getTotalTime = () => {
+    const ownerMs = timeEntries
+      .filter(e => e.employee_id == null)
+      .reduce((total, entry) => {
+        const start = new Date(entry.start_time).getTime();
+        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+        return total + (end - start);
+      }, 0);
+    const empMs = timeEntries
+      .filter(e => e.employee_id != null && completedAssignmentEmployeeIds.has(e.employee_id!) && e.end_time != null)
+      .reduce((total, entry) => {
+        const start = new Date(entry.start_time).getTime();
+        const end = new Date(entry.end_time!).getTime();
+        return total + (end - start);
+      }, 0);
+    return (ownerMs + empMs) / 1000;
+  };
+
+  // Employee's own completed time (for their "Hours Worked" section)
+  const getMyLabourSeconds = () =>
+    timeEntries
+      .filter(e => employeeRecord ? e.employee_id === employeeRecord.id : false)
+      .reduce((total, entry) => {
+        const start = new Date(entry.start_time).getTime();
+        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+        return total + (end - start) / 1000;
+      }, 0);
+
+  // Parts cost: owner-added parts only for owner summary; employee parts only when assignment completed
+  const getTotalPartsCost = () =>
+    parts
+      .filter(p => p.employee_id == null || completedAssignmentEmployeeIds.has(p.employee_id))
+      .reduce((total, part) => total + (part.cost * part.quantity), 0);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -608,7 +643,7 @@ export default function JobDetailPage() {
               </View>
             )}
 
-            {parts.map(part => (
+            {parts.filter(p => p.employee_id == null).map(part => (
               <View key={part.id} style={styles.partCard}>
                 <View style={styles.partInfo}>
                   <Text style={styles.partName}>{part.name}</Text>
@@ -698,7 +733,7 @@ export default function JobDetailPage() {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total Time:</Text>
-                  <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
+                  <Text style={styles.summaryValue}>{formatTime(Math.floor(getMyLabourSeconds()))}</Text>
                 </View>
               </View>
             </View>
