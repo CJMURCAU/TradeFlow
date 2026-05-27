@@ -214,16 +214,20 @@ export default function JobDetailPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setMarkingComplete(false); return; }
 
-    await Promise.all([
-      supabase.from('job_assignments')
-        .update({ completed: true, completed_at: new Date().toISOString() })
-        .eq('id', myAssignment.id),
-      supabase.from('jobs')
-        .update({ status: 'completed' })
-        .eq('id', job.id),
-    ]);
+    // Stop any running timer before marking complete
+    if (currentTimeEntry) {
+      await supabase.from('time_entries')
+        .update({ end_time: new Date().toISOString(), is_running: false })
+        .eq('id', currentTimeEntry.id);
+      isTimerRunningRef.current = false;
+      currentTimeEntryRef.current = null;
+      setIsTimerRunning(false);
+      setCurrentTimeEntry(null);
+    }
 
-    setJob(prev => prev ? { ...prev, status: 'completed' } : prev);
+    await supabase.from('job_assignments')
+      .update({ completed: true, completed_at: new Date().toISOString() })
+      .eq('id', myAssignment.id);
 
     const empId = employeeRecord?.id ?? myAssignment.employee_id;
     const { data: emp } = await supabase
@@ -560,9 +564,9 @@ export default function JobDetailPage() {
             <View style={styles.timerButtons}>
               {!isTimerRunning ? (
                 <TouchableOpacity
-                  style={[styles.timerButton, job.status === 'completed' && styles.timerButtonDisabled]}
+                  style={[styles.timerButton, (job.status === 'completed' || (isEmployee && (myAssignment?.completed || markedCompleteSuccess))) && styles.timerButtonDisabled]}
                   onPress={startTimer}
-                  disabled={job.status === 'completed'}>
+                  disabled={job.status === 'completed' || (isEmployee && (myAssignment?.completed || markedCompleteSuccess))}>
                   <Play size={24} color="#FFFFFF" />
                   <Text style={styles.timerButtonText}>Start</Text>
                 </TouchableOpacity>
