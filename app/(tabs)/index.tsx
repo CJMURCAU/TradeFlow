@@ -41,7 +41,7 @@ export default function CalendarPage() {
   const [currentIndex, setCurrentIndex] = useState(12);
   const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
 
-  const SHEET_PEEK = 130;
+  const SHEET_PEEK = 160;
   const SHEET_OPEN = Math.round(SCREEN_HEIGHT * 0.5);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetAnim = useRef(new Animated.Value(SHEET_PEEK)).current;
@@ -369,27 +369,26 @@ export default function CalendarPage() {
 
       </View>
 
-      <View style={styles.statusKey}>
-        <View style={styles.statusKeyItem}>
-          <View style={[styles.statusKeyDot, { backgroundColor: '#F59E0B' }]} />
-          <Text style={styles.statusKeyLabel}>Pending</Text>
-        </View>
-        <View style={styles.statusKeyItem}>
-          <View style={[styles.statusKeyDot, { backgroundColor: '#3B82F6' }]} />
-          <Text style={styles.statusKeyLabel}>Active</Text>
-        </View>
-        <View style={styles.statusKeyItem}>
-          <View style={[styles.statusKeyDot, { backgroundColor: '#10B981' }]} />
-          <Text style={styles.statusKeyLabel}>Completed</Text>
-        </View>
-      </View>
-
       <Animated.View style={[styles.sheet, { height: sheetAnim, bottom: insets.bottom }]}>
         <TouchableOpacity
           style={styles.sheetHandle}
           onPress={sheetOpen ? closeSheet : openSheet}
           activeOpacity={0.7}>
           <View style={styles.sheetHandleBar} />
+          <View style={styles.statusKey}>
+            <View style={styles.statusKeyItem}>
+              <View style={[styles.statusKeyDot, { backgroundColor: '#F59E0B' }]} />
+              <Text style={styles.statusKeyLabel}>Pending</Text>
+            </View>
+            <View style={styles.statusKeyItem}>
+              <View style={[styles.statusKeyDot, { backgroundColor: '#3B82F6' }]} />
+              <Text style={styles.statusKeyLabel}>Active</Text>
+            </View>
+            <View style={styles.statusKeyItem}>
+              <View style={[styles.statusKeyDot, { backgroundColor: '#10B981' }]} />
+              <Text style={styles.statusKeyLabel}>Completed</Text>
+            </View>
+          </View>
           <View style={styles.sheetHandleRow}>
             <Text style={styles.dayTitle}>{formattedSelectedDate}</Text>
             {selectedDayJobs.length > 0 && (
@@ -623,13 +622,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 20,
-    paddingVertical: 8,
+    paddingVertical: 6,
     paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
-    backgroundColor: '#FAFAFA',
+    marginBottom: 8,
   },
   statusKeyItem: {
     flexDirection: 'row',
@@ -664,8 +661,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   sheetHandleBar: {
     width: 36,
@@ -702,6 +697,8 @@ const styles = StyleSheet.create({
   },
   dayScroll: {
     flex: 1,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
   dayScrollContent: {
     paddingHorizontal: 16,
