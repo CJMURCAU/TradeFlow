@@ -45,26 +45,41 @@ export default function JobsPage() {
 
   const fetchJobs = useCallback(async () => {
     if (isEmployee && employeeRecord) {
-      // Employees only see jobs assigned to them
-      const { data: assignments } = await supabase
-        .from('job_assignments')
-        .select('job_id')
-        .eq('employee_id', employeeRecord.id);
+      if (employeeRecord.calendar_access) {
+        // Full calendar access — fetch all jobs
+        const { data } = await supabase
+          .from('jobs')
+          .select('*, client:clients(*)')
+          .order('created_at', { ascending: false });
 
-      const jobIds = (assignments || []).map((a: { job_id: string }) => a.job_id);
-      if (jobIds.length === 0) { setJobs([]); return; }
+        if (data) {
+          setJobs(data.map(job => ({
+            ...job,
+            client: Array.isArray(job.client) ? job.client[0] : job.client,
+          })));
+        }
+      } else {
+        // Restricted — only show assigned jobs
+        const { data: assignments } = await supabase
+          .from('job_assignments')
+          .select('job_id')
+          .eq('employee_id', employeeRecord.id);
 
-      const { data } = await supabase
-        .from('jobs')
-        .select('*, client:clients(*)')
-        .in('id', jobIds)
-        .order('created_at', { ascending: false });
+        const jobIds = (assignments || []).map((a: { job_id: string }) => a.job_id);
+        if (jobIds.length === 0) { setJobs([]); return; }
 
-      if (data) {
-        setJobs(data.map(job => ({
-          ...job,
-          client: Array.isArray(job.client) ? job.client[0] : job.client,
-        })));
+        const { data } = await supabase
+          .from('jobs')
+          .select('*, client:clients(*)')
+          .in('id', jobIds)
+          .order('created_at', { ascending: false });
+
+        if (data) {
+          setJobs(data.map(job => ({
+            ...job,
+            client: Array.isArray(job.client) ? job.client[0] : job.client,
+          })));
+        }
       }
     } else {
       const { data } = await supabase

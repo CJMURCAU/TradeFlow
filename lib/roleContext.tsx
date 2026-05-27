@@ -86,6 +86,29 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  // Keep employee record in sync when employer changes settings (e.g. calendar_access toggle)
+  useEffect(() => {
+    if (!employeeRecord?.id) return;
+
+    const channel = supabase
+      .channel(`employee-record-${employeeRecord.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'employees',
+          filter: `id=eq.${employeeRecord.id}`,
+        },
+        (payload) => {
+          setEmployeeRecord(payload.new as Employee);
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [employeeRecord?.id]);
+
   return (
     <RoleContext.Provider value={{ role, employeeRecord, ownerUserId, loading, refetch: fetchRole }}>
       {children}
