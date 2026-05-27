@@ -61,6 +61,8 @@ export default function JobDetailPage() {
   useEffect(() => {
     if (role === 'owner' && id) fetchAssignments();
     if (role === 'employee' && id) fetchEmployeeData();
+    // Re-scope timer state now that role/employee identity is known
+    if (role && timeEntries.length > 0) applyTimerState(timeEntries);
   }, [role, employeeRecord, id]);
 
   const fetchBusinessDetails = async () => {
@@ -103,29 +105,42 @@ export default function JobDetailPage() {
 
     if (timeEntriesResponse.data) {
       setTimeEntries(timeEntriesResponse.data);
-      const running = timeEntriesResponse.data.find(entry => entry.is_running);
-      const completedEntries = timeEntriesResponse.data.filter(entry => !entry.is_running && entry.end_time);
-      const completedSeconds = completedEntries.reduce((total, entry) => {
-        const start = new Date(entry.start_time).getTime();
-        const end = new Date(entry.end_time!).getTime();
-        return total + Math.floor((end - start) / 1000);
-      }, 0);
-      accumulatedTimeRef.current = completedSeconds;
-      if (running) {
-        currentTimeEntryRef.current = running;
-        isTimerRunningRef.current = true;
-        setCurrentTimeEntry(running);
-        setIsTimerRunning(true);
-        const start = new Date(running.start_time).getTime();
-        const now = Date.now();
-        setElapsedTime(completedSeconds + Math.floor((now - start) / 1000));
-      } else {
-        currentTimeEntryRef.current = null;
-        isTimerRunningRef.current = false;
-        setElapsedTime(completedSeconds);
-      }
+      applyTimerState(timeEntriesResponse.data);
     }
   };
+
+  const applyTimerState = useCallback((entries: TimeEntry[]) => {
+    // Determine which entries belong to the current viewer:
+    // - owner/employer: entries with no employee_id (their own)
+    // - employee: entries matching their employee record id
+    const myEntries = role === 'employee' && employeeRecord
+      ? entries.filter(e => e.employee_id === employeeRecord.id)
+      : entries.filter(e => !e.employee_id);
+
+    const running = myEntries.find(entry => entry.is_running);
+    const completedEntries = myEntries.filter(entry => !entry.is_running && entry.end_time);
+    const completedSeconds = completedEntries.reduce((total, entry) => {
+      const start = new Date(entry.start_time).getTime();
+      const end = new Date(entry.end_time!).getTime();
+      return total + Math.floor((end - start) / 1000);
+    }, 0);
+    accumulatedTimeRef.current = completedSeconds;
+    if (running) {
+      currentTimeEntryRef.current = running;
+      isTimerRunningRef.current = true;
+      setCurrentTimeEntry(running);
+      setIsTimerRunning(true);
+      const start = new Date(running.start_time).getTime();
+      const now = Date.now();
+      setElapsedTime(completedSeconds + Math.floor((now - start) / 1000));
+    } else {
+      currentTimeEntryRef.current = null;
+      isTimerRunningRef.current = false;
+      setCurrentTimeEntry(null);
+      setIsTimerRunning(false);
+      setElapsedTime(completedSeconds);
+    }
+  }, [role, employeeRecord]);
 
   const fetchAssignments = async () => {
     const { data: { user } } = await supabase.auth.getUser();
