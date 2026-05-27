@@ -199,9 +199,16 @@ export default function JobDetailPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setMarkingComplete(false); return; }
 
-    await supabase.from('job_assignments')
-      .update({ completed: true, completed_at: new Date().toISOString() })
-      .eq('id', myAssignment.id);
+    await Promise.all([
+      supabase.from('job_assignments')
+        .update({ completed: true, completed_at: new Date().toISOString() })
+        .eq('id', myAssignment.id),
+      supabase.from('jobs')
+        .update({ status: 'completed' })
+        .eq('id', job.id),
+    ]);
+
+    setJob(prev => prev ? { ...prev, status: 'completed' } : prev);
 
     const empId = employeeRecord?.id ?? myAssignment.employee_id;
     const { data: emp } = await supabase
