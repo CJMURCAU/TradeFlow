@@ -175,8 +175,9 @@ Deno.serve(async (req: Request) => {
 
       <div style="padding:16px;margin:20px 0;border:1px solid #000000;">
         <p style="margin:0 0 4px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Client</p>
-        <p style="margin:0;font-size:16px;color:#000000;font-weight:600;">${client.name}</p>
-        ${client.company_name ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.company_name}</p>` : ""}
+        ${client.company_name ? `<p style="margin:0;font-size:16px;color:#000000;font-weight:600;">${client.company_name}</p>` : ""}
+        <p style="margin:${client.company_name ? "4px" : "0"} 0 0;font-size:14px;color:#000000;">${client.name}</p>
+        ${client.phone ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.phone}</p>` : ""}
         ${client.address ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.address}</p>` : ""}
       </div>
 
