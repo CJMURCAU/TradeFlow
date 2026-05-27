@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { supabase, Job, Client, EmployeeNotification } from '@/lib/supabase';
 import { Trash2, Calendar, Search, Bell, X, CircleCheck as CheckCircle } from 'lucide-react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 import { useRole } from '@/lib/roleContext';
 
@@ -36,6 +36,10 @@ export default function JobsPage() {
     if (params.filter) setFilterStatus(params.filter as JobStatus);
     fetchJobs();
   }, [params.filter, role, employeeRecord]);
+
+  useFocusEffect(useCallback(() => {
+    fetchJobs();
+  }, [fetchJobs]));
 
   useEffect(() => {
     if (isEmployee || !role) return;
