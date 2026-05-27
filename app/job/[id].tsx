@@ -378,19 +378,40 @@ export default function JobDetailPage() {
 
   const getTotalPartsCost = () => parts.reduce((total, part) => total + (part.cost * part.quantity), 0);
 
+  const getOwnerLabourSeconds = () =>
+    timeEntries
+      .filter(e => e.employee_id == null)
+      .reduce((total, entry) => {
+        const start = new Date(entry.start_time).getTime();
+        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+        return total + (end - start) / 1000;
+      }, 0);
+
+  const getEmployeeLabourRows = (): { id: string; name: string; seconds: number; rate: number }[] => {
+    const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate ?? hourlyRate }]));
+    const rowMap = new Map<string, { id: string; name: string; seconds: number; rate: number }>();
+    timeEntries
+      .filter(e => e.employee_id != null)
+      .forEach(entry => {
+        const empId = entry.employee_id!;
+        const empInfo = empRateMap.get(empId) ?? { name: 'Employee', rate: hourlyRate };
+        const start = new Date(entry.start_time).getTime();
+        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+        const secs = (end - start) / 1000;
+        const existing = rowMap.get(empId);
+        if (existing) {
+          existing.seconds += secs;
+        } else {
+          rowMap.set(empId, { id: empId, name: empInfo.name, seconds: secs, rate: empInfo.rate });
+        }
+      });
+    return Array.from(rowMap.values());
+  };
+
   const getLabourCost = () => {
-    if (employees.length === 0) {
-      return (getTotalTime() / 3600) * hourlyRate;
-    }
-    const empRateMap = new Map(employees.map(e => [e.id, e.hourly_rate]));
-    return timeEntries.reduce((total, entry) => {
-      const start = new Date(entry.start_time).getTime();
-      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-      const hours = (end - start) / 3600000;
-      const empRate = entry.employee_id != null ? empRateMap.get(entry.employee_id) : undefined;
-      const rate = empRate != null ? empRate : hourlyRate;
-      return total + hours * rate;
-    }, 0);
+    const ownerCost = (getOwnerLabourSeconds() / 3600) * hourlyRate;
+    const empCost = getEmployeeLabourRows().reduce((sum, row) => sum + (row.seconds / 3600) * row.rate, 0);
+    return ownerCost + empCost;
   };
 
   const getStatusColor = (status: string) => {
@@ -591,49 +612,33 @@ export default function JobDetailPage() {
                 <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
               </View>
 
-              {/* Per-employee labour breakdown */}
+              {/* Labour breakdown — always show owner line + one line per employee */}
+              <Text style={styles.summaryBreakdownHeading}>Labour Cost:</Text>
               {(() => {
-                const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate }]));
-                const perEmployee = new Map<string, { name: string; seconds: number; rate: number }>();
-
-                timeEntries.forEach(entry => {
-                  const start = new Date(entry.start_time).getTime();
-                  const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-                  const secs = Math.floor((end - start) / 1000);
-                  const key = entry.employee_id ?? '__owner__';
-                  const empInfo = entry.employee_id != null ? empRateMap.get(entry.employee_id) : undefined;
-                  const name = empInfo?.name ?? 'Owner';
-                  const rate = empInfo?.rate != null ? empInfo.rate : hourlyRate;
-                  const existing = perEmployee.get(key);
-                  if (existing) {
-                    existing.seconds += secs;
-                  } else {
-                    perEmployee.set(key, { name, seconds: secs, rate });
-                  }
-                });
-
-                const rows = Array.from(perEmployee.values());
-                if (rows.length <= 1) {
-                  return (
-                    <View style={styles.summaryRow}>
-                      <View>
-                        <Text style={styles.summaryLabel}>Labour Cost:</Text>
-                        {hourlyRate > 0 && <Text style={styles.summarySubLabel}>${hourlyRate.toFixed(2)}/hr</Text>}
-                      </View>
-                      <Text style={styles.summaryValue}>{hourlyRate > 0 ? `$${getLabourCost().toFixed(2)}` : '—'}</Text>
-                    </View>
-                  );
-                }
-
+                const ownerName = business?.tradesman_name || 'Owner';
+                const ownerSecs = getOwnerLabourSeconds();
+                const ownerCost = (ownerSecs / 3600) * hourlyRate;
+                const empRows = getEmployeeLabourRows();
+                const labourTotal = getLabourCost();
                 return (
                   <>
-                    <Text style={styles.summaryBreakdownHeading}>Labour Cost:</Text>
-                    {rows.map(row => (
-                      <View key={row.name} style={styles.summaryBreakdownRow}>
+                    <View style={styles.summaryBreakdownRow}>
+                      <View>
+                        <Text style={styles.summaryBreakdownName}>{ownerName}</Text>
+                        <Text style={styles.summarySubLabel}>
+                          {formatTime(Math.floor(ownerSecs))} @ {hourlyRate > 0 ? `$${hourlyRate.toFixed(2)}/hr` : 'no rate set'}
+                        </Text>
+                      </View>
+                      <Text style={styles.summaryValue}>
+                        {hourlyRate > 0 ? `$${ownerCost.toFixed(2)}` : '—'}
+                      </Text>
+                    </View>
+                    {empRows.map(row => (
+                      <View key={row.id} style={styles.summaryBreakdownRow}>
                         <View>
                           <Text style={styles.summaryBreakdownName}>{row.name}</Text>
                           <Text style={styles.summarySubLabel}>
-                            {formatTime(row.seconds)} @ ${row.rate.toFixed(2)}/hr
+                            {formatTime(Math.floor(row.seconds))} @ ${row.rate.toFixed(2)}/hr
                           </Text>
                         </View>
                         <Text style={styles.summaryValue}>
@@ -643,7 +648,7 @@ export default function JobDetailPage() {
                     ))}
                     <View style={styles.summaryBreakdownTotalRow}>
                       <Text style={styles.summaryLabel}>Labour Total:</Text>
-                      <Text style={styles.summaryValue}>${getLabourCost().toFixed(2)}</Text>
+                      <Text style={styles.summaryValue}>${labourTotal.toFixed(2)}</Text>
                     </View>
                   </>
                 );

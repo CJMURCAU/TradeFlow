@@ -1,12 +1,13 @@
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
-import { Job, Client, Part, TimeEntry, BusinessDetails } from './supabase';
+import { Job, Client, Part, TimeEntry, BusinessDetails, Employee } from './supabase';
 
 type JobCardData = {
   job: Job & { client?: Client };
   parts: Part[];
   timeEntries: TimeEntry[];
   business: BusinessDetails | null;
+  employees: Employee[];
 };
 
 function formatTime(seconds: number): string {
@@ -17,23 +18,78 @@ function formatTime(seconds: number): string {
 }
 
 function buildJobCardHtml(data: JobCardData): string {
-  const { job, parts, timeEntries, business } = data;
+  const { job, parts, timeEntries, business, employees } = data;
   const client = job.client;
+
+  const defaultRate = business?.default_hourly_rate ?? 0;
+  const tradesmanName = business?.tradesman_name || 'Owner';
+  const companyName = business?.company_name || 'Your Service Provider';
 
   const totalSeconds = timeEntries.reduce((sum, entry) => {
     const start = new Date(entry.start_time).getTime();
     const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
     return sum + Math.floor((end - start) / 1000);
   }, 0);
-
-  const hourlyRate = business?.default_hourly_rate ?? 0;
-  const labourCost = (totalSeconds / 3600) * hourlyRate;
-  const totalPartsCost = parts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
-  const totalCost = labourCost + totalPartsCost;
   const timeFormatted = formatTime(totalSeconds);
 
-  const companyName = business?.company_name || 'Your Service Provider';
-  const tradesmanName = business?.tradesman_name || '';
+  // Owner labour: entries with no employee_id
+  const ownerSeconds = timeEntries
+    .filter(e => e.employee_id == null)
+    .reduce((sum, entry) => {
+      const start = new Date(entry.start_time).getTime();
+      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+      return sum + Math.floor((end - start) / 1000);
+    }, 0);
+  const ownerCost = (ownerSeconds / 3600) * defaultRate;
+
+  // Employee labour: grouped by employee_id
+  const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate ?? defaultRate }]));
+  const empRowMap = new Map<string, { name: string; seconds: number; rate: number }>();
+  timeEntries
+    .filter(e => e.employee_id != null)
+    .forEach(entry => {
+      const empId = entry.employee_id!;
+      const empInfo = empRateMap.get(empId) ?? { name: 'Employee', rate: defaultRate };
+      const start = new Date(entry.start_time).getTime();
+      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+      const secs = Math.floor((end - start) / 1000);
+      const existing = empRowMap.get(empId);
+      if (existing) {
+        existing.seconds += secs;
+      } else {
+        empRowMap.set(empId, { name: empInfo.name, seconds: secs, rate: empInfo.rate });
+      }
+    });
+  const empRows = Array.from(empRowMap.values());
+  const empLabourCost = empRows.reduce((sum, r) => sum + (r.seconds / 3600) * r.rate, 0);
+  const totalLabourCost = ownerCost + empLabourCost;
+
+  const totalPartsCost = parts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
+  const totalCost = totalLabourCost + totalPartsCost;
+
+  const labourRowsHtml = `
+    <tr>
+      <td style="padding:5px 0;font-size:11px;color:#555555;text-transform:uppercase;letter-spacing:0.06em;" colspan="2">Labour Cost</td>
+    </tr>
+    <tr>
+      <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
+        ${tradesmanName}
+        <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ''}</span>
+      </td>
+      <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : '&mdash;'}</td>
+    </tr>
+    ${empRows.map(r => `
+    <tr>
+      <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
+        ${r.name}
+        <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
+      </td>
+      <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">$${((r.seconds / 3600) * r.rate).toFixed(2)}</td>
+    </tr>`).join('')}
+    <tr>
+      <td style="padding:3px 0 6px 12px;font-size:14px;color:#000000;">Labour Total</td>
+      <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
+    </tr>`;
 
   const partsHtml = parts.length > 0
     ? `
@@ -98,10 +154,7 @@ function buildJobCardHtml(data: JobCardData): string {
             <td style="padding:5px 0;font-size:15px;color:#000000;">Total Time</td>
             <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${timeFormatted}</td>
           </tr>
-          <tr>
-            <td style="padding:5px 0;font-size:15px;color:#000000;">Labour Cost${hourlyRate > 0 ? ` <span style="font-size:12px;color:#555555;">($${hourlyRate.toFixed(2)}/hr)</span>` : ''}</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${hourlyRate > 0 ? `$${labourCost.toFixed(2)}` : '&mdash;'}</td>
-          </tr>
+          ${labourRowsHtml}
           <tr>
             <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
             <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>

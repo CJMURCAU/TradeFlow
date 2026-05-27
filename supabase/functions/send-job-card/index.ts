@@ -7,6 +7,13 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+function formatTime(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -42,46 +49,90 @@ Deno.serve(async (req: Request) => {
 
     const client = Array.isArray(job.client) ? job.client[0] : job.client;
 
-    const { data: parts } = await supabase
-      .from("parts")
-      .select("*")
-      .eq("job_id", jobId);
+    const [partsRes, timeEntriesRes, businessRes, employeesRes] = await Promise.all([
+      supabase.from("parts").select("*").eq("job_id", jobId),
+      supabase.from("time_entries").select("*").eq("job_id", jobId),
+      supabase.from("business_details").select("*").eq("user_id", job.user_id).maybeSingle(),
+      supabase.from("employees").select("*").eq("user_id", job.user_id).eq("status", "active"),
+    ]);
 
-    const { data: timeEntries } = await supabase
-      .from("time_entries")
-      .select("*")
-      .eq("job_id", jobId);
+    const parts: { name: string; cost: number; quantity: number }[] = partsRes.data || [];
+    const timeEntries: { start_time: string; end_time: string | null; employee_id: string | null }[] = timeEntriesRes.data || [];
+    const business = businessRes.data;
+    const employees: { id: string; name: string; hourly_rate: number | null }[] = employeesRes.data || [];
 
-    const { data: business } = await supabase
-      .from("business_details")
-      .select("*")
-      .eq("user_id", job.user_id)
-      .maybeSingle();
+    const defaultRate: number = business?.default_hourly_rate ?? 0;
+    const tradesmanName: string = business?.tradesman_name || "Owner";
+    const companyName: string = business?.company_name || "Your Service Provider";
 
-    const totalPartsCost = (parts || []).reduce(
-      (sum: number, p: { cost: number; quantity: number }) => sum + p.cost * p.quantity,
-      0
-    );
+    // Total time across all entries
+    const totalSeconds = timeEntries.reduce((sum, entry) => {
+      const start = new Date(entry.start_time).getTime();
+      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+      return sum + Math.floor((end - start) / 1000);
+    }, 0);
+    const timeFormatted = formatTime(totalSeconds);
 
-    const totalSeconds = (timeEntries || []).reduce(
-      (sum: number, entry: { start_time: string; end_time: string | null }) => {
+    // Owner labour: entries with no employee_id
+    const ownerSeconds = timeEntries
+      .filter(e => e.employee_id == null)
+      .reduce((sum, entry) => {
         const start = new Date(entry.start_time).getTime();
         const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
         return sum + Math.floor((end - start) / 1000);
-      },
-      0
-    );
+      }, 0);
+    const ownerCost = (ownerSeconds / 3600) * defaultRate;
 
-    const timeHours = Math.floor(totalSeconds / 3600);
-    const timeMinutes = Math.floor((totalSeconds % 3600) / 60);
-    const timeSecs = totalSeconds % 60;
-    const timeFormatted = `${String(timeHours).padStart(2, "0")}:${String(timeMinutes).padStart(2, "0")}:${String(timeSecs).padStart(2, "0")}`;
+    // Employee labour: grouped by employee_id
+    const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate ?? defaultRate }]));
+    const empRowMap = new Map<string, { name: string; seconds: number; rate: number }>();
+    timeEntries
+      .filter(e => e.employee_id != null)
+      .forEach(entry => {
+        const empId = entry.employee_id!;
+        const empInfo = empRateMap.get(empId) ?? { name: "Employee", rate: defaultRate };
+        const start = new Date(entry.start_time).getTime();
+        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
+        const secs = Math.floor((end - start) / 1000);
+        const existing = empRowMap.get(empId);
+        if (existing) {
+          existing.seconds += secs;
+        } else {
+          empRowMap.set(empId, { name: empInfo.name, seconds: secs, rate: empInfo.rate });
+        }
+      });
+    const empRows = Array.from(empRowMap.values());
+    const empLabourCost = empRows.reduce((sum, r) => sum + (r.seconds / 3600) * r.rate, 0);
+    const totalLabourCost = ownerCost + empLabourCost;
 
-    const hourlyRate = business?.default_hourly_rate ?? 0;
-    const labourCost = (totalSeconds / 3600) * hourlyRate;
-    const totalCost = labourCost + totalPartsCost;
+    const totalPartsCost = parts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
+    const totalCost = totalLabourCost + totalPartsCost;
 
-    const partsHtml = (parts || []).length > 0
+    const labourRowsHtml = `
+      <tr>
+        <td style="padding:5px 0 2px;font-size:11px;color:#555555;text-transform:uppercase;letter-spacing:0.06em;" colspan="2">Labour Cost</td>
+      </tr>
+      <tr>
+        <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
+          ${tradesmanName}
+          <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ""}</span>
+        </td>
+        <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "&mdash;"}</td>
+      </tr>
+      ${empRows.map(r => `
+      <tr>
+        <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
+          ${r.name}
+          <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
+        </td>
+        <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">$${((r.seconds / 3600) * r.rate).toFixed(2)}</td>
+      </tr>`).join("")}
+      <tr>
+        <td style="padding:3px 0 6px 12px;font-size:14px;color:#000000;">Labour Total</td>
+        <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
+      </tr>`;
+
+    const partsHtml = parts.length > 0
       ? `
         <table style="width:100%;border-collapse:collapse;margin-top:8px;">
           <thead>
@@ -93,9 +144,9 @@ Deno.serve(async (req: Request) => {
             </tr>
           </thead>
           <tbody>
-            ${(parts || [])
+            ${parts
               .map(
-                (p: { name: string; cost: number; quantity: number }) => `
+                (p) => `
               <tr>
                 <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.name}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.cost.toFixed(2)}</td>
@@ -107,9 +158,6 @@ Deno.serve(async (req: Request) => {
           </tbody>
         </table>`
       : `<p style="color:#6b7280;font-size:14px;">No parts used.</p>`;
-
-    const companyName = business?.company_name || "Your Service Provider";
-    const tradesmanName = business?.tradesman_name || "";
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -150,10 +198,7 @@ Deno.serve(async (req: Request) => {
             <td style="padding:5px 0;font-size:15px;color:#000000;">Total Time</td>
             <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${timeFormatted}</td>
           </tr>
-          <tr>
-            <td style="padding:5px 0;font-size:15px;color:#000000;">Labour Cost${hourlyRate > 0 ? ` <span style="font-size:12px;color:#555555;">($${hourlyRate.toFixed(2)}/hr)</span>` : ""}</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${hourlyRate > 0 ? `$${labourCost.toFixed(2)}` : "&mdash;"}</td>
-          </tr>
+          ${labourRowsHtml}
           <tr>
             <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
             <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
