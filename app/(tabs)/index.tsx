@@ -41,10 +41,13 @@ export default function CalendarPage() {
   const [currentIndex, setCurrentIndex] = useState(12);
   const [deleteTarget, setDeleteTarget] = useState<(Job & { client?: Client }) | null>(null);
 
-  const SHEET_PEEK = 110;
-  const SHEET_OPEN = Math.round(SCREEN_HEIGHT * 0.5);
+  const [topContentHeight, setTopContentHeight] = useState(0);
+  const SHEET_PEEK = topContentHeight > 0
+    ? Math.max(winHeight - topContentHeight - insets.bottom, 90)
+    : 110;
+  const SHEET_OPEN = Math.round(winHeight * 0.5);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const sheetAnim = useRef(new Animated.Value(SHEET_PEEK)).current;
+  const sheetAnim = useRef(new Animated.Value(110)).current;
 
   const fabPos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const fabOffset = useRef({ x: 0, y: 0 });
@@ -199,6 +202,12 @@ export default function CalendarPage() {
     setDisplayMonth(getMonthForIndex(newIndex));
   }, [currentIndex, getMonthForIndex]);
 
+  useEffect(() => {
+    if (!sheetOpen && topContentHeight > 0) {
+      sheetAnim.setValue(SHEET_PEEK);
+    }
+  }, [SHEET_PEEK, sheetOpen, topContentHeight]);
+
   const openSheet = useCallback(() => {
     setSheetOpen(true);
     Animated.spring(sheetAnim, {
@@ -322,65 +331,67 @@ export default function CalendarPage() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.appName}>TradeFlow</Text>
-        <Image
-          source={require('@/assets/images/tradepro_emblem.png')}
-          style={styles.logoImage}
-          resizeMode="contain"
-        />
-      </View>
-
-      <TabBar />
-
-      <View style={styles.monthNavRow}>
-        <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton}>
-          <ChevronLeft size={22} color="#F59E0B" />
-        </TouchableOpacity>
-        <Text style={styles.monthNavTitle}>{displayMonthTitle}</Text>
-        <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navButton}>
-          <ChevronRight size={22} color="#F59E0B" />
-        </TouchableOpacity>
-      </View>
-
-      <View>
-        <View style={[styles.calendarContainer, { height: Math.min(COMPACT_GRID_HEIGHT, winHeight * 0.45) }]}>
-          <FlatList
-            ref={flatListRef}
-            data={months}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.toString()}
-            renderItem={renderCompactMonth}
-            getItemLayout={(_, index) => ({
-              length: winWidth,
-              offset: winWidth * index,
-              index,
-            })}
-            onMomentumScrollEnd={onScrollEnd}
-            onScrollEndDrag={onScrollEnd}
-            onViewableItemsChanged={onViewableItemsChanged}
-            viewabilityConfig={viewabilityConfig}
-            initialScrollIndex={12}
-            style={{ flex: 1 }}
+      <View
+        onLayout={(e) => setTopContentHeight(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
+        <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+          <Text style={styles.appName}>TradeFlow</Text>
+          <Image
+            source={require('@/assets/images/tradepro_emblem.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
           />
         </View>
 
-      </View>
+        <TabBar />
 
-      <View style={styles.statusKey}>
-        <View style={styles.statusKeyItem}>
-          <View style={[styles.statusKeyDot, { backgroundColor: '#F59E0B' }]} />
-          <Text style={styles.statusKeyLabel}>Pending</Text>
+        <View style={styles.monthNavRow}>
+          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton}>
+            <ChevronLeft size={22} color="#F59E0B" />
+          </TouchableOpacity>
+          <Text style={styles.monthNavTitle}>{displayMonthTitle}</Text>
+          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navButton}>
+            <ChevronRight size={22} color="#F59E0B" />
+          </TouchableOpacity>
         </View>
-        <View style={styles.statusKeyItem}>
-          <View style={[styles.statusKeyDot, { backgroundColor: '#3B82F6' }]} />
-          <Text style={styles.statusKeyLabel}>Active</Text>
+
+        <View>
+          <View style={[styles.calendarContainer, { height: Math.min(COMPACT_GRID_HEIGHT, winHeight * 0.45) }]}>
+            <FlatList
+              ref={flatListRef}
+              data={months}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.toString()}
+              renderItem={renderCompactMonth}
+              getItemLayout={(_, index) => ({
+                length: winWidth,
+                offset: winWidth * index,
+                index,
+              })}
+              onMomentumScrollEnd={onScrollEnd}
+              onScrollEndDrag={onScrollEnd}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+              initialScrollIndex={12}
+              style={{ flex: 1 }}
+            />
+          </View>
         </View>
-        <View style={styles.statusKeyItem}>
-          <View style={[styles.statusKeyDot, { backgroundColor: '#10B981' }]} />
-          <Text style={styles.statusKeyLabel}>Completed</Text>
+
+        <View style={styles.statusKey}>
+          <View style={styles.statusKeyItem}>
+            <View style={[styles.statusKeyDot, { backgroundColor: '#F59E0B' }]} />
+            <Text style={styles.statusKeyLabel}>Pending</Text>
+          </View>
+          <View style={styles.statusKeyItem}>
+            <View style={[styles.statusKeyDot, { backgroundColor: '#3B82F6' }]} />
+            <Text style={styles.statusKeyLabel}>Active</Text>
+          </View>
+          <View style={styles.statusKeyItem}>
+            <View style={[styles.statusKeyDot, { backgroundColor: '#10B981' }]} />
+            <Text style={styles.statusKeyLabel}>Completed</Text>
+          </View>
         </View>
       </View>
 
