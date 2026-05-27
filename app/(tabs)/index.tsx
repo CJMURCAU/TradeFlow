@@ -45,7 +45,7 @@ export default function CalendarPage() {
   const SHEET_PEEK = topContentHeight > 0
     ? Math.max(winHeight - topContentHeight - insets.bottom, 90)
     : 110;
-  const SHEET_OPEN = Math.round(winHeight * 0.5);
+  const SHEET_OPEN = Math.round(winHeight * 0.75);
   const [sheetOpen, setSheetOpen] = useState(false);
   const sheetAnim = useRef(new Animated.Value(110)).current;
 
