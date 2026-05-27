@@ -194,15 +194,19 @@ export default function CalendarPage() {
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
-  const onViewableItemsChanged = useCallback(({ viewableItems }: { viewableItems: any[] }) => {
+  const currentIndexRef = useRef(currentIndex);
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: any[] }) => {
     if (viewableItems.length > 0) {
       const newIndex = viewableItems[0].index;
-      if (newIndex !== null && newIndex !== currentIndex) {
+      if (newIndex !== null && newIndex !== currentIndexRef.current) {
+        currentIndexRef.current = newIndex;
         setCurrentIndex(newIndex);
         setDisplayMonth(getMonthForIndex(newIndex));
       }
     }
-  }, [currentIndex, getMonthForIndex]);
+  }).current;
 
   const navigateMonth = useCallback((direction: 'prev' | 'next') => {
     const newIndex = currentIndex + (direction === 'next' ? 1 : -1);
