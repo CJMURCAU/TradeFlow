@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -31,15 +31,6 @@ export default function JobsPage() {
   const [showNotifications, setShowNotifications] = useState(false);
 
   const isEmployee = role === 'employee';
-
-  useEffect(() => {
-    if (params.filter) setFilterStatus(params.filter as JobStatus);
-    fetchJobs();
-  }, [params.filter, role, employeeRecord]);
-
-  useFocusEffect(useCallback(() => {
-    fetchJobs();
-  }, [fetchJobs]));
 
   useEffect(() => {
     if (isEmployee || !role) return;
@@ -99,6 +90,15 @@ export default function JobsPage() {
       }
     }
   }, [isEmployee, employeeRecord]);
+
+  useEffect(() => {
+    if (params.filter) setFilterStatus(params.filter as JobStatus);
+    fetchJobs();
+  }, [params.filter, role, employeeRecord]);
+
+  useFocusEffect(useCallback(() => {
+    fetchJobs();
+  }, [fetchJobs]));
 
   const fetchNotifications = async () => {
     const { data: { user } } = await supabase.auth.getUser();
