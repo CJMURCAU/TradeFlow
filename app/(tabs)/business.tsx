@@ -122,8 +122,6 @@ export default function BusinessPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaveLoading(false); setSaveStatus({ type: 'error', message: 'Not signed in.' }); return; }
 
-    const startNumberChanged = newStartNumber !== (businessDetails?.job_card_number_start ?? 1000);
-
     const payload = {
       company_name: formData.company_name,
       tradesman_name: formData.tradesman_name,
@@ -145,16 +143,6 @@ export default function BusinessPage() {
       setSaveLoading(false);
       setSaveStatus({ type: 'error', message: 'Failed to save business details. Please try again.' });
       return;
-    }
-
-    if (startNumberChanged && businessDetails) {
-      const { error: renumberError } = await supabase.rpc('renumber_jobs_from', { start_number: newStartNumber });
-      if (renumberError) {
-        setSaveLoading(false);
-        setSaveStatus({ type: 'error', message: 'Settings saved but job cards could not be renumbered.' });
-        fetchBusinessDetails();
-        return;
-      }
     }
 
     setSaveLoading(false);
@@ -445,7 +433,7 @@ export default function BusinessPage() {
             onChangeText={text => setFormData(prev => ({ ...prev, job_card_number_start: text.replace(/[^0-9]/g, '') }))}
             keyboardType="number-pad"
           />
-          <Text style={styles.fieldHint}>Existing job cards will be renumbered from this value when saved</Text>
+          <Text style={styles.fieldHint}>New job cards will start from this number</Text>
         </View>
 
         <View style={styles.formGroup}>
