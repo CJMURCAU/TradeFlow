@@ -6,9 +6,9 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Image,
   ActivityIndicator,
 } from 'react-native';
+import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
@@ -87,11 +87,7 @@ export default function LoginPage() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.logoSection}>
-          <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
+          <TradeFlowEmblem size={72} />
           <Text style={styles.appTitle}>TradeFlow</Text>
           <Text style={styles.tagline}>Job management for tradespeople</Text>
         </View>
@@ -241,8 +237,6 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   logo: {
-    width: 72,
-    height: 72,
     marginBottom: 12,
   },
   appTitle: {

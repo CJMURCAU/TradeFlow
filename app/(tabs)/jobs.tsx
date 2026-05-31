@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Image,
   TextInput,
 } from 'react-native';
+import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Job, Client, EmployeeNotification } from '@/lib/supabase';
 import { Trash2, Calendar, Search, Bell, X, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
@@ -215,11 +215,7 @@ export default function JobsPage() {
                 )}
               </TouchableOpacity>
             )}
-            <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <TradeFlowEmblem size={44} />
           </View>
         </View>
 

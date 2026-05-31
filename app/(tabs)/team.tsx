@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Image,
   ActivityIndicator,
 } from 'react-native';
+import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Employee, Job, Client, JobAssignment } from '@/lib/supabase';
 import { ChevronLeft, ChevronRight, Users, Building2, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -184,7 +184,7 @@ export default function TeamPage() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Text style={styles.title}>Team</Text>
-            <Image source={require('@/assets/images/tradepro_emblem.png')} style={styles.logoImage} resizeMode="contain" />
+            <TradeFlowEmblem size={44} />
           </View>
         </View>
         <TabBar />
@@ -201,7 +201,7 @@ export default function TeamPage() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Text style={styles.title}>Team</Text>
-            <Image source={require('@/assets/images/tradepro_emblem.png')} style={styles.logoImage} resizeMode="contain" />
+            <TradeFlowEmblem size={44} />
           </View>
         </View>
         <TabBar />
@@ -223,7 +223,7 @@ export default function TeamPage() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Team</Text>
-          <Image source={require('@/assets/images/tradepro_emblem.png')} style={styles.logoImage} resizeMode="contain" />
+          <TradeFlowEmblem size={44} />
         </View>
       </View>
 
