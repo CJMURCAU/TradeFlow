@@ -146,7 +146,6 @@ export default function TradeFlowEmblem({ size = 44 }: Props) {
               L ${spanL * 0.45} ${spanW * 0.35}
               L ${-spanL * 0.55} ${spanW * 0.35} Z`}
           fill="url(#silver3d)"
-          rx={spanW * 0.2}
         />
         {/* Spanner head left (open-end) - C shape top */}
         <Path
