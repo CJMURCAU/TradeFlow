@@ -114,4 +114,15 @@ export type EmployeeNotification = {
   created_at: string;
 };
 
+export type NoteItem = {
+  id: string;
+  user_id: string;
+  type: 'text' | 'numbered' | 'checkbox';
+  content: string;
+  checked: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type UserRole = 'owner' | 'employee';

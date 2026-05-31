@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
-import { Calendar, LayoutDashboard, Users, Briefcase, Building2, UsersRound } from 'lucide-react-native';
+import { Calendar, LayoutDashboard, Users, Briefcase, Building2, UsersRound, NotebookPen } from 'lucide-react-native';
 import { useRole } from '@/lib/roleContext';
 
 const EMPLOYEE_RESTRICTED = ['index', 'dashboard', 'clients', 'business', 'team'];
@@ -68,6 +68,15 @@ export default function TabLayout() {
           title: 'Jobs',
           tabBarIcon: ({ size, color }) => (
             <Briefcase size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="notes"
+        options={{
+          title: 'Notes',
+          tabBarIcon: ({ size, color }) => (
+            <NotebookPen size={size} color={color} />
           ),
         }}
       />
