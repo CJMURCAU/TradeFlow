@@ -7,8 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
+  Image,
 } from 'react-native';
-import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
@@ -131,7 +131,11 @@ export default function InvitePage() {
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.logoSection}>
-          <TradeFlowEmblem size={64} />
+          <Image
+            source={require('@/assets/images/tradepro_emblem.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.appTitle}>TradeFlow</Text>
         </View>
 
@@ -249,6 +253,8 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   logo: {
+    width: 64,
+    height: 64,
     marginBottom: 10,
   },
   appTitle: {

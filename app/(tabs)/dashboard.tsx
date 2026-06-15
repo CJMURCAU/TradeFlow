@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import TradeFlowEmblem from '@/components/TradeFlowEmblem';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { supabase, Job, TimeEntry } from '@/lib/supabase';
 import { Clock, Briefcase, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -67,7 +66,11 @@ export default function DashboardPage() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.pageTitle}>Dashboard</Text>
-        <TradeFlowEmblem size={44} />
+        <Image
+          source={require('@/assets/images/tradepro_emblem.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
 
       <TabBar />

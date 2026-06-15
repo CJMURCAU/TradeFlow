@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -83,7 +83,11 @@ export default function ClientsPage() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Clients</Text>
-          <TradeFlowEmblem size={44} />
+          <Image
+            source={require('@/assets/images/tradepro_emblem.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
         <View style={styles.searchContainer}>
           <Search size={20} color="#6B7280" />

@@ -11,9 +11,9 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   Animated,
+  Image,
   Modal,
 } from 'react-native';
-import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, Job, Client } from '@/lib/supabase';
@@ -335,7 +335,11 @@ export default function CalendarPage() {
         onLayout={(e) => setTopContentHeight(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <Text style={styles.appName}>TradeFlow</Text>
-          <TradeFlowEmblem size={44} />
+          <Image
+            source={require('@/assets/images/tradepro_emblem.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
         </View>
 
         <TabBar />

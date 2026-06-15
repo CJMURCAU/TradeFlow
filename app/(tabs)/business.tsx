@@ -6,12 +6,12 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  Image,
   ActivityIndicator,
   Modal,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
 import {
   Save,
@@ -387,7 +387,11 @@ export default function BusinessPage() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Business Details</Text>
-        <TradeFlowEmblem size={44} />
+        <Image
+          source={require('@/assets/images/tradepro_emblem.png')}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
       </View>
 
       <TabBar />
