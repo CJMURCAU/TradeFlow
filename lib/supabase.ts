@@ -23,6 +23,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export type Client = {
   id: string;
+  user_id: string;
   company_name: string;
   name: string;
   phone: string;
@@ -33,6 +34,7 @@ export type Client = {
 
 export type Job = {
   id: string;
+  user_id: string;
   client_id: string;
   title: string;
   purchase_order_number: string;
@@ -66,6 +68,7 @@ export type TimeEntry = {
 
 export type BusinessDetails = {
   id: string;
+  user_id: string;
   company_name: string;
   tradesman_name: string;
   job_email: string;
@@ -112,6 +115,17 @@ export type EmployeeNotification = {
   job_id: string | null;
   read: boolean;
   created_at: string;
+};
+
+export type NoteItem = {
+  id: string;
+  user_id: string;
+  type: 'text' | 'numbered' | 'checkbox';
+  content: string;
+  checked: boolean;
+  position: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type UserRole = 'owner' | 'employee';
