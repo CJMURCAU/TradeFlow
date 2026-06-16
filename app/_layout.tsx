@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider } from '@/lib/roleContext';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -10,7 +9,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 type SessionState = 'loading' | 'authenticated' | 'unauthenticated';
 
 export default function RootLayout() {
-  useFrameworkReady();
   const router = useRouter();
   const segments = useSegments();
   const [sessionState, setSessionState] = useState<SessionState>('loading');
