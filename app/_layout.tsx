@@ -35,8 +35,15 @@ export default function RootLayout() {
   }, []);
 
   const checkSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    setSessionState(session ? 'authenticated' : 'unauthenticated');
+    // If the session lookup throws (e.g. transient network/storage error) fall
+    // back to unauthenticated instead of leaving the app stuck on a blank
+    // loading screen forever. Surfaced by the web smoke test.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSessionState(session ? 'authenticated' : 'unauthenticated');
+    } catch {
+      setSessionState('unauthenticated');
+    }
   };
 
   useEffect(() => {
