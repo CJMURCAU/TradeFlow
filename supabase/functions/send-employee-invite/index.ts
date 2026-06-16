@@ -5,7 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ??
   "https://tradeflowmanager.com,http://localhost:8081,http://localhost:19006")
   .split(",")
-  .map((o) => o.trim())
+  .map((o: string) => o.trim())
   .filter(Boolean);
 
 function corsHeaders(req: Request): Record<string, string> {
