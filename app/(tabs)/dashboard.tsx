@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase } from '@/lib/supabase';
 import { Clock, Briefcase, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
@@ -15,11 +15,19 @@ export default function DashboardPage() {
     pendingJobs: 0,
   });
 
+  const [refreshing, setRefreshing] = useState(false);
+
   // Refetch whenever the tab regains focus so stats aren't stale after
   // creating/deleting elsewhere (audit P-M2).
   useFocusEffect(useCallback(() => {
     fetchStats();
   }, []));
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchStats();
+    setRefreshing(false);
+  };
 
   const fetchStats = async () => {
     const [jobsResponse, timeEntriesResponse] = await Promise.all([
@@ -74,7 +82,10 @@ export default function DashboardPage() {
 
       <TabBar />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F59E0B" />}>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <View style={styles.statIconContainer}>

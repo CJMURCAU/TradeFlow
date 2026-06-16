@@ -8,6 +8,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { confirmAction, showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
@@ -38,6 +39,8 @@ export default function ClientsPage() {
     fetchClients();
   }, []));
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const fetchClients = async () => {
     const { data } = await supabase
       .from('clients')
@@ -47,6 +50,12 @@ export default function ClientsPage() {
     if (data) {
       setClients(data);
     }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchClients();
+    setRefreshing(false);
   };
 
   const deleteClient = async (id: string, name: string) => {
@@ -93,7 +102,10 @@ export default function ClientsPage() {
 
       <TabBar />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F59E0B" />}>
         {filteredClients.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>

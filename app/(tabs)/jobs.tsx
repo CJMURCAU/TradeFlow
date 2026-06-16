@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  RefreshControl,
 } from 'react-native';
 import { confirmAction, showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
@@ -30,8 +31,15 @@ export default function JobsPage() {
   // Notifications (owner only)
   const [notifications, setNotifications] = useState<EmployeeNotification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const isEmployee = role === 'employee';
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchJobs();
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (isEmployee || !role) return;
@@ -287,7 +295,10 @@ export default function JobsPage() {
 
       <TabBar />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#F59E0B" />}>
         {filteredJobs.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
