@@ -118,6 +118,7 @@ function AppRoot() {
 }
 
 export default function RootLayout() {
+  useFrameworkReady();
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
