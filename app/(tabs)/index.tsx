@@ -12,9 +12,8 @@ import {
   NativeScrollEvent,
   Animated,
   Modal,
-} from 'react-native';
+ PanResponder } from 'react-native';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
-import { PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { getStatusColor } from '@/lib/status';
@@ -334,11 +333,11 @@ export default function CalendarPage() {
         <TabBar />
 
         <View style={styles.monthNavRow}>
-          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton}>
+          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.navButton} accessibilityRole="button" accessibilityLabel="Previous month">
             <ChevronLeft size={22} color="#F59E0B" />
           </TouchableOpacity>
           <Text style={styles.monthNavTitle}>{displayMonthTitle}</Text>
-          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navButton}>
+          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.navButton} accessibilityRole="button" accessibilityLabel="Next month">
             <ChevronRight size={22} color="#F59E0B" />
           </TouchableOpacity>
         </View>

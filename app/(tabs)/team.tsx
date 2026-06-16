@@ -226,7 +226,7 @@ export default function TeamPage() {
 
         {/* Week navigation */}
         <View style={styles.weekNav}>
-          <TouchableOpacity style={styles.weekNavBtn} onPress={() => setWeekOffset(w => w - 1)} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.weekNavBtn} onPress={() => setWeekOffset(w => w - 1)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Previous week">
             <ChevronLeft size={20} color="#374151" />
           </TouchableOpacity>
           <View style={styles.weekNavCenter}>
@@ -237,7 +237,7 @@ export default function TeamPage() {
               </TouchableOpacity>
             )}
           </View>
-          <TouchableOpacity style={styles.weekNavBtn} onPress={() => setWeekOffset(w => w + 1)} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.weekNavBtn} onPress={() => setWeekOffset(w => w + 1)} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Next week">
             <ChevronRight size={20} color="#374151" />
           </TouchableOpacity>
         </View>

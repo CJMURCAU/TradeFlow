@@ -228,7 +228,7 @@ export default function JobsPage() {
                     <Text style={styles.markAllReadText}>Mark all read</Text>
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => setShowNotifications(false)}>
+                <TouchableOpacity onPress={() => setShowNotifications(false)} accessibilityRole="button" accessibilityLabel="Close notifications">
                   <X size={18} color="#6B7280" />
                 </TouchableOpacity>
               </View>
