@@ -78,7 +78,7 @@ export default function InvitePage() {
       return;
     }
 
-    await linkEmployee(data.user.id);
+    await linkEmployee();
   };
 
   const handleSignIn = async () => {
@@ -100,15 +100,16 @@ export default function InvitePage() {
       return;
     }
 
-    await linkEmployee(data.user.id);
+    await linkEmployee();
   };
 
-  const linkEmployee = async (userId: string) => {
+  const linkEmployee = async () => {
     setStage('linking');
 
+    // Identity is derived from the authenticated session inside the function
+    // (audit S-C2); we no longer send a client-supplied user id.
     const { data, error } = await supabase.rpc('accept_employee_invite', {
       p_token: token,
-      p_user_id: userId,
     });
 
     if (error || !data?.success) {
