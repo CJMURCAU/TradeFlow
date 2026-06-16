@@ -47,14 +47,17 @@ export default function TabBar() {
             key={tab.path}
             style={styles.tab}
             onPress={() => router.push(tab.path as any)}
-            activeOpacity={0.7}>
+            activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={tab.name}>
             <Icon size={20} color={active ? '#F59E0B' : '#6B7280'} strokeWidth={active ? 2.5 : 2} />
             <Text style={[styles.label, active && styles.labelActive]}>{tab.name}</Text>
           </TouchableOpacity>
         );
       })}
       {role === 'employee' && (
-        <TouchableOpacity style={styles.logoutTab} onPress={handleLogout} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.logoutTab} onPress={handleLogout} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Log out">
           <LogOut size={20} color="#EF4444" strokeWidth={2} />
           <Text style={styles.logoutLabel}>Log Out</Text>
         </TouchableOpacity>

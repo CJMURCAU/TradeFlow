@@ -172,6 +172,9 @@ export default function LoginPage() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
+                textContentType="emailAddress"
+                autoComplete="email"
+                returnKeyType="next"
               />
               <TextInput
                 style={styles.input}
@@ -180,6 +183,9 @@ export default function LoginPage() {
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                textContentType={mode === 'signup' ? 'newPassword' : 'password'}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                returnKeyType="done"
               />
 
               {mode === 'signin' && (
