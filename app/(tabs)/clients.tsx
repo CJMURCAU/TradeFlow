@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { confirmAction, showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
 export default function ClientsPage() {
@@ -22,9 +22,10 @@ export default function ClientsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
 
-  useEffect(() => {
+  // Refetch on focus so the list isn't stale after adding/deleting (audit P-M2).
+  useFocusEffect(useCallback(() => {
     fetchClients();
-  }, []);
+  }, []));
 
   useEffect(() => {
     if (searchQuery.trim() === '') {

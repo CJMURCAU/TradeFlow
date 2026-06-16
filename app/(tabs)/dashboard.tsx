@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Job, TimeEntry } from '@/lib/supabase';
 import { Clock, Briefcase, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
 export default function DashboardPage() {
@@ -15,9 +15,11 @@ export default function DashboardPage() {
     pendingJobs: 0,
   });
 
-  useEffect(() => {
+  // Refetch whenever the tab regains focus so stats aren't stale after
+  // creating/deleting elsewhere (audit P-M2).
+  useFocusEffect(useCallback(() => {
     fetchStats();
-  }, []);
+  }, []));
 
   const fetchStats = async () => {
     const [jobsResponse, timeEntriesResponse] = await Promise.all([
