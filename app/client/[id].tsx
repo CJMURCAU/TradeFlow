@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { showAlert } from '@/lib/feedback';
 import { supabase, Client, Job } from '@/lib/supabase';
+import { getStatusColor } from '@/lib/status';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRequireOwner } from '@/lib/useRequireOwner';
 import { ArrowLeft, Save, Phone, Mail, MapPin, Briefcase } from 'lucide-react-native';
@@ -112,14 +113,6 @@ export default function ClientDetailPage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#F59E0B';
-      case 'active': return '#3B82F6';
-      case 'completed': return '#10B981';
-      default: return '#6B7280';
-    }
-  };
 
   if (!client) {
     return (

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Employee, Job, Client, JobAssignment } from '@/lib/supabase';
+import { getStatusColor } from '@/lib/status';
 import { ChevronLeft, ChevronRight, Users, Building2, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
@@ -149,14 +150,6 @@ export default function TeamPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#F59E0B';
-      case 'active': return '#3B82F6';
-      case 'completed': return '#10B981';
-      default: return '#6B7280';
-    }
-  };
 
   const formatTime = (dateString: string | null) => {
     if (!dateString) return '';

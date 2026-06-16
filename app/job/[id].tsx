@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
+import { getStatusColor } from '@/lib/status';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
 import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown } from 'lucide-react-native';
@@ -486,14 +487,6 @@ export default function JobDetailPage() {
       .filter(p => p.employee_id == null || completedAssignmentEmployeeIds.has(p.employee_id))
       .reduce((total, part) => total + (part.cost * part.quantity), 0);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#F59E0B';
-      case 'active': return '#3B82F6';
-      case 'completed': return '#10B981';
-      default: return '#6B7280';
-    }
-  };
 
   const unassignedActiveEmployees = employees.filter(
     e => !assignments.find(a => a.employee_id === e.id)

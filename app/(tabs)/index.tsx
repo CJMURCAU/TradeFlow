@@ -17,6 +17,7 @@ import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, Job, Client } from '@/lib/supabase';
+import { getStatusColor } from '@/lib/status';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
@@ -149,14 +150,6 @@ export default function CalendarPage() {
     return jobsByDate[key] ?? [];
   }, [jobsByDate]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#F59E0B';
-      case 'active': return '#3B82F6';
-      case 'completed': return '#10B981';
-      default: return '#6B7280';
-    }
-  };
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);

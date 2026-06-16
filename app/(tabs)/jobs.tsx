@@ -10,6 +10,7 @@ import {
 import { confirmAction, showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Job, Client, EmployeeNotification } from '@/lib/supabase';
+import { getStatusColor } from '@/lib/status';
 import { Trash2, Calendar, Search, Bell, X, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
@@ -171,14 +172,6 @@ export default function JobsPage() {
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return '#F59E0B';
-      case 'active': return '#3B82F6';
-      case 'completed': return '#10B981';
-      default: return '#6B7280';
-    }
-  };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Not scheduled';
