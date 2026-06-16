@@ -19,7 +19,6 @@ export default function InvitePage() {
   const [stage, setStage] = useState<'loading' | 'invalid' | 'signup' | 'signin' | 'linking' | 'done'>('loading');
   const [employeeName, setEmployeeName] = useState('');
   const [employeeEmail, setEmployeeEmail] = useState('');
-  const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +44,6 @@ export default function InvitePage() {
 
     setEmployeeName(employee.name);
     setEmployeeEmail(employee.email);
-    setEmployeeId(employee.id);
 
     // If already linked, just redirect to sign in
     if (employee.employee_user_id) {

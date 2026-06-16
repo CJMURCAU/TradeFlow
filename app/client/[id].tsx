@@ -13,7 +13,7 @@ import { supabase, Client, Job } from '@/lib/supabase';
 import { getStatusColor } from '@/lib/status';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRequireOwner } from '@/lib/useRequireOwner';
-import { ArrowLeft, Save, Phone, Mail, MapPin, Briefcase } from 'lucide-react-native';
+import { ArrowLeft, Save, Phone, Mail, MapPin } from 'lucide-react-native';
 
 export default function ClientDetailPage() {
   useRequireOwner();

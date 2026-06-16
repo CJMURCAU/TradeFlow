@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
-import { supabase, Job, TimeEntry } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Clock, Briefcase, CircleCheck as CheckCircle, CircleAlert as AlertCircle } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';

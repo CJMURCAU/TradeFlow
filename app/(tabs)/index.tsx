@@ -22,7 +22,6 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const COMPACT_CELL_HEIGHT = 38;
 const DAY_HEADER_HEIGHT = 24;
