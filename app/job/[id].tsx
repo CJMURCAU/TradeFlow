@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, formatHMS } from '@/lib/format';
 import { getStatusColor } from '@/lib/status';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
@@ -402,12 +402,6 @@ export default function JobDetailPage() {
     }
   };
 
-  const formatTime = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
 
   // Set of employee IDs whose assignments are marked completed
   const completedAssignmentEmployeeIds = new Set(
@@ -576,7 +570,7 @@ export default function JobDetailPage() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Timer</Text>
           <View style={styles.timerContainer}>
-            <Text style={styles.timerDisplay}>{formatTime(elapsedTime)}</Text>
+            <Text style={styles.timerDisplay}>{formatHMS(elapsedTime)}</Text>
             {job.status === 'completed' && (
               <Text style={styles.timerCompletedNote}>Job completed — timer disabled</Text>
             )}
@@ -689,7 +683,7 @@ export default function JobDetailPage() {
             <View style={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Total Time:</Text>
-                <Text style={styles.summaryValue}>{formatTime(Math.floor(getTotalTime()))}</Text>
+                <Text style={styles.summaryValue}>{formatHMS(Math.floor(getTotalTime()))}</Text>
               </View>
 
               {/* Labour breakdown — always show owner line + one line per employee */}
@@ -706,7 +700,7 @@ export default function JobDetailPage() {
                       <View>
                         <Text style={styles.summaryBreakdownName}>{ownerName}</Text>
                         <Text style={styles.summarySubLabel}>
-                          {formatTime(Math.floor(ownerSecs))} @ {hourlyRate > 0 ? `${formatCurrency(hourlyRate)}/hr` : 'no rate set'}
+                          {formatHMS(Math.floor(ownerSecs))} @ {hourlyRate > 0 ? `${formatCurrency(hourlyRate)}/hr` : 'no rate set'}
                         </Text>
                       </View>
                       <Text style={styles.summaryValue}>
@@ -718,7 +712,7 @@ export default function JobDetailPage() {
                         <View>
                           <Text style={styles.summaryBreakdownName}>{row.name}</Text>
                           <Text style={styles.summarySubLabel}>
-                            {formatTime(Math.floor(row.seconds))} @ {formatCurrency(row.rate)}/hr
+                            {formatHMS(Math.floor(row.seconds))} @ {formatCurrency(row.rate)}/hr
                           </Text>
                         </View>
                         <Text style={styles.summaryValue}>
@@ -756,7 +750,7 @@ export default function JobDetailPage() {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Total Time:</Text>
-                  <Text style={styles.summaryValue}>{formatTime(Math.floor(getMyLabourSeconds()))}</Text>
+                  <Text style={styles.summaryValue}>{formatHMS(Math.floor(getMyLabourSeconds()))}</Text>
                 </View>
               </View>
             </View>
