@@ -42,6 +42,23 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  web-build:
+    name: Web bundle builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - name: Export web bundle
+        env:
+          # Dummy values — the export only needs them to be defined to bundle.
+          EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+        run: npx expo export --platform web
+
   migrations:
     name: Migration chain (reproducible from scratch)
     runs-on: ubuntu-latest
