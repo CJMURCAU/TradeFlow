@@ -1,4 +1,5 @@
 import * as Print from 'expo-print';
+import { formatCurrency } from './format';
 import * as FileSystem from 'expo-file-system';
 import { Job, Client, Part, TimeEntry, BusinessDetails, Employee } from './supabase';
 
@@ -74,21 +75,21 @@ function buildJobCardHtml(data: JobCardData): string {
     <tr>
       <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
         ${tradesmanName}
-        <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ''}</span>
+        <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ ${formatCurrency(defaultRate)}/hr` : ''}</span>
       </td>
-      <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : '&mdash;'}</td>
+      <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `${formatCurrency(ownerCost)}` : '&mdash;'}</td>
     </tr>
     ${empRows.map(r => `
     <tr>
       <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
         ${r.name}
-        <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
+        <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ ${formatCurrency(r.rate)}/hr</span>
       </td>
-      <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">$${((r.seconds / 3600) * r.rate).toFixed(2)}</td>
+      <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${formatCurrency(((r.seconds / 3600) * r.rate))}</td>
     </tr>`).join('')}
     <tr>
       <td style="padding:3px 0 6px 12px;font-size:14px;color:#000000;">Labour Total</td>
-      <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
+      <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">${formatCurrency(totalLabourCost)}</td>
     </tr>`;
 
   const partsHtml = parts.length > 0
@@ -106,9 +107,9 @@ function buildJobCardHtml(data: JobCardData): string {
           ${parts.map(p => `
             <tr>
               <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.name}</td>
-              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.cost.toFixed(2)}</td>
+              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${formatCurrency(p.cost)}</td>
               <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.quantity}</td>
-              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.cost * p.quantity).toFixed(2)}</td>
+              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${formatCurrency((p.cost * p.quantity))}</td>
             </tr>`).join('')}
         </tbody>
       </table>`
@@ -157,14 +158,14 @@ function buildJobCardHtml(data: JobCardData): string {
           ${labourRowsHtml}
           <tr>
             <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${formatCurrency(totalPartsCost)}</td>
           </tr>
           <tr>
             <td colspan="2" style="padding:4px 0;"><hr style="border:none;border-top:1px solid #000000;margin:4px 0;" /></td>
           </tr>
           <tr>
             <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;">Total</td>
-            <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;text-align:right;">$${totalCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;text-align:right;">${formatCurrency(totalCost)}</td>
           </tr>
         </table>
       </div>

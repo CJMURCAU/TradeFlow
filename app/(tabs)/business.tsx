@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { showAlert } from '@/lib/feedback';
+import { formatCurrency } from '@/lib/format';
 import * as FileSystemNS from 'expo-file-system';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
@@ -622,7 +623,7 @@ export default function BusinessPage() {
                 <Text style={styles.employeeName}>{emp.name}</Text>
                 <Text style={styles.employeeEmail}>{emp.email}</Text>
                 {emp.hourly_rate != null && (
-                  <Text style={styles.employeeRate}>${emp.hourly_rate.toFixed(2)}/hr</Text>
+                  <Text style={styles.employeeRate}>{formatCurrency(emp.hourly_rate)}/hr</Text>
                 )}
               </View>
               <View style={[styles.statusPill, { backgroundColor: getStatusColor(emp.status) + '20' }]}>

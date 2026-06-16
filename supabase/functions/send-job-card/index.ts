@@ -35,6 +35,15 @@ function esc(value: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
+// Configurable currency (audit i18n / I18N-H2) — defaults to GBP for the UK
+// market. Override with CURRENCY / CURRENCY_LOCALE env vars.
+const CURRENCY = Deno.env.get("CURRENCY") ?? "GBP";
+const CURRENCY_LOCALE = Deno.env.get("CURRENCY_LOCALE") ?? "en-GB";
+function money(n: number): string {
+  return new Intl.NumberFormat(CURRENCY_LOCALE, { style: "currency", currency: CURRENCY })
+    .format(Number.isFinite(n) ? n : 0);
+}
+
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
@@ -164,21 +173,21 @@ Deno.serve(async (req: Request) => {
       <tr>
         <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
           ${esc(tradesmanName)}
-          <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ""}</span>
+          <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ ${money(defaultRate)}/hr` : ""}</span>
         </td>
-        <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "&mdash;"}</td>
+        <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `${money(ownerCost)}` : "&mdash;"}</td>
       </tr>
       ${empRows.map(r => `
       <tr>
         <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
           ${esc(r.name)}
-          <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
+          <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ ${money(r.rate)}/hr</span>
         </td>
-        <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">$${((r.seconds / 3600) * r.rate).toFixed(2)}</td>
+        <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${money(((r.seconds / 3600) * r.rate))}</td>
       </tr>`).join("")}
       <tr>
         <td style="padding:3px 0 6px 12px;font-size:14px;color:#000000;">Labour Total</td>
-        <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
+        <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">${money(totalLabourCost)}</td>
       </tr>`;
 
     const partsHtml = includedParts.length > 0
@@ -198,9 +207,9 @@ Deno.serve(async (req: Request) => {
                 (p) => `
               <tr>
                 <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${esc(p.name)}</td>
-                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.cost.toFixed(2)}</td>
+                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${money(p.cost)}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.quantity}</td>
-                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.cost * p.quantity).toFixed(2)}</td>
+                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${money((p.cost * p.quantity))}</td>
               </tr>`
               )
               .join("")}
@@ -251,14 +260,14 @@ Deno.serve(async (req: Request) => {
           ${labourRowsHtml}
           <tr>
             <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${money(totalPartsCost)}</td>
           </tr>
           <tr>
             <td colspan="2" style="padding:4px 0;"><hr style="border:none;border-top:1px solid #000000;margin:4px 0;" /></td>
           </tr>
           <tr>
             <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;">Total</td>
-            <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;text-align:right;">$${totalCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:17px;font-weight:700;color:#000000;text-align:right;">${money(totalCost)}</td>
           </tr>
         </table>
       </div>

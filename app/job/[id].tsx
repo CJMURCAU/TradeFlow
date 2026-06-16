@@ -11,6 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/format';
 import { getStatusColor } from '@/lib/status';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
@@ -670,7 +671,7 @@ export default function JobDetailPage() {
                 <View style={styles.partInfo}>
                   <Text style={styles.partName}>{part.name}</Text>
                   <Text style={styles.partDetails}>
-                    ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
+                    {formatCurrency(part.cost)} x {part.quantity} = {formatCurrency(part.cost * part.quantity)}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => deletePart(part.id)} accessibilityRole="button" accessibilityLabel="Delete part">
@@ -705,11 +706,11 @@ export default function JobDetailPage() {
                       <View>
                         <Text style={styles.summaryBreakdownName}>{ownerName}</Text>
                         <Text style={styles.summarySubLabel}>
-                          {formatTime(Math.floor(ownerSecs))} @ {hourlyRate > 0 ? `$${hourlyRate.toFixed(2)}/hr` : 'no rate set'}
+                          {formatTime(Math.floor(ownerSecs))} @ {hourlyRate > 0 ? `${formatCurrency(hourlyRate)}/hr` : 'no rate set'}
                         </Text>
                       </View>
                       <Text style={styles.summaryValue}>
-                        {hourlyRate > 0 ? `$${ownerCost.toFixed(2)}` : '—'}
+                        {hourlyRate > 0 ? formatCurrency(ownerCost) : '—'}
                       </Text>
                     </View>
                     {empRows.map(row => (
@@ -717,17 +718,17 @@ export default function JobDetailPage() {
                         <View>
                           <Text style={styles.summaryBreakdownName}>{row.name}</Text>
                           <Text style={styles.summarySubLabel}>
-                            {formatTime(Math.floor(row.seconds))} @ ${row.rate.toFixed(2)}/hr
+                            {formatTime(Math.floor(row.seconds))} @ {formatCurrency(row.rate)}/hr
                           </Text>
                         </View>
                         <Text style={styles.summaryValue}>
-                          ${((row.seconds / 3600) * row.rate).toFixed(2)}
+                          {formatCurrency((row.seconds / 3600) * row.rate)}
                         </Text>
                       </View>
                     ))}
                     <View style={styles.summaryBreakdownTotalRow}>
                       <Text style={styles.summaryLabel}>Labour Total:</Text>
-                      <Text style={styles.summaryValue}>${labourTotal.toFixed(2)}</Text>
+                      <Text style={styles.summaryValue}>{formatCurrency(labourTotal)}</Text>
                     </View>
                   </>
                 );
@@ -735,12 +736,12 @@ export default function JobDetailPage() {
 
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Costs:</Text>
-                <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
+                <Text style={styles.summaryValue}>{formatCurrency(getTotalPartsCost())}</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryTotalLabel}>Total:</Text>
-                <Text style={styles.summaryTotalValue}>${(getLabourCost() + getTotalPartsCost()).toFixed(2)}</Text>
+                <Text style={styles.summaryTotalValue}>{formatCurrency(getLabourCost() + getTotalPartsCost())}</Text>
               </View>
             </View>
           </View>
@@ -810,7 +811,7 @@ export default function JobDetailPage() {
                       <View style={styles.partInfo}>
                         <Text style={styles.partName}>{part.name}</Text>
                         <Text style={styles.partDetails}>
-                          {`$${part.cost.toFixed(2)} x ${part.quantity} = $${(part.cost * part.quantity).toFixed(2)}`}
+                          {`${formatCurrency(part.cost)} x ${part.quantity} = ${formatCurrency(part.cost * part.quantity)}`}
                         </Text>
                       </View>
                       <TouchableOpacity onPress={() => deletePart(part.id)} accessibilityRole="button" accessibilityLabel="Delete part">
