@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "EXPO_NO_TELEMETRY=1 expo start",
     "build:web": "expo export --platform web",
-    "lint": "expo lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "jest"
   },
@@ -52,6 +52,8 @@
     "@babel/core": "^7.25.2",
     "@types/jest": "^29.5.14",
     "@types/react": "~19.1.10",
+    "eslint": "^9.39.4",
+    "eslint-config-expo": "^56.0.4",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.11",
     "typescript": "~5.9.2"
