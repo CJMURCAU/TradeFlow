@@ -1,0 +1,21 @@
+# Local Postgres for validating the Supabase migration chain end-to-end.
+# Brings up a throwaway Postgres; db-test/run.sh applies the Supabase shim
+# then every migration in order with ON_ERROR_STOP=1, so any SQL error or
+# ordering problem (e.g. a policy referencing a column added later) fails loudly.
+#
+#   docker compose -f db-test/docker-compose.yml up -d
+#   ./db-test/run.sh
+#   docker compose -f db-test/docker-compose.yml down -v
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "54329:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
