@@ -179,6 +179,8 @@ export default function InvitePage() {
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
+              textContentType={stage === 'signup' ? 'newPassword' : 'password'}
+              autoComplete={stage === 'signup' ? 'new-password' : 'current-password'}
             />
 
             {stage === 'signup' && (
@@ -190,6 +192,8 @@ export default function InvitePage() {
                 onChangeText={setConfirmPassword}
                 secureTextEntry
                 autoCapitalize="none"
+                textContentType="newPassword"
+                autoComplete="new-password"
               />
             )}
 
