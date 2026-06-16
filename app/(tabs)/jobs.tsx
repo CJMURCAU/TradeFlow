@@ -35,7 +35,35 @@ export default function JobsPage() {
   useEffect(() => {
     if (isEmployee || !role) return;
     fetchNotifications();
-    setupRealtimeNotifications();
+
+    // Subscribe to notifications and ALWAYS clean the channel up on unmount /
+    // role change. Previously the cleanup was returned from inside a .then()
+    // and discarded, leaking a channel on every re-render (audit A-M6).
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user || cancelled) return;
+      channel = supabase
+        .channel('employee-notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'employee_notifications',
+            filter: `recipient_user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            setNotifications(prev => [payload.new as EmployeeNotification, ...prev]);
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [role]);
 
   const fetchJobs = useCallback(async () => {
@@ -112,30 +140,6 @@ export default function JobsPage() {
       .limit(50);
 
     if (data) setNotifications(data);
-  };
-
-  const setupRealtimeNotifications = () => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-
-      const channel = supabase
-        .channel('employee-notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'employee_notifications',
-            filter: `recipient_user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            setNotifications(prev => [payload.new as EmployeeNotification, ...prev]);
-          }
-        )
-        .subscribe();
-
-      return () => { supabase.removeChannel(channel); };
-    });
   };
 
   const markNotificationRead = async (id: string) => {
