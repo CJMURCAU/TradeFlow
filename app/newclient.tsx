@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRouter, Stack } from 'expo-router';
+import { useRequireOwner } from '@/lib/useRequireOwner';
 import { ArrowLeft, Save } from 'lucide-react-native';
 
 export default function NewClientPage() {
+  useRequireOwner();
   const router = useRouter();
   const [formData, setFormData] = useState({
     company_name: '',

@@ -15,12 +15,14 @@ import {
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
+import { useRequireOwner } from '@/lib/useRequireOwner';
 import { ArrowLeft, Save, Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CAL_WIDTH = SCREEN_WIDTH - 32;
 
 export default function NewJobPage() {
+  useRequireOwner();
   const router = useRouter();
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   const [clients, setClients] = useState<Client[]>([]);

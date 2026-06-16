@@ -32,8 +32,10 @@ import {
   LogOut,
 } from 'lucide-react-native';
 import TabBar from '@/components/TabBar';
+import { useRequireOwner } from '@/lib/useRequireOwner';
 
 export default function BusinessPage() {
+  useRequireOwner();
   const [businessDetails, setBusinessDetails] = useState<BusinessDetails | null>(null);
   const [formData, setFormData] = useState({
     company_name: '',

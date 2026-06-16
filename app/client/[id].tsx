@@ -11,9 +11,11 @@ import {
 import { showAlert } from '@/lib/feedback';
 import { supabase, Client, Job } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { useRequireOwner } from '@/lib/useRequireOwner';
 import { ArrowLeft, Save, Phone, Mail, MapPin, Briefcase } from 'lucide-react-native';
 
 export default function ClientDetailPage() {
+  useRequireOwner();
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
