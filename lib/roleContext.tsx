@@ -57,12 +57,10 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         setEmployeeRecord(null);
       }
     } else {
-      // No role row yet — treat as owner and create the row
-      await supabase.from('user_roles').upsert({
-        user_id: user.id,
-        role: 'owner',
-        owner_id: user.id,
-      });
+      // No role row yet — create the owner row via a SECURITY DEFINER RPC.
+      // Direct client writes to user_roles are no longer permitted (audit S-H4);
+      // ensure_owner_role can only ever create an 'owner' row for the caller.
+      await supabase.rpc('ensure_owner_role');
       setRole('owner');
       setOwnerUserId(user.id);
       setEmployeeRecord(null);
