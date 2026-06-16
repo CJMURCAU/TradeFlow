@@ -999,7 +999,7 @@ export default function JobDetailPage() {
           <View style={styles.modalBox}>
             <Text style={styles.modalTitle}>Mark as Complete</Text>
             <Text style={styles.modalMessage}>
-              This will notify your employer that you've finished this job. Are you sure?
+              This will notify your employer that you&apos;ve finished this job. Are you sure?
             </Text>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.modalCancel} onPress={() => setMarkCompleteModal(false)}>

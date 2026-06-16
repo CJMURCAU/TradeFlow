@@ -470,7 +470,7 @@ export default function CalendarPage() {
           <View style={styles.deleteModalBox}>
             <Text style={styles.deleteModalTitle}>Delete Job</Text>
             <Text style={styles.deleteModalMessage}>
-              Are you sure you want to delete "{deleteTarget?.title}"? This cannot be undone.
+              Are you sure you want to delete &quot;{deleteTarget?.title}&quot;? This cannot be undone.
             </Text>
             <View style={styles.deleteModalButtons}>
               <TouchableOpacity

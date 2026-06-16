@@ -131,7 +131,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <Text style={styles.forgotSubtext}>
-                    Enter your email address and we'll send you a link to reset your password.
+                    Enter your email address and we&apos;ll send you a link to reset your password.
                   </Text>
                   <TextInput
                     style={styles.input}
