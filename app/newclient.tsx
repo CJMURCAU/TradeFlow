@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import { useRouter, Stack } from 'expo-router';
 import { useRequireOwner } from '@/lib/useRequireOwner';
+import { isValidEmail, isValidPhone } from '@/lib/validation';
 import { ArrowLeft, Save } from 'lucide-react-native';
 
 export default function NewClientPage() {
@@ -30,6 +31,14 @@ export default function NewClientPage() {
     setError('');
     if (!formData.company_name.trim()) {
       setError('Please enter a company name');
+      return;
+    }
+    if (formData.email.trim() && !isValidEmail(formData.email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!isValidPhone(formData.phone)) {
+      setError('Please enter a valid phone number.');
       return;
     }
 
