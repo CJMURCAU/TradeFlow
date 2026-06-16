@@ -1,11 +1,39 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+// --- CORS (audit S-H2): allow-list origins instead of "*" -------------------
+// Configure with ALLOWED_ORIGINS (comma-separated). Native apps send no Origin
+// header, so those requests are always allowed; browser requests are checked.
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ??
+  "https://tradeflowmanager.com,http://localhost:8081,http://localhost:19006")
+  .split(",")
+  .map((o: string) => o.trim())
+  .filter(Boolean);
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin");
+  const allowOrigin = !origin
+    ? ALLOWED_ORIGINS[0]
+    : ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : "null";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Vary": "Origin",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  };
+}
+
+// --- HTML escaping (audit S-M2): never interpolate stored values raw ---------
+function esc(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -14,21 +42,43 @@ function formatTime(seconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
+function json(body: unknown, status: number, req: Request): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 200, headers: corsHeaders(req) });
   }
 
   try {
-    const { jobId } = await req.json();
-
-    if (!jobId) {
-      return new Response(JSON.stringify({ error: "jobId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // --- AuthN (audit S-C1): require a verified caller -----------------------
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return json({ error: "Unauthorized" }, 401, req);
+    }
+    const userClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
+    if (authError || !user) {
+      return json({ error: "Unauthorized" }, 401, req);
     }
 
+    const { jobId } = await req.json();
+    if (!jobId) {
+      return json({ error: "jobId is required" }, 400, req);
+    }
+
+    // Service-role client for assembling related rows AFTER authorization.
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -41,10 +91,12 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (jobError || !job) {
-      return new Response(JSON.stringify({ error: "Job not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Job not found" }, 404, req);
+    }
+
+    // --- AuthZ (audit S-C1): only the job's owner may send its card ----------
+    if (job.user_id !== user.id) {
+      return json({ error: "Forbidden" }, 403, req);
     }
 
     const client = Array.isArray(job.client) ? job.client[0] : job.client;
@@ -114,7 +166,7 @@ Deno.serve(async (req: Request) => {
       </tr>
       <tr>
         <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
-          ${tradesmanName}
+          ${esc(tradesmanName)}
           <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ""}</span>
         </td>
         <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "&mdash;"}</td>
@@ -122,7 +174,7 @@ Deno.serve(async (req: Request) => {
       ${empRows.map(r => `
       <tr>
         <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
-          ${r.name}
+          ${esc(r.name)}
           <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
         </td>
         <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">$${((r.seconds / 3600) * r.rate).toFixed(2)}</td>
@@ -148,7 +200,7 @@ Deno.serve(async (req: Request) => {
               .map(
                 (p) => `
               <tr>
-                <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.name}</td>
+                <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${esc(p.name)}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.cost.toFixed(2)}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.quantity}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.cost * p.quantity).toFixed(2)}</td>
@@ -166,25 +218,25 @@ Deno.serve(async (req: Request) => {
 <body style="margin:0;padding:0;background:#ffffff;font-family:Arial,sans-serif;">
   <div style="max-width:600px;margin:40px auto;background:#ffffff;">
     <div style="padding:40px 40px 24px;border-bottom:3px solid #000000;">
-      <h1 style="margin:0 0 6px;color:#000000;font-size:28px;font-weight:700;letter-spacing:-0.5px;">${companyName}</h1>
-      <p style="margin:0;color:#000000;font-size:15px;font-weight:400;letter-spacing:0.03em;">JOB CARD #${job.job_card_number}</p>
+      <h1 style="margin:0 0 6px;color:#000000;font-size:28px;font-weight:700;letter-spacing:-0.5px;">${esc(companyName)}</h1>
+      <p style="margin:0;color:#000000;font-size:15px;font-weight:400;letter-spacing:0.03em;">JOB CARD #${esc(job.job_card_number)}</p>
     </div>
     <div style="padding:32px 40px;">
-      <h2 style="margin:0 0 4px;color:#000000;font-size:20px;font-weight:700;">${job.title}</h2>
-      ${job.purchase_order_number ? `<p style="margin:0 0 16px;color:#555555;font-size:14px;">PO: ${job.purchase_order_number}</p>` : ""}
+      <h2 style="margin:0 0 4px;color:#000000;font-size:20px;font-weight:700;">${esc(job.title)}</h2>
+      ${job.purchase_order_number ? `<p style="margin:0 0 16px;color:#555555;font-size:14px;">PO: ${esc(job.purchase_order_number)}</p>` : ""}
 
       <div style="padding:16px;margin:20px 0;border:1px solid #000000;">
         <p style="margin:0 0 4px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Client</p>
-        ${client.company_name ? `<p style="margin:0;font-size:16px;color:#000000;font-weight:600;">${client.company_name}</p>` : ""}
-        <p style="margin:${client.company_name ? "4px" : "0"} 0 0;font-size:14px;color:#000000;">${client.name}</p>
-        ${client.phone ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.phone}</p>` : ""}
-        ${client.address ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${client.address}</p>` : ""}
+        ${client?.company_name ? `<p style="margin:0;font-size:16px;color:#000000;font-weight:600;">${esc(client.company_name)}</p>` : ""}
+        <p style="margin:${client?.company_name ? "4px" : "0"} 0 0;font-size:14px;color:#000000;">${esc(client?.name)}</p>
+        ${client?.phone ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${esc(client.phone)}</p>` : ""}
+        ${client?.address ? `<p style="margin:4px 0 0;font-size:14px;color:#000000;">${esc(client.address)}</p>` : ""}
       </div>
 
       ${job.description ? `
       <div style="margin-bottom:24px;">
         <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Description</p>
-        <p style="margin:0;font-size:15px;color:#000000;line-height:1.6;">${job.description}</p>
+        <p style="margin:0;font-size:15px;color:#000000;line-height:1.6;">${esc(job.description)}</p>
       </div>` : ""}
 
       <div style="margin-bottom:24px;">
@@ -214,10 +266,10 @@ Deno.serve(async (req: Request) => {
         </table>
       </div>
 
-      ${tradesmanName ? `<p style="margin:24px 0 0;font-size:14px;color:#000000;">Completed by ${tradesmanName}</p>` : ""}
+      ${tradesmanName ? `<p style="margin:24px 0 0;font-size:14px;color:#000000;">Completed by ${esc(tradesmanName)}</p>` : ""}
     </div>
     <div style="padding:16px 40px;border-top:1px solid #000000;">
-      <p style="margin:0;font-size:12px;color:#555555;text-align:center;">${companyName} &mdash; Job Card #${job.job_card_number}</p>
+      <p style="margin:0;font-size:12px;color:#555555;text-align:center;">${esc(companyName)} &mdash; Job Card #${esc(job.job_card_number)}</p>
     </div>
   </div>
 </body>
@@ -225,17 +277,16 @@ Deno.serve(async (req: Request) => {
 
     const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");
     if (!mailtrapToken) {
-      return new Response(JSON.stringify({ error: "MAILTRAP_API_TOKEN not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("send-job-card: MAILTRAP_API_TOKEN not configured");
+      return json({ error: "Email is not configured. Please contact support." }, 500, req);
     }
 
     if (!business?.job_email) {
-      return new Response(JSON.stringify({ error: "No job card email set in Business settings. Please add one before sending." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(
+        { error: "No job card email set in Business settings. Please add one before sending." },
+        400,
+        req
+      );
     }
 
     const recipientEmail = business.job_email;
@@ -255,20 +306,11 @@ Deno.serve(async (req: Request) => {
       }),
     });
 
-    const mailtrapRawText = await mailtrapResponse.text();
-
+    // --- Don't leak provider internals to the client (audit S-M3) -----------
     if (!mailtrapResponse.ok) {
-      let mailtrapError: unknown;
-      try { mailtrapError = JSON.parse(mailtrapRawText); } catch { mailtrapError = mailtrapRawText; }
-      const errObj = mailtrapError as Record<string, unknown>;
-      const errorMessage =
-        (typeof errObj?.message === "string" ? errObj.message : null) ||
-        (Array.isArray(errObj?.errors) ? (errObj.errors as string[]).join(", ") : null) ||
-        mailtrapRawText;
-      return new Response(JSON.stringify({ error: errorMessage, details: mailtrapError }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const detail = await mailtrapResponse.text();
+      console.error("send-job-card: email provider error", mailtrapResponse.status, detail);
+      return json({ error: "Failed to send the job card email. Please try again." }, 502, req);
     }
 
     await supabase
@@ -276,13 +318,9 @@ Deno.serve(async (req: Request) => {
       .update({ email_sent: true, status: "completed" })
       .eq("id", jobId);
 
-    return new Response(JSON.stringify({ success: true, sentTo: recipientEmail }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, sentTo: recipientEmail }, 200, req);
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("send-job-card: unexpected error", err);
+    return json({ error: "Something went wrong. Please try again." }, 500, req);
   }
 });

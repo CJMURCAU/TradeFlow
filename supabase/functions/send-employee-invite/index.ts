@@ -1,33 +1,75 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
-};
+// --- CORS (audit S-H2): allow-list origins instead of "*" -------------------
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") ??
+  "https://tradeflowmanager.com,http://localhost:8081,http://localhost:19006")
+  .split(",")
+  .map((o: string) => o.trim())
+  .filter(Boolean);
 
-function generateToken(): string {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let token = "";
-  for (let i = 0; i < 48; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = req.headers.get("Origin");
+  const allowOrigin = !origin
+    ? ALLOWED_ORIGINS[0]
+    : ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : "null";
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Vary": "Origin",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
+  };
 }
+
+function json(body: unknown, status: number, req: Request): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders(req), "Content-Type": "application/json" },
+  });
+}
+
+// --- HTML escaping (audit S-M2) ---------------------------------------------
+function esc(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+// --- Cryptographically-secure invite token (audit S-C3) ---------------------
+function generateToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// Only allow invite links pointing at a known origin (audit S-M2) ------------
+function safeAppUrl(candidate: unknown): string {
+  const fallback = ALLOWED_ORIGINS[0];
+  if (typeof candidate !== "string") return fallback;
+  try {
+    const u = new URL(candidate);
+    return ALLOWED_ORIGINS.includes(u.origin) ? u.origin : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 200, headers: corsHeaders(req) });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Unauthorized" }, 401, req);
     }
 
     const supabase = createClient(
@@ -44,18 +86,12 @@ Deno.serve(async (req: Request) => {
 
     const { data: { user }, error: userError } = await userSupabase.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Unauthorized" }, 401, req);
     }
 
     const { employeeId, appUrl: clientAppUrl } = await req.json();
     if (!employeeId) {
-      return new Response(JSON.stringify({ error: "employeeId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "employeeId is required" }, 400, req);
     }
 
     // Fetch the employee record (must belong to the calling owner)
@@ -67,10 +103,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (empError || !employee) {
-      return new Response(JSON.stringify({ error: "Employee not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Employee not found" }, 404, req);
     }
 
     // Get business details for personalisation
@@ -82,25 +115,32 @@ Deno.serve(async (req: Request) => {
 
     const companyName = business?.company_name || business?.tradesman_name || "Your employer";
 
-    // Generate/reuse invite token
-    let token = employee.invite_token;
-    if (!token) {
+    // Generate a fresh token if none exists or the existing one has expired
+    // (audit S-C3: short-lived, CSPRNG tokens).
+    const now = Date.now();
+    const existingExpiry = employee.invite_token_expires_at
+      ? new Date(employee.invite_token_expires_at).getTime()
+      : 0;
+    let token: string = employee.invite_token;
+    if (!token || existingExpiry < now) {
       token = generateToken();
-      await supabase
+      const expiresAt = new Date(now + TOKEN_TTL_MS).toISOString();
+      const { error: updErr } = await supabase
         .from("employees")
-        .update({ invite_token: token })
+        .update({ invite_token: token, invite_token_expires_at: expiresAt })
         .eq("id", employeeId);
+      if (updErr) {
+        console.error("send-employee-invite: token persist failed", updErr);
+        return json({ error: "Could not create the invite. Please try again." }, 500, req);
+      }
     }
 
-    const appUrl = clientAppUrl || "https://tradeflow.app";
-    const inviteLink = `${appUrl}/invite?token=${token}`;
+    const inviteLink = `${safeAppUrl(clientAppUrl)}/invite?token=${token}`;
 
     const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");
     if (!mailtrapToken) {
-      return new Response(JSON.stringify({ error: "Email service not configured" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("send-employee-invite: MAILTRAP_API_TOKEN not configured");
+      return json({ error: "Email is not configured. Please contact support." }, 500, req);
     }
 
     const emailHtml = `
@@ -114,16 +154,17 @@ Deno.serve(async (req: Request) => {
     </div>
     <div style="padding:32px 40px;">
       <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
-        Hi ${employee.name},
+        Hi ${esc(employee.name)},
       </p>
       <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
-        <strong>${companyName}</strong> has invited you to join TradeFlow as an employee. You'll be able to view and manage jobs assigned to you.
+        <strong>${esc(companyName)}</strong> has invited you to join TradeFlow as an employee. You'll be able to view and manage jobs assigned to you.
       </p>
-      <a href="${inviteLink}" style="display:inline-block;background:#F59E0B;color:#ffffff;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;">Accept Invitation</a>
+      <a href="${esc(inviteLink)}" style="display:inline-block;background:#F59E0B;color:#ffffff;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;">Accept Invitation</a>
       <p style="margin:24px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">
         Or copy this link into your browser:<br>
-        <span style="color:#111827;word-break:break-all;">${inviteLink}</span>
+        <span style="color:#111827;word-break:break-all;">${esc(inviteLink)}</span>
       </p>
+      <p style="margin:8px 0 0;font-size:12px;color:#9ca3af;">This invitation expires in 7 days.</p>
       <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">
         If you weren't expecting this invitation, you can safely ignore this email.
       </p>
@@ -147,20 +188,14 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!mailtrapResponse.ok) {
-      const errText = await mailtrapResponse.text();
-      return new Response(JSON.stringify({ error: "Failed to send email", details: errText }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const detail = await mailtrapResponse.text();
+      console.error("send-employee-invite: email provider error", mailtrapResponse.status, detail);
+      return json({ error: "Failed to send the invitation email. Please try again." }, 502, req);
     }
 
-    return new Response(JSON.stringify({ success: true, sentTo: employee.email }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ success: true, sentTo: employee.email }, 200, req);
   } catch (err) {
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("send-employee-invite: unexpected error", err);
+    return json({ error: "Something went wrong. Please try again." }, 500, req);
   }
 });
