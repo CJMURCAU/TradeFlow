@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -20,26 +20,23 @@ export default function ClientsPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
+  // Derive the filtered list instead of mirroring it in a second state synced
+  // by an effect (audit A-L3) — fewer renders, no stale-sync bugs.
+  const filteredClients = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return clients;
+    return clients.filter(client =>
+      client.company_name.toLowerCase().includes(q) ||
+      client.name.toLowerCase().includes(q) ||
+      client.email.toLowerCase().includes(q) ||
+      client.phone.includes(searchQuery)
+    );
+  }, [searchQuery, clients]);
 
   // Refetch on focus so the list isn't stale after adding/deleting (audit P-M2).
   useFocusEffect(useCallback(() => {
     fetchClients();
   }, []));
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredClients(clients);
-    } else {
-      const filtered = clients.filter(client =>
-        client.company_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        client.phone.includes(searchQuery)
-      );
-      setFilteredClients(filtered);
-    }
-  }, [searchQuery, clients]);
 
   const fetchClients = async () => {
     const { data } = await supabase
@@ -49,7 +46,6 @@ export default function ClientsPage() {
 
     if (data) {
       setClients(data);
-      setFilteredClients(data);
     }
   };
 
