@@ -6,9 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   Linking,
 } from 'react-native';
+import { showAlert } from '@/lib/feedback';
 import { supabase, Client, Job } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { ArrowLeft, Save, Phone, Mail, MapPin, Briefcase } from 'lucide-react-native';
@@ -67,7 +67,7 @@ export default function ClientDetailPage() {
 
   const saveClient = async () => {
     if (!formData.company_name.trim()) {
-      Alert.alert('Error', 'Please enter a company name');
+      showAlert('Error', 'Please enter a company name');
       return;
     }
 
@@ -83,9 +83,9 @@ export default function ClientDetailPage() {
       .eq('id', id);
 
     if (error) {
-      Alert.alert('Error', 'Failed to update client');
+      showAlert('Error', 'Failed to update client');
     } else {
-      Alert.alert('Success', 'Client updated successfully');
+      showAlert('Success', 'Client updated successfully');
       setIsEditing(false);
       fetchClientDetails();
     }

@@ -6,10 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { confirmAction, showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
@@ -53,27 +53,24 @@ export default function ClientsPage() {
   };
 
   const deleteClient = async (id: string, name: string) => {
-    Alert.alert(
-      'Delete Client',
-      `Are you sure you want to delete ${name}? This will also delete all associated jobs.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase
-              .from('clients')
-              .delete()
-              .eq('id', id);
+    confirmAction({
+      title: 'Delete Client',
+      message: `Are you sure you want to delete ${name}? This will also delete all associated jobs.`,
+      confirmText: 'Delete',
+      destructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from('clients')
+          .delete()
+          .eq('id', id);
 
-            if (!error) {
-              fetchClients();
-            }
-          },
-        },
-      ]
-    );
+        if (error) {
+          showAlert('Could not delete client', 'Please try again.');
+          return;
+        }
+        fetchClients();
+      },
+    });
   };
 
   return (

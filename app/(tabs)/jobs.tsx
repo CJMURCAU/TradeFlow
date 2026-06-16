@@ -5,9 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   TextInput,
 } from 'react-native';
+import { confirmAction, showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, Job, Client, EmployeeNotification } from '@/lib/supabase';
 import { Trash2, Calendar, Search, Bell, X, CircleCheck as CheckCircle } from 'lucide-react-native';
@@ -151,21 +151,20 @@ export default function JobsPage() {
   };
 
   const deleteJob = async (id: string, title: string) => {
-    Alert.alert(
-      'Delete Job',
-      `Are you sure you want to delete "${title}"? This will also delete all associated parts and time entries.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.from('jobs').delete().eq('id', id);
-            if (!error) fetchJobs();
-          },
-        },
-      ]
-    );
+    confirmAction({
+      title: 'Delete Job',
+      message: `Are you sure you want to delete "${title}"? This will also delete all associated parts and time entries.`,
+      confirmText: 'Delete',
+      destructive: true,
+      onConfirm: async () => {
+        const { error } = await supabase.from('jobs').delete().eq('id', id);
+        if (error) {
+          showAlert('Could not delete job', 'Please try again.');
+          return;
+        }
+        fetchJobs();
+      },
+    });
   };
 
   const getStatusColor = (status: string) => {
