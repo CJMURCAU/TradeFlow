@@ -12,6 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { showAlert } from '@/lib/feedback';
+import * as FileSystemNS from 'expo-file-system';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
 import {
@@ -360,6 +361,51 @@ export default function BusinessPage() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+  };
+
+  const [exporting, setExporting] = useState(false);
+
+  // GDPR data export: fetch all of the user's data and save/download it.
+  const handleExportData = async () => {
+    setExporting(true);
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const { data: { session } } = await supabase.auth.getSession();
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/export-account-data`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token ?? supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {
+        showAlert('Export failed', 'Please try again.');
+        return;
+      }
+      const body = await response.text();
+      if (Platform.OS === 'web') {
+        const g = globalThis as any;
+        const blob = new g.Blob([body], { type: 'application/json' });
+        const url = g.URL.createObjectURL(blob);
+        const a = g.document.createElement('a');
+        a.href = url;
+        a.download = 'tradeflow-data.json';
+        a.click();
+        g.URL.revokeObjectURL(url);
+        showAlert('Data exported', 'Your data has been downloaded.');
+      } else {
+        const FileSystem = FileSystemNS as any;
+        const path = `${FileSystem.documentDirectory ?? ''}tradeflow-data.json`;
+        await FileSystem.writeAsStringAsync(path, body);
+        showAlert('Data exported', `Saved to:\n${path}`);
+      }
+    } catch {
+      showAlert('Export failed', 'Please check your connection and try again.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleDeleteAccount = () => setDeleteAccountStep(1);
@@ -793,6 +839,20 @@ export default function BusinessPage() {
             </TouchableOpacity>
           </View>
         )}
+
+        <TouchableOpacity
+          style={styles.settingsRow}
+          onPress={handleExportData}
+          disabled={exporting}>
+          <View style={styles.settingsRowLeft}>
+            <View style={styles.settingsIconWrap}>
+              <Save size={18} color="#374151" />
+            </View>
+            <Text style={styles.settingsRowText}>
+              {exporting ? 'Exporting…' : 'Download my data'}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.settingsRow, styles.logoutRow]}
