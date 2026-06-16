@@ -202,6 +202,8 @@ export default function JobsPage() {
             {!isEmployee && (
               <TouchableOpacity
                 style={styles.notifButton}
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
                 onPress={() => setShowNotifications(!showNotifications)}>
                 <Bell size={22} color="#374151" />
                 {unreadCount > 0 && (
@@ -334,6 +336,8 @@ export default function JobsPage() {
               {!isEmployee && (
                 <TouchableOpacity
                   style={styles.deleteButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete job"
                   onPress={() => deleteJob(job.id, job.title)}>
                   <Trash2 size={20} color="#EF4444" />
                 </TouchableOpacity>

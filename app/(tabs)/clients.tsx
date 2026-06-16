@@ -132,6 +132,8 @@ export default function ClientsPage() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.deleteButton}
+                accessibilityRole="button"
+                accessibilityLabel="Delete client"
                 onPress={() => deleteClient(client.id, client.company_name || client.name)}>
                 <Trash2 size={20} color="#EF4444" />
               </TouchableOpacity>
@@ -142,6 +144,8 @@ export default function ClientsPage() {
 
       <TouchableOpacity
         style={styles.fab}
+        accessibilityRole="button"
+        accessibilityLabel="Add client"
         onPress={() => router.push('/newclient')}>
         <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>

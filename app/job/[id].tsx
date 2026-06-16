@@ -516,7 +516,7 @@ export default function JobDetailPage() {
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerContent}>
@@ -673,7 +673,7 @@ export default function JobDetailPage() {
                     ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => deletePart(part.id)}>
+                <TouchableOpacity onPress={() => deletePart(part.id)} accessibilityRole="button" accessibilityLabel="Delete part">
                   <Trash2 size={20} color="#EF4444" />
                 </TouchableOpacity>
               </View>
@@ -813,7 +813,7 @@ export default function JobDetailPage() {
                           {`$${part.cost.toFixed(2)} x ${part.quantity} = $${(part.cost * part.quantity).toFixed(2)}`}
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={() => deletePart(part.id)}>
+                      <TouchableOpacity onPress={() => deletePart(part.id)} accessibilityRole="button" accessibilityLabel="Delete part">
                         <Trash2 size={20} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
