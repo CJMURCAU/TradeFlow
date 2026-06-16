@@ -818,6 +818,8 @@ export default function BusinessPage() {
               onChangeText={text => setPasswordForm(prev => ({ ...prev, newPassword: text }))}
               secureTextEntry
               autoCapitalize="none"
+              textContentType="newPassword"
+              autoComplete="new-password"
             />
             <View style={styles.passwordFieldGap} />
             <TextInput
@@ -828,6 +830,8 @@ export default function BusinessPage() {
               onChangeText={text => setPasswordForm(prev => ({ ...prev, confirmPassword: text }))}
               secureTextEntry
               autoCapitalize="none"
+              textContentType="newPassword"
+              autoComplete="new-password"
             />
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
             <TouchableOpacity
