@@ -14,7 +14,6 @@ import {
   NativeScrollEvent,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
-import { useRole } from '@/lib/roleContext';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
@@ -23,7 +22,6 @@ const CAL_WIDTH = SCREEN_WIDTH - 32;
 
 export default function NewJobPage() {
   const router = useRouter();
-  const { ownerUserId } = useRole();
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   const [clients, setClients] = useState<Client[]>([]);
   const [showNewClientForm, setShowNewClientForm] = useState(false);
@@ -129,15 +127,8 @@ export default function NewJobPage() {
 
     const scheduledDateTime = `${formData.date}T${formData.hour}:${formData.minute}:00`;
 
-    // Resolve the owner for numbering: employees use employer's ID, owners use their own
-    const numberingUserId = ownerUserId ?? user.id;
-    const { data: nextNumber, error: numberError } = await supabase.rpc('next_job_card_number', { owner_user_id: numberingUserId });
-    if (numberError) {
-      setJobError('Failed to generate job card number. Please try again.');
-      setJobLoading(false);
-      return;
-    }
-
+    // job_card_number is assigned atomically by a per-owner DB trigger
+    // (audit D-C2), so it is no longer computed/sent from the client.
     const { data, error } = await supabase
       .from('jobs')
       .insert({
@@ -148,7 +139,6 @@ export default function NewJobPage() {
         description: formData.description,
         status: 'pending',
         scheduled_time: new Date(scheduledDateTime).toISOString(),
-        job_card_number: nextNumber,
       })
       .select()
       .single();
