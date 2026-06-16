@@ -53,9 +53,10 @@ export default function JobDetailPage() {
   const [markingComplete, setMarkingComplete] = useState(false);
   const [markedCompleteSuccess, setMarkedCompleteSuccess] = useState(false);
 
+  const [loadFailed, setLoadFailed] = useState(false);
+
   useEffect(() => {
     if (id) fetchJobDetails();
-    fetchBusinessDetails();
   }, [id]);
 
   useEffect(() => {
@@ -65,11 +66,14 @@ export default function JobDetailPage() {
     if (role && timeEntries.length > 0) applyTimerState(timeEntries);
   }, [role, employeeRecord, id]);
 
-  const fetchBusinessDetails = async () => {
+  const fetchBusinessDetails = async (ownerId: string) => {
+    // Scope to the job's owner (audit P-C3) — previously this read an arbitrary
+    // business row, so an employee (or any multi-tenant read) could get the
+    // wrong hourly rate / company name in the cost summary and job card.
     const { data } = await supabase
       .from('business_details')
       .select('*')
-      .limit(1)
+      .eq('user_id', ownerId)
       .maybeSingle();
     if (data) { setBusiness(data); setHourlyRate(data.default_hourly_rate ?? 0); }
   };
@@ -92,14 +96,21 @@ export default function JobDetailPage() {
       supabase.from('time_entries').select('*').eq('job_id', id).order('start_time', { ascending: false }),
     ]);
 
-    if (jobResponse.data) {
-      const jobWithClient = {
-        ...jobResponse.data,
-        client: Array.isArray(jobResponse.data.client) ? jobResponse.data.client[0] : jobResponse.data.client,
-      };
-      setJob(jobWithClient);
-      setDescription(jobWithClient.description);
+    if (jobResponse.error || !jobResponse.data) {
+      // Don't get stuck on a permanent "Loading…" if the job is missing or the
+      // query fails (audit P-H2).
+      setLoadFailed(true);
+      return;
     }
+
+    const jobWithClient = {
+      ...jobResponse.data,
+      client: Array.isArray(jobResponse.data.client) ? jobResponse.data.client[0] : jobResponse.data.client,
+    };
+    setJob(jobWithClient);
+    setDescription(jobWithClient.description ?? '');
+    // Load the business settings for THIS job's owner (audit P-C3).
+    fetchBusinessDetails(jobWithClient.user_id);
 
     if (partsResponse.data) setParts(partsResponse.data);
 
@@ -488,6 +499,20 @@ export default function JobDetailPage() {
     e => !assignments.find(a => a.employee_id === e.id)
   );
 
+  if (loadFailed) {
+    return (
+      <View style={[styles.container, { padding: 24, justifyContent: 'center' }]}>
+        <Text style={[styles.loadingText, { marginBottom: 16 }]}>
+          This job could not be loaded. It may have been deleted.
+        </Text>
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <ArrowLeft size={24} color="#111827" />
+          <Text style={{ marginLeft: 8, fontSize: 16, color: '#111827' }}>Go back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!job) {
     return <View style={styles.container}><Text style={styles.loadingText}>Loading...</Text></View>;
   }
@@ -505,7 +530,7 @@ export default function JobDetailPage() {
           <Text style={styles.title}>Job #{job.job_card_number}</Text>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) + '20' }]}>
             <Text style={[styles.statusText, { color: getStatusColor(job.status) }]}>
-              {job.status.toUpperCase()}
+              {(job.status ?? 'pending').toUpperCase()}
             </Text>
           </View>
         </View>
