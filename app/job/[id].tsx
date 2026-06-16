@@ -9,11 +9,17 @@ import {
   Linking,
   ActivityIndicator,
   Modal,
+  FlatList,
+  Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
-import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
+
+const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
 
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
@@ -53,9 +59,27 @@ export default function JobDetailPage() {
   const [markingComplete, setMarkingComplete] = useState(false);
   const [markedCompleteSuccess, setMarkedCompleteSuccess] = useState(false);
 
+  // Edit mode
+  const [isEditing, setIsEditing] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [editForm, setEditForm] = useState({
+    client_id: '',
+    title: '',
+    purchase_order_number: '',
+    date: '',
+    hour: '09',
+    minute: '00',
+  });
+  const [editClients, setEditClients] = useState<Client[]>([]);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showEditDatePicker, setShowEditDatePicker] = useState(false);
+  const [editCalendarIndex, setEditCalendarIndex] = useState(0);
+  const editCalFlatListRef = useRef<FlatList>(null);
+
   useEffect(() => {
     if (id) fetchJobDetails();
     fetchBusinessDetails();
+    fetchEditClients();
   }, [id]);
 
   useEffect(() => {
@@ -484,6 +508,131 @@ export default function JobDetailPage() {
     }
   };
 
+  const fetchEditClients = async () => {
+    const { data } = await supabase.from('clients').select('*').order('name', { ascending: true });
+    if (data) setEditClients(data);
+  };
+
+  const startEdit = () => {
+    if (!job) return;
+    const st = job.scheduled_time ? new Date(job.scheduled_time) : new Date();
+    const date = `${st.getFullYear()}-${String(st.getMonth() + 1).padStart(2, '0')}-${String(st.getDate()).padStart(2, '0')}`;
+    const hour = String(st.getHours()).padStart(2, '0');
+    const rawMin = st.getMinutes();
+    const snappedMin = [0, 15, 30, 45].reduce((prev, cur) =>
+      Math.abs(cur - rawMin) < Math.abs(prev - rawMin) ? cur : prev, 0);
+    const minute = String(snappedMin).padStart(2, '0');
+    setEditForm({
+      client_id: job.client_id ?? '',
+      title: job.title,
+      purchase_order_number: job.purchase_order_number ?? '',
+      date,
+      hour,
+      minute,
+    });
+    setClientSearch('');
+    setEditCalendarIndex(0);
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setShowEditDatePicker(false);
+  };
+
+  const saveEdit = async () => {
+    if (!job || !editForm.title.trim() || !editForm.client_id) return;
+    setSaveLoading(true);
+    const scheduledDateTime = `${editForm.date}T${editForm.hour}:${editForm.minute}:00`;
+    const { error } = await supabase.from('jobs').update({
+      client_id: editForm.client_id,
+      title: editForm.title,
+      purchase_order_number: editForm.purchase_order_number,
+      scheduled_time: new Date(scheduledDateTime).toISOString(),
+    }).eq('id', job.id);
+    setSaveLoading(false);
+    if (!error) {
+      setIsEditing(false);
+      fetchJobDetails();
+    }
+  };
+
+  const getEditMonthForIndex = (index: number) => {
+    const base = new Date();
+    base.setDate(1);
+    base.setMonth(base.getMonth() + index);
+    return base;
+  };
+
+  const onEditCalScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const newIndex = Math.round(e.nativeEvent.contentOffset.x / EDIT_CAL_WIDTH);
+    if (newIndex !== editCalendarIndex) setEditCalendarIndex(newIndex);
+  };
+
+  const navigateEditCalMonth = (direction: 'prev' | 'next') => {
+    const newIndex = editCalendarIndex + (direction === 'next' ? 1 : -1);
+    if (newIndex < 0) return;
+    setEditCalendarIndex(newIndex);
+    editCalFlatListRef.current?.scrollToIndex({ index: newIndex, animated: true });
+  };
+
+  const renderEditCalMonth = ({ index }: { index: number }) => {
+    const monthDate = getEditMonthForIndex(index);
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    const days: Date[] = [];
+    const cur = new Date(startDate);
+    while (days.length < 42) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1); }
+    const weeks: Date[][] = [];
+    for (let i = 0; i < days.length; i += 7) weeks.push(days.slice(i, i + 7));
+    return (
+      <View style={{ width: EDIT_CAL_WIDTH, padding: 8 }}>
+        <View style={styles.editCalGridHeader}>
+          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+            <Text key={d} style={styles.editCalGridHeaderDay}>{d}</Text>
+          ))}
+        </View>
+        {weeks.map((week, wi) => (
+          <View key={wi} style={styles.editCalGridWeek}>
+            {week.map((day, di) => {
+              const isCurrentMonth = day.getMonth() === month;
+              const isToday = day.toDateString() === new Date().toDateString();
+              const dayStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}`;
+              const isSelected = editForm.date === dayStr;
+              return (
+                <TouchableOpacity
+                  key={di}
+                  disabled={!isCurrentMonth}
+                  style={[
+                    styles.editCalGridDay,
+                    isToday && !isSelected && styles.editCalGridDayToday,
+                    isSelected && styles.editCalGridDaySelected,
+                    !isCurrentMonth && styles.editCalGridDayDisabled,
+                  ]}
+                  onPress={() => {
+                    setEditForm(prev => ({ ...prev, date: dayStr }));
+                    setShowEditDatePicker(false);
+                  }}>
+                  <Text style={[
+                    styles.editCalGridDayNum,
+                    !isCurrentMonth && styles.editCalGridDayNumOther,
+                    isToday && !isSelected && styles.editCalGridDayNumToday,
+                    isSelected && styles.editCalGridDayNumSelected,
+                  ]}>
+                    {day.getDate()}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const unassignedActiveEmployees = employees.filter(
     e => !assignments.find(a => a.employee_id === e.id)
   );
@@ -512,27 +661,165 @@ export default function JobDetailPage() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        {/* Job Info */}
-        <View style={styles.section}>
-          <Text style={styles.jobTitle}>{job.title}</Text>
-          {job.purchase_order_number && <Text style={styles.poNumber}>PO: {job.purchase_order_number}</Text>}
-          {job.client?.company_name && (
-            <Text style={styles.clientCompany}>{job.client.company_name}</Text>
-          )}
-          {job.client?.name && (
-            <Text style={styles.clientName}>{job.client.name}</Text>
-          )}
-          {job.client?.phone && (
-            <Text style={styles.clientPhone}>{job.client.phone}</Text>
-          )}
-          {job.client?.address && (
-            <TouchableOpacity style={styles.addressButton} onPress={openDirections}>
-              <MapPin size={16} color="#6B7280" />
-              <Text style={styles.addressText}>{job.client.address}</Text>
-              <Navigation size={16} color="#F59E0B" />
+        {/* Edit bar — owner only */}
+        {!isEmployee && (
+          <View style={styles.editBar}>
+            {isEditing ? (
+              <View style={styles.editBarActions}>
+                <TouchableOpacity style={styles.cancelEditButton} onPress={cancelEdit}>
+                  <X size={16} color="#6B7280" />
+                  <Text style={styles.cancelEditText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.saveEditButton, saveLoading && styles.saveEditButtonDisabled]}
+                  onPress={saveEdit}
+                  disabled={saveLoading}>
+                  {saveLoading
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <>
+                        <Check size={16} color="#FFFFFF" />
+                        <Text style={styles.saveEditText}>Save</Text>
+                      </>}
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.editButton} onPress={startEdit}>
+                <Pencil size={15} color="#F59E0B" />
+                <Text style={styles.editButtonText}>Edit Job</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Job Info — view or edit */}
+        {isEditing ? (
+          <View style={styles.section}>
+            <Text style={styles.editSectionHeading}>Edit Job Details</Text>
+
+            {/* Client picker */}
+            <Text style={styles.editLabel}>Client *</Text>
+            <View style={styles.editClientDropdownWrapper}>
+              <View style={styles.editClientSearchBox}>
+                <TextInput
+                  style={styles.editClientSearchInput}
+                  placeholder="Search clients..."
+                  placeholderTextColor="#9CA3AF"
+                  value={clientSearch}
+                  onChangeText={setClientSearch}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+              <ScrollView style={styles.editClientDropdown} nestedScrollEnabled>
+                {editClients
+                  .filter(c => {
+                    if (!clientSearch.trim()) return true;
+                    const q = clientSearch.toLowerCase();
+                    return c.company_name?.toLowerCase().includes(q) || c.name?.toLowerCase().includes(q);
+                  })
+                  .map(c => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[
+                        styles.editClientOption,
+                        editForm.client_id === c.id && styles.editClientOptionActive,
+                      ]}
+                      onPress={() => setEditForm(prev => ({ ...prev, client_id: c.id }))}>
+                      <Text style={[
+                        styles.editClientOptionName,
+                        editForm.client_id === c.id && styles.editClientOptionNameActive,
+                      ]}>
+                        {c.company_name || c.name}
+                      </Text>
+                      {c.name && c.company_name && (
+                        <Text style={styles.editClientOptionDetail}>{c.name}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+            </View>
+
+            {/* Title */}
+            <Text style={styles.editLabel}>Job Title *</Text>
+            <TextInput
+              style={styles.editInput}
+              placeholder="Job title"
+              placeholderTextColor="#9CA3AF"
+              value={editForm.title}
+              onChangeText={text => setEditForm(prev => ({ ...prev, title: text }))}
+            />
+
+            {/* PO Number */}
+            <Text style={styles.editLabel}>Purchase Order Number</Text>
+            <TextInput
+              style={styles.editInput}
+              placeholder="PO number"
+              placeholderTextColor="#9CA3AF"
+              value={editForm.purchase_order_number}
+              onChangeText={text => setEditForm(prev => ({ ...prev, purchase_order_number: text }))}
+            />
+
+            {/* Date */}
+            <Text style={styles.editLabel}>Date</Text>
+            <TouchableOpacity style={styles.editDateButton} onPress={() => setShowEditDatePicker(true)}>
+              <CalendarIcon size={18} color="#F59E0B" />
+              <Text style={styles.editDateButtonText}>
+                {editForm.date
+                  ? new Date(editForm.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+                  : 'Select date'}
+              </Text>
             </TouchableOpacity>
-          )}
-        </View>
+
+            {/* Time */}
+            <Text style={styles.editLabel}>Time</Text>
+            <View style={styles.editTimeDisplay}>
+              <Text style={styles.editTimeDisplayText}>{editForm.hour}:{editForm.minute}</Text>
+            </View>
+            <Text style={styles.editTimeSubLabel}>Hour</Text>
+            <View style={styles.editTimeGrid}>
+              {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map(h => (
+                <TouchableOpacity
+                  key={h}
+                  style={[styles.editTimeCell, editForm.hour === h && styles.editTimeCellActive]}
+                  onPress={() => setEditForm(prev => ({ ...prev, hour: h }))}>
+                  <Text style={[styles.editTimeCellText, editForm.hour === h && styles.editTimeCellTextActive]}>{h}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={[styles.editTimeSubLabel, { marginTop: 12 }]}>Minute</Text>
+            <View style={styles.editMinuteRow}>
+              {['00', '15', '30', '45'].map(m => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.editMinuteCell, editForm.minute === m && styles.editTimeCellActive]}
+                  onPress={() => setEditForm(prev => ({ ...prev, minute: m }))}>
+                  <Text style={[styles.editTimeCellText, editForm.minute === m && styles.editTimeCellTextActive]}>{m}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.jobTitle}>{job.title}</Text>
+            {job.purchase_order_number && <Text style={styles.poNumber}>PO: {job.purchase_order_number}</Text>}
+            {job.client?.company_name && (
+              <Text style={styles.clientCompany}>{job.client.company_name}</Text>
+            )}
+            {job.client?.name && (
+              <Text style={styles.clientName}>{job.client.name}</Text>
+            )}
+            {job.client?.phone && (
+              <Text style={styles.clientPhone}>{job.client.phone}</Text>
+            )}
+            {job.client?.address && (
+              <TouchableOpacity style={styles.addressButton} onPress={openDirections}>
+                <MapPin size={16} color="#6B7280" />
+                <Text style={styles.addressText}>{job.client.address}</Text>
+                <Navigation size={16} color="#F59E0B" />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Status — owner only */}
         {!isEmployee && (
@@ -946,6 +1233,51 @@ export default function JobDetailPage() {
         )}
       </ScrollView>
 
+      {/* Edit Date Picker Modal */}
+      <Modal
+        visible={showEditDatePicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowEditDatePicker(false)}>
+        <View style={styles.editModalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.editModalHeader}>
+              <Text style={styles.editModalTitle}>Select Date</Text>
+              <TouchableOpacity onPress={() => setShowEditDatePicker(false)}>
+                <Text style={styles.editModalDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.editCalNavRow}>
+              <TouchableOpacity
+                onPress={() => navigateEditCalMonth('prev')}
+                style={[styles.editCalNavButton, editCalendarIndex === 0 && styles.editCalNavButtonDisabled]}
+                disabled={editCalendarIndex === 0}>
+                <ChevronLeft size={22} color={editCalendarIndex === 0 ? '#D1D5DB' : '#F59E0B'} />
+              </TouchableOpacity>
+              <Text style={styles.editCalNavTitle}>
+                {getEditMonthForIndex(editCalendarIndex).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </Text>
+              <TouchableOpacity onPress={() => navigateEditCalMonth('next')} style={styles.editCalNavButton}>
+                <ChevronRight size={22} color="#F59E0B" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              ref={editCalFlatListRef}
+              data={Array.from({ length: 24 }, (_, i) => i)}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={item => item.toString()}
+              renderItem={renderEditCalMonth}
+              getItemLayout={(_, index) => ({ length: EDIT_CAL_WIDTH, offset: EDIT_CAL_WIDTH * index, index })}
+              initialScrollIndex={0}
+              onMomentumScrollEnd={onEditCalScrollEnd}
+              style={styles.editCalFlatList}
+            />
+          </View>
+        </View>
+      </Modal>
+
       {/* Stop Timer Confirmation Modal */}
       <Modal
         visible={stopTimerModal}
@@ -1236,4 +1568,184 @@ const styles = StyleSheet.create({
     backgroundColor: '#10B981', alignItems: 'center',
   },
   modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  // Edit bar
+  editBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 12,
+  },
+  editBarActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  editButtonText: { fontSize: 14, fontWeight: '600', color: '#F59E0B' },
+  cancelEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  cancelEditText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  saveEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F59E0B',
+  },
+  saveEditButtonDisabled: { opacity: 0.6 },
+  saveEditText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  // Edit form
+  editSectionHeading: { fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 16 },
+  editLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 14 },
+  editInput: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: '#111827',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  editClientDropdownWrapper: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    backgroundColor: '#F9FAFB',
+  },
+  editClientSearchBox: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  editClientSearchInput: { fontSize: 14, color: '#111827' },
+  editClientDropdown: { maxHeight: 160, backgroundColor: '#F9FAFB' },
+  editClientOption: {
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  editClientOptionActive: { backgroundColor: '#F59E0B' },
+  editClientOptionName: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  editClientOptionNameActive: { color: '#FFFFFF' },
+  editClientOptionDetail: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  editDateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  editDateButtonText: { fontSize: 15, color: '#111827', flex: 1 },
+  editTimeDisplay: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+    padding: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  editTimeDisplayText: { fontSize: 26, fontWeight: '700', color: '#F59E0B', letterSpacing: 2 },
+  editTimeSubLabel: { fontSize: 13, color: '#6B7280', fontWeight: '600', marginBottom: 6 },
+  editTimeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  editTimeCell: {
+    width: '22%',
+    paddingVertical: 9,
+    borderRadius: 7,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  editTimeCellActive: { backgroundColor: '#F59E0B', borderColor: '#F59E0B' },
+  editTimeCellText: { fontSize: 14, color: '#111827', fontWeight: '500' },
+  editTimeCellTextActive: { color: '#FFFFFF', fontWeight: '700' },
+  editMinuteRow: { flexDirection: 'row', gap: 8 },
+  editMinuteCell: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 7,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  // Edit calendar modal
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  editModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 24,
+    maxHeight: '60%',
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  editModalTitle: { fontSize: 18, fontWeight: 'bold', color: '#111827' },
+  editModalDone: { color: '#F59E0B', fontSize: 16, fontWeight: '600' },
+  editCalNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  editCalNavButton: { padding: 8 },
+  editCalNavButtonDisabled: { opacity: 0.4 },
+  editCalNavTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  editCalFlatList: { flexGrow: 0, flexShrink: 1, maxHeight: 320 },
+  editCalGridHeader: { flexDirection: 'row', marginBottom: 6 },
+  editCalGridHeaderDay: { flex: 1, textAlign: 'center', color: '#6B7280', fontSize: 12, fontWeight: '700' },
+  editCalGridWeek: { flexDirection: 'row', marginBottom: 4 },
+  editCalGridDay: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 2,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  editCalGridDayToday: { borderWidth: 2, borderColor: '#F59E0B', backgroundColor: '#FFFBEB' },
+  editCalGridDaySelected: { backgroundColor: '#F59E0B' },
+  editCalGridDayDisabled: { backgroundColor: 'transparent' },
+  editCalGridDayNum: { color: '#111827', fontSize: 13, fontWeight: '600' },
+  editCalGridDayNumOther: { color: '#E5E7EB' },
+  editCalGridDayNumToday: { color: '#F59E0B', fontWeight: '800' },
+  editCalGridDayNumSelected: { color: '#FFFFFF', fontWeight: '800' },
 });
