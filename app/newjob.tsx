@@ -16,6 +16,7 @@ import {
 import { supabase, Client } from '@/lib/supabase';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { useRequireOwner } from '@/lib/useRequireOwner';
+import { isValidEmail, isValidPhone } from '@/lib/validation';
 import { ArrowLeft, Save, Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -80,6 +81,14 @@ export default function NewJobPage() {
     setClientError('');
     if (!newClientData.company_name.trim()) {
       setClientError('Please enter a company name');
+      return;
+    }
+    if (newClientData.email.trim() && !isValidEmail(newClientData.email)) {
+      setClientError('Please enter a valid email address.');
+      return;
+    }
+    if (!isValidPhone(newClientData.phone)) {
+      setClientError('Please enter a valid phone number.');
       return;
     }
 
