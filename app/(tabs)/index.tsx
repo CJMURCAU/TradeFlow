@@ -18,6 +18,8 @@ import { PanResponder } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, Job, Client } from '@/lib/supabase';
 import { Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Trash2 } from 'lucide-react-native';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { getLocalJobs } from '@/lib/localDb';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 
@@ -34,6 +36,7 @@ export default function CalendarPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const { isOnline } = useNetworkStatus();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [displayMonth, setDisplayMonth] = useState(new Date());
   const [jobs, setJobs] = useState<(Job & { client?: Client })[]>([]);
@@ -113,22 +116,26 @@ export default function CalendarPage() {
   };
 
   const fetchJobs = async () => {
-    const { data: jobsData } = await supabase
-      .from('jobs')
-      .select('*, client:clients(*)')
-      .order('scheduled_time', { ascending: true });
+    if (isOnline) {
+      const { data: jobsData } = await supabase
+        .from('jobs')
+        .select('*, client:clients(*)')
+        .order('scheduled_time', { ascending: true });
 
-    if (jobsData) {
-      const seen = new Set<string>();
-      const unique = jobsData.filter(job => {
-        if (seen.has(job.id)) return false;
-        seen.add(job.id);
-        return true;
-      });
-      setJobs(unique.map(job => ({
-        ...job,
-        client: Array.isArray(job.client) ? job.client[0] : job.client,
-      })));
+      if (jobsData) {
+        const seen = new Set<string>();
+        const unique = jobsData.filter(job => {
+          if (seen.has(job.id)) return false;
+          seen.add(job.id);
+          return true;
+        });
+        setJobs(unique.map(job => ({
+          ...job,
+          client: Array.isArray(job.client) ? job.client[0] : job.client,
+        })));
+      }
+    } else {
+      setJobs(getLocalJobs());
     }
   };
 

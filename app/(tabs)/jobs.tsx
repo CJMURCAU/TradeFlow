@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { supabase, Job, Client, EmployeeNotification } from '@/lib/supabase';
 import { Trash2, Calendar, Search, Bell, X, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { getLocalJobs } from '@/lib/localDb';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
 import { useRole } from '@/lib/roleContext';
@@ -21,6 +23,7 @@ export default function JobsPage() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { role, employeeRecord } = useRole();
+  const { isOnline } = useNetworkStatus();
 
   const [jobs, setJobs] = useState<(Job & { client?: Client })[]>([]);
   const [filterStatus, setFilterStatus] = useState<JobStatus>('all');
@@ -39,9 +42,20 @@ export default function JobsPage() {
   }, [role]);
 
   const fetchJobs = useCallback(async () => {
+    if (!isOnline) {
+      const allLocal = getLocalJobs();
+      if (isEmployee && employeeRecord && !employeeRecord.calendar_access) {
+        // For restricted employees offline, show all cached jobs they have access to
+        // (job_assignments are also cached — filter happens server-side normally)
+        setJobs(allLocal);
+      } else {
+        setJobs(allLocal);
+      }
+      return;
+    }
+
     if (isEmployee && employeeRecord) {
       if (employeeRecord.calendar_access) {
-        // Full calendar access — fetch all jobs
         const { data } = await supabase
           .from('jobs')
           .select('*, client:clients(*)')
@@ -54,7 +68,6 @@ export default function JobsPage() {
           })));
         }
       } else {
-        // Restricted — only show assigned jobs
         const { data: assignments } = await supabase
           .from('job_assignments')
           .select('job_id')
@@ -89,7 +102,7 @@ export default function JobsPage() {
         })));
       }
     }
-  }, [isEmployee, employeeRecord]);
+  }, [isEmployee, employeeRecord, isOnline]);
 
   useEffect(() => {
     if (params.filter) setFilterStatus(params.filter as JobStatus);

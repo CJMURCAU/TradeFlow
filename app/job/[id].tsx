@@ -17,6 +17,19 @@ import {
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import {
+  getLocalJob,
+  getLocalParts,
+  getLocalTimeEntries,
+  getLocalBusinessDetails,
+  updateLocalJob,
+  insertLocalTimeEntry,
+  updateLocalTimeEntry,
+  insertLocalPart,
+  deleteLocalPart,
+  enqueue,
+} from '@/lib/localDb';
 import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
 
 const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
@@ -25,6 +38,7 @@ export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { role, employeeRecord } = useRole();
+  const { isOnline } = useNetworkStatus();
 
   const [job, setJob] = useState<(Job & { client?: Client }) | null>(null);
   const [parts, setParts] = useState<Part[]>([]);
@@ -90,11 +104,13 @@ export default function JobDetailPage() {
   }, [role, employeeRecord, id]);
 
   const fetchBusinessDetails = async () => {
-    const { data } = await supabase
-      .from('business_details')
-      .select('*')
-      .limit(1)
-      .maybeSingle();
+    let data: BusinessDetails | null = null;
+    if (isOnline) {
+      const res = await supabase.from('business_details').select('*').limit(1).maybeSingle();
+      data = res.data;
+    } else {
+      data = getLocalBusinessDetails();
+    }
     if (data) { setBusiness(data); setHourlyRate(data.default_hourly_rate ?? 0); }
   };
 
@@ -110,26 +126,36 @@ export default function JobDetailPage() {
   }, []);
 
   const fetchJobDetails = async () => {
-    const [jobResponse, partsResponse, timeEntriesResponse] = await Promise.all([
-      supabase.from('jobs').select('*, client:clients(*)').eq('id', id).maybeSingle(),
-      supabase.from('parts').select('*').eq('job_id', id),
-      supabase.from('time_entries').select('*').eq('job_id', id).order('start_time', { ascending: false }),
-    ]);
+    if (isOnline) {
+      const [jobResponse, partsResponse, timeEntriesResponse] = await Promise.all([
+        supabase.from('jobs').select('*, client:clients(*)').eq('id', id).maybeSingle(),
+        supabase.from('parts').select('*').eq('job_id', id),
+        supabase.from('time_entries').select('*').eq('job_id', id).order('start_time', { ascending: false }),
+      ]);
 
-    if (jobResponse.data) {
-      const jobWithClient = {
-        ...jobResponse.data,
-        client: Array.isArray(jobResponse.data.client) ? jobResponse.data.client[0] : jobResponse.data.client,
-      };
-      setJob(jobWithClient);
-      setDescription(jobWithClient.description);
-    }
+      if (jobResponse.data) {
+        const jobWithClient = {
+          ...jobResponse.data,
+          client: Array.isArray(jobResponse.data.client) ? jobResponse.data.client[0] : jobResponse.data.client,
+        };
+        setJob(jobWithClient);
+        setDescription(jobWithClient.description);
+      }
+      if (partsResponse.data) setParts(partsResponse.data);
+      if (timeEntriesResponse.data) {
+        setTimeEntries(timeEntriesResponse.data);
+        applyTimerState(timeEntriesResponse.data);
+      }
+    } else {
+      const localJob = getLocalJob(id as string);
+      if (localJob) { setJob(localJob); setDescription(localJob.description ?? ''); }
 
-    if (partsResponse.data) setParts(partsResponse.data);
+      const localParts = getLocalParts(id as string);
+      setParts(localParts);
 
-    if (timeEntriesResponse.data) {
-      setTimeEntries(timeEntriesResponse.data);
-      applyTimerState(timeEntriesResponse.data);
+      const localEntries = getLocalTimeEntries(id as string);
+      setTimeEntries(localEntries);
+      applyTimerState(localEntries);
     }
   };
 
@@ -276,43 +302,81 @@ export default function JobDetailPage() {
   const startTimer = async () => {
     if (!job || job.status === 'completed') return;
 
-    const timeEntryPayload: Record<string, unknown> = {
+    const now = new Date().toISOString();
+    const tempId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const employeeId = (role === 'employee' && employeeRecord) ? employeeRecord.id : null;
+
+    const localEntry: TimeEntry = {
+      id: tempId,
+      job_id: id as string,
+      employee_id: employeeId,
+      start_time: now,
+      end_time: null,
+      is_running: true,
+      created_at: now,
+    };
+
+    // Optimistic update
+    insertLocalTimeEntry(localEntry);
+    updateLocalJob(id as string, { status: 'active' });
+    currentTimeEntryRef.current = localEntry;
+    isTimerRunningRef.current = true;
+    setCurrentTimeEntry(localEntry);
+    setIsTimerRunning(true);
+    setJob(prev => prev ? { ...prev, status: 'active' } : prev);
+    setTimeEntries(prev => [localEntry, ...prev]);
+
+    const payload: Record<string, unknown> = {
       job_id: id,
-      start_time: new Date().toISOString(),
+      start_time: now,
       is_running: true,
     };
-    if (role === 'employee' && employeeRecord) {
-      timeEntryPayload.employee_id = employeeRecord.id;
-    }
+    if (employeeId) payload.employee_id = employeeId;
 
-    const [timeEntryResult] = await Promise.all([
-      supabase.from('time_entries').insert(timeEntryPayload).select().single(),
-      supabase.from('jobs').update({ status: 'active' }).eq('id', id as string),
-    ]);
-
-    const { data } = timeEntryResult;
-    if (data) {
-      currentTimeEntryRef.current = data;
-      isTimerRunningRef.current = true;
-      setCurrentTimeEntry(data);
-      setIsTimerRunning(true);
-      setJob(prev => prev ? { ...prev, status: 'active' } : prev);
-      fetchJobDetails();
+    if (isOnline) {
+      const [timeEntryResult] = await Promise.all([
+        supabase.from('time_entries').insert(payload).select().single(),
+        supabase.from('jobs').update({ status: 'active' }).eq('id', id as string),
+      ]);
+      const { data } = timeEntryResult;
+      if (data) {
+        // Replace temp entry with the real server record
+        insertLocalTimeEntry({ ...localEntry, id: data.id });
+        currentTimeEntryRef.current = data;
+        setCurrentTimeEntry(data);
+        setTimeEntries(prev => prev.map(e => e.id === tempId ? data : e));
+      }
+    } else {
+      enqueue({ table_name: 'time_entries', operation: 'insert', payload: { ...payload, id: tempId } });
+      enqueue({ table_name: 'jobs', operation: 'update', payload: { id: id as string, status: 'active' } });
     }
   };
 
   const pauseTimer = async () => {
     if (!currentTimeEntry) return;
-    const { error } = await supabase.from('time_entries')
-      .update({ end_time: new Date().toISOString(), is_running: false })
-      .eq('id', currentTimeEntry.id);
+    const endTime = new Date().toISOString();
 
-    if (!error) {
-      isTimerRunningRef.current = false;
-      currentTimeEntryRef.current = null;
-      setIsTimerRunning(false);
-      setCurrentTimeEntry(null);
+    // Optimistic update
+    updateLocalTimeEntry(currentTimeEntry.id, { end_time: endTime, is_running: false });
+    isTimerRunningRef.current = false;
+    currentTimeEntryRef.current = null;
+    setIsTimerRunning(false);
+    setCurrentTimeEntry(null);
+    setTimeEntries(prev => prev.map(e =>
+      e.id === currentTimeEntry.id ? { ...e, end_time: endTime, is_running: false } : e
+    ));
+
+    if (isOnline) {
+      await supabase.from('time_entries')
+        .update({ end_time: endTime, is_running: false })
+        .eq('id', currentTimeEntry.id);
       fetchJobDetails();
+    } else {
+      enqueue({
+        table_name: 'time_entries',
+        operation: 'update',
+        payload: { id: currentTimeEntry.id, end_time: endTime, is_running: false },
+      });
     }
   };
 
@@ -321,60 +385,109 @@ export default function JobDetailPage() {
   const addPart = async () => {
     setPartError('');
     if (!newPart.name.trim()) { setPartError('Please enter a part name'); return; }
-    const { error } = await supabase.from('parts').insert({
-      job_id: id,
+    const now = new Date().toISOString();
+    const tempId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const payload = {
+      job_id: id as string,
       name: newPart.name,
       cost: parseFloat(newPart.cost) || 0,
       quantity: parseInt(newPart.quantity) || 1,
-    });
-    if (!error) {
-      setNewPart({ name: '', cost: '', quantity: '1' });
-      setShowAddPart(false);
-      fetchJobDetails();
+    };
+    const localPart: Part = { id: tempId, ...payload, employee_id: null, created_at: now };
+
+    insertLocalPart(localPart);
+    setParts(prev => [...prev, localPart]);
+    setNewPart({ name: '', cost: '', quantity: '1' });
+    setShowAddPart(false);
+
+    if (isOnline) {
+      const { data } = await supabase.from('parts').insert(payload).select().single();
+      if (data) {
+        insertLocalPart({ ...localPart, id: data.id });
+        setParts(prev => prev.map(p => p.id === tempId ? data : p));
+      }
+    } else {
+      enqueue({ table_name: 'parts', operation: 'insert', payload: { ...payload, id: tempId } });
     }
   };
 
   const deletePart = async (partId: string) => {
-    const { error } = await supabase.from('parts').delete().eq('id', partId);
-    if (!error) fetchJobDetails();
+    deleteLocalPart(partId);
+    setParts(prev => prev.filter(p => p.id !== partId));
+    if (isOnline) {
+      await supabase.from('parts').delete().eq('id', partId);
+    } else {
+      enqueue({ table_name: 'parts', operation: 'delete', payload: { id: partId } });
+    }
   };
 
   const addEmployeePart = async () => {
     setPartError('');
     if (!newPart.name.trim()) { setPartError('Please enter an item name'); return; }
     if (!employeeRecord) return;
-    const { error } = await supabase.from('parts').insert({
-      job_id: id,
+    const now = new Date().toISOString();
+    const tempId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const payload = {
+      job_id: id as string,
       name: newPart.name,
       cost: parseFloat(newPart.cost) || 0,
       quantity: parseInt(newPart.quantity) || 1,
       employee_id: employeeRecord.id,
-    });
-    if (!error) {
-      setNewPart({ name: '', cost: '', quantity: '1' });
-      setShowAddPart(false);
-      fetchJobDetails();
+    };
+    const localPart: Part = { id: tempId, ...payload, created_at: now };
+
+    insertLocalPart(localPart);
+    setParts(prev => [...prev, localPart]);
+    setNewPart({ name: '', cost: '', quantity: '1' });
+    setShowAddPart(false);
+
+    if (isOnline) {
+      const { data } = await supabase.from('parts').insert(payload).select().single();
+      if (data) {
+        insertLocalPart({ ...localPart, id: data.id });
+        setParts(prev => prev.map(p => p.id === tempId ? data : p));
+      }
+    } else {
+      enqueue({ table_name: 'parts', operation: 'insert', payload: { ...payload, id: tempId } });
     }
   };
 
   const saveDescriptionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isOnlineRef = useRef(isOnline);
+  useEffect(() => { isOnlineRef.current = isOnline; }, [isOnline]);
+
   const handleDescriptionChange = useCallback((text: string) => {
     setDescription(text);
     if (saveDescriptionDebounceRef.current) clearTimeout(saveDescriptionDebounceRef.current);
     saveDescriptionDebounceRef.current = setTimeout(async () => {
       if (!job) return;
-      await supabase.from('jobs').update({ description: text }).eq('id', job.id as string);
+      updateLocalJob(job.id, { description: text });
+      if (isOnlineRef.current) {
+        await supabase.from('jobs').update({ description: text }).eq('id', job.id as string);
+      } else {
+        enqueue({ table_name: 'jobs', operation: 'update', payload: { id: job.id, description: text } });
+      }
     }, 800);
   }, [job]);
 
   const updateJobStatus = async (status: 'pending' | 'active' | 'completed') => {
     if (!job) return;
-    const { error } = await supabase.from('jobs').update({ status }).eq('id', job.id);
-    if (!error) fetchJobDetails();
+    updateLocalJob(job.id, { status });
+    setJob(prev => prev ? { ...prev, status } : prev);
+    if (isOnline) {
+      await supabase.from('jobs').update({ status }).eq('id', job.id);
+      fetchJobDetails();
+    } else {
+      enqueue({ table_name: 'jobs', operation: 'update', payload: { id: job.id, status } });
+    }
   };
 
   const sendJobCardViaService = async () => {
     if (!job) return;
+    if (!isOnline) {
+      setEmailStatus({ type: 'error', message: 'Internet connection required to send job card.' });
+      return;
+    }
     const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
     const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
