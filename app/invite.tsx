@@ -247,9 +247,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 36,
   },
-  logo: {
-    marginBottom: 10,
-  },
   appTitle: {
     fontSize: 28,
     fontWeight: 'bold',

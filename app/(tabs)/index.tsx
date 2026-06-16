@@ -517,10 +517,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#111827',
   },
-  logoImage: {
-    width: 44,
-    height: 44,
-  },
   monthNavRow: {
     flexDirection: 'row',
     alignItems: 'center',

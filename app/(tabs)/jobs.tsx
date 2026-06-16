@@ -378,7 +378,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logoImage: { width: 44, height: 44 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
   notifButton: { position: 'relative', padding: 4 },
   notifBadge: {

@@ -163,10 +163,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logoImage: {
-    width: 44,
-    height: 44,
-  },
   pageTitle: {
     fontSize: 22,
     fontWeight: 'bold',

@@ -1167,7 +1167,6 @@ const styles = StyleSheet.create({
   dropdownItemEmail: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
   // Assignments list
   assignmentsList: { marginTop: 8 },
-  noAssignmentsText: { fontSize: 14, color: '#9CA3AF', fontStyle: 'italic' },
   assignmentRow: {
     flexDirection: 'row',
     alignItems: 'center',

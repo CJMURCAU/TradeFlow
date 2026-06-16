@@ -970,7 +970,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logoImage: { width: 100, height: 40 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },

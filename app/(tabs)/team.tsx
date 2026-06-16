@@ -452,7 +452,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logoImage: { width: 44, height: 44 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: {

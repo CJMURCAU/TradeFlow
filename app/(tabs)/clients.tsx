@@ -181,10 +181,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 14,
   },
-  logoImage: {
-    width: 100,
-    height: 40,
-  },
   title: {
     fontSize: 22,
     fontWeight: 'bold',
