@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { showAlert } from '@/lib/feedback';
 import TradeFlowEmblem from '@/components/TradeFlowEmblem';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
 import {
@@ -257,7 +258,10 @@ export default function BusinessPage() {
         },
         body: JSON.stringify({
           employeeId: employee.id,
-          appUrl: typeof window !== 'undefined' ? window.location.origin : '',
+          // On native `window` is undefined; send the production web origin so
+          // the invite link isn't empty (audit P-M7). The edge function also
+          // validates this against an allow-list.
+          appUrl: typeof window !== 'undefined' ? window.location.origin : 'https://tradeflowmanager.com',
         }),
       });
 
@@ -361,21 +365,34 @@ export default function BusinessPage() {
   const executeDeleteAccount = async () => {
     setDeleteLoading(true);
     setDeleteAccountStep(0);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setDeleteLoading(false); return; }
 
-    const userId = user.id;
-    const jobsRes = await supabase.from('jobs').select('id').eq('user_id', userId);
-    const jobIds = (jobsRes.data || []).map((j: { id: string }) => j.id);
-    if (jobIds.length > 0) {
-      await supabase.from('parts').delete().in('job_id', jobIds);
-      await supabase.from('time_entries').delete().in('job_id', jobIds);
+    // Account deletion runs server-side (audit S-C5). The client cannot use
+    // admin APIs, and deleting an auth user requires the service role.
+    const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const { data: { session } } = await supabase.auth.getSession();
+
+    try {
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session?.access_token ?? supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setDeleteLoading(false);
+        showAlert('Could not delete account', result.error || 'Please try again.');
+        return;
+      }
+      await supabase.auth.signOut();
+    } catch {
+      setDeleteLoading(false);
+      showAlert('Could not delete account', 'Please check your connection and try again.');
+      return;
     }
-    await supabase.from('jobs').delete().eq('user_id', userId);
-    await supabase.from('clients').delete().eq('user_id', userId);
-    await supabase.from('business_details').delete().eq('user_id', userId);
-    await supabase.auth.admin.deleteUser(userId);
-    await supabase.auth.signOut();
     setDeleteLoading(false);
   };
 
