@@ -101,63 +101,60 @@ Deno.serve(async (req: Request) => {
 
     const client = Array.isArray(job.client) ? job.client[0] : job.client;
 
-    const [partsRes, timeEntriesRes, businessRes, employeesRes] = await Promise.all([
+    const [partsRes, timeEntriesRes, businessRes, employeesRes, assignmentsRes] = await Promise.all([
       supabase.from("parts").select("*").eq("job_id", jobId),
       supabase.from("time_entries").select("*").eq("job_id", jobId),
       supabase.from("business_details").select("*").eq("user_id", job.user_id).maybeSingle(),
       supabase.from("employees").select("*").eq("user_id", job.user_id).eq("status", "active"),
+      supabase.from("job_assignments").select("employee_id, completed").eq("job_id", jobId),
     ]);
 
-    const parts: { name: string; cost: number; quantity: number }[] = partsRes.data || [];
+    const parts: { name: string; cost: number; quantity: number; employee_id: string | null }[] = partsRes.data || [];
     const timeEntries: { start_time: string; end_time: string | null; employee_id: string | null }[] = timeEntriesRes.data || [];
     const business = businessRes.data;
     const employees: { id: string; name: string; hourly_rate: number | null }[] = employeesRes.data || [];
+    const assignments: { employee_id: string; completed: boolean }[] = assignmentsRes.data || [];
 
     const defaultRate: number = business?.default_hourly_rate ?? 0;
     const tradesmanName: string = business?.tradesman_name || "Owner";
     const companyName: string = business?.company_name || "Your Service Provider";
 
-    // Total time across all entries
-    const totalSeconds = timeEntries.reduce((sum, entry) => {
-      const start = new Date(entry.start_time).getTime();
-      const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-      return sum + Math.floor((end - start) / 1000);
-    }, 0);
-    const timeFormatted = formatTime(totalSeconds);
+    // Cost rules MUST match the on-screen summary (audit A-M3): owner time is
+    // live up to now; employee time counts only for completed assignments and
+    // ended entries; employee parts count only once their assignment completed.
+    const completed = new Set(assignments.filter(a => a.completed).map(a => a.employee_id));
+    const nowMs = Date.now();
+    const secondsBetween = (start: string, end: string | null): number =>
+      Math.floor(((end ? new Date(end).getTime() : nowMs) - new Date(start).getTime()) / 1000);
 
-    // Owner labour: entries with no employee_id
+    // Owner labour: entries with no employee_id (running entry ticks to now)
     const ownerSeconds = timeEntries
       .filter(e => e.employee_id == null)
-      .reduce((sum, entry) => {
-        const start = new Date(entry.start_time).getTime();
-        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-        return sum + Math.floor((end - start) / 1000);
-      }, 0);
+      .reduce((sum, entry) => sum + secondsBetween(entry.start_time, entry.end_time), 0);
     const ownerCost = (ownerSeconds / 3600) * defaultRate;
 
-    // Employee labour: grouped by employee_id
+    // Employee labour: only completed assignments, only ended entries
     const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate ?? defaultRate }]));
     const empRowMap = new Map<string, { name: string; seconds: number; rate: number }>();
     timeEntries
-      .filter(e => e.employee_id != null)
+      .filter(e => e.employee_id != null && completed.has(e.employee_id) && e.end_time != null)
       .forEach(entry => {
         const empId = entry.employee_id!;
         const empInfo = empRateMap.get(empId) ?? { name: "Employee", rate: defaultRate };
-        const start = new Date(entry.start_time).getTime();
-        const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
-        const secs = Math.floor((end - start) / 1000);
+        const secs = secondsBetween(entry.start_time, entry.end_time);
         const existing = empRowMap.get(empId);
-        if (existing) {
-          existing.seconds += secs;
-        } else {
-          empRowMap.set(empId, { name: empInfo.name, seconds: secs, rate: empInfo.rate });
-        }
+        if (existing) existing.seconds += secs;
+        else empRowMap.set(empId, { name: empInfo.name, seconds: secs, rate: empInfo.rate });
       });
     const empRows = Array.from(empRowMap.values());
     const empLabourCost = empRows.reduce((sum, r) => sum + (r.seconds / 3600) * r.rate, 0);
     const totalLabourCost = ownerCost + empLabourCost;
 
-    const totalPartsCost = parts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
+    const totalSeconds = ownerSeconds + empRows.reduce((sum, r) => sum + r.seconds, 0);
+    const timeFormatted = formatTime(totalSeconds);
+
+    const includedParts = parts.filter(p => p.employee_id == null || completed.has(p.employee_id));
+    const totalPartsCost = includedParts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
     const totalCost = totalLabourCost + totalPartsCost;
 
     const labourRowsHtml = `
@@ -184,7 +181,7 @@ Deno.serve(async (req: Request) => {
         <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
       </tr>`;
 
-    const partsHtml = parts.length > 0
+    const partsHtml = includedParts.length > 0
       ? `
         <table style="width:100%;border-collapse:collapse;margin-top:8px;">
           <thead>
@@ -196,7 +193,7 @@ Deno.serve(async (req: Request) => {
             </tr>
           </thead>
           <tbody>
-            ${parts
+            ${includedParts
               .map(
                 (p) => `
               <tr>
