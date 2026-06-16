@@ -312,7 +312,7 @@ export default function JobsPage() {
                   <View style={styles.badgeRow}>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) + '20' }]}>
                       <Text style={[styles.statusText, { color: getStatusColor(job.status) }]}>
-                        {job.status.toUpperCase()}
+                        {(job.status ?? 'pending').toUpperCase()}
                       </Text>
                     </View>
                     {job.status === 'completed' && job.email_sent && (

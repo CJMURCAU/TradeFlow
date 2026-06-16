@@ -448,7 +448,7 @@ export default function CalendarPage() {
                 <View style={styles.jobCardRight}>
                   <View style={[styles.jobCardBadge, { backgroundColor: getStatusColor(job.status) + '20' }]}>
                     <Text style={[styles.jobCardStatus, { color: getStatusColor(job.status) }]}>
-                      {job.status.toUpperCase()}
+                      {(job.status ?? 'pending').toUpperCase()}
                     </Text>
                   </View>
                   <TouchableOpacity

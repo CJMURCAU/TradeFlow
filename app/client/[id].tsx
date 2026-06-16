@@ -270,7 +270,7 @@ export default function ClientDetailPage() {
                             styles.statusText,
                             { color: getStatusColor(job.status) },
                           ]}>
-                          {job.status.toUpperCase()}
+                          {(job.status ?? 'pending').toUpperCase()}
                         </Text>
                       </View>
                     </View>
