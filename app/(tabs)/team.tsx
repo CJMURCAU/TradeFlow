@@ -122,7 +122,7 @@ export default function TeamPage() {
   const toggleEmployee = (id: string) => {
     setExpandedEmployees(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -130,15 +130,8 @@ export default function TeamPage() {
   const toggleStatusSection = (key: string) => {
     setExpandedStatusSections(prev => {
       const next = new Set(prev);
-      next.has(key) ? next.delete(key) : next.add(key);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
-    });
-  };
-
-  const getJobsForDay = (emp: EmployeeWithAssignments, day: Date) => {
-    return emp.assignments.filter(a => {
-      if (!a.job.scheduled_time) return false;
-      return isSameDay(new Date(a.job.scheduled_time), day);
     });
   };
 
