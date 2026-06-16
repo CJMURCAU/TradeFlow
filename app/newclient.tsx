@@ -91,6 +91,7 @@ export default function NewClientPage() {
             placeholderTextColor="#9CA3AF"
             value={formData.company_name}
             onChangeText={text => setFormData(prev => ({ ...prev, company_name: text }))}
+            textContentType="organizationName"
           />
         </View>
 
@@ -102,6 +103,8 @@ export default function NewClientPage() {
             placeholderTextColor="#9CA3AF"
             value={formData.name}
             onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
+            textContentType="name"
+            autoComplete="name"
           />
         </View>
 
@@ -113,6 +116,8 @@ export default function NewClientPage() {
             placeholderTextColor="#9CA3AF"
             value={formData.phone}
             onChangeText={text => setFormData(prev => ({ ...prev, phone: text }))}
+            textContentType="telephoneNumber"
+            autoComplete="tel"
             keyboardType="phone-pad"
           />
         </View>
@@ -125,6 +130,8 @@ export default function NewClientPage() {
             placeholderTextColor="#9CA3AF"
             value={formData.email}
             onChangeText={text => setFormData(prev => ({ ...prev, email: text }))}
+            textContentType="emailAddress"
+            autoComplete="email"
             keyboardType="email-address"
             autoCapitalize="none"
           />
