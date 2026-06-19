@@ -533,6 +533,29 @@ export default function JobDetailPage() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatTimestamp = (iso: string) => {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+    const time = d.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `${date}, ${time}`;
+  };
+
+  const formatSessionDuration = (startIso: string, endIso: string) => {
+    const secs = Math.floor((new Date(endIso).getTime() - new Date(startIso).getTime()) / 1000);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
+  };
+
+  const getMyTimeLog = () => {
+    const mine = role === 'employee' && employeeRecord
+      ? timeEntries.filter(e => e.employee_id === employeeRecord.id)
+      : timeEntries.filter(e => !e.employee_id);
+    return [...mine].sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+  };
+
   // Set of employee IDs whose assignments are marked completed
   const completedAssignmentEmployeeIds = new Set(
     assignments.filter(a => a.completed).map(a => a.employee_id)
@@ -983,6 +1006,41 @@ export default function JobDetailPage() {
                 </>
               )}
             </View>
+
+            {/* Time Log */}
+            {getMyTimeLog().length > 0 && (
+              <>
+                <View style={styles.timeLogDivider} />
+                <Text style={styles.timeLogHeading}>Time Log</Text>
+                {getMyTimeLog().map((entry, idx) => (
+                  <View key={entry.id} style={styles.timeLogRow}>
+                    <View style={styles.timeLogIndexCol}>
+                      <Text style={styles.timeLogIndex}>{idx + 1}</Text>
+                    </View>
+                    <View style={styles.timeLogDetails}>
+                      <View style={styles.timeLogLine}>
+                        <Text style={styles.timeLogLabel}>Started</Text>
+                        <Text style={styles.timeLogValue}>{formatTimestamp(entry.start_time)}</Text>
+                      </View>
+                      {entry.end_time ? (
+                        <View style={styles.timeLogLine}>
+                          <Text style={styles.timeLogLabel}>Stopped</Text>
+                          <Text style={styles.timeLogValue}>
+                            {formatTimestamp(entry.end_time)}
+                            <Text style={styles.timeLogDuration}> ({formatSessionDuration(entry.start_time, entry.end_time)})</Text>
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={styles.timeLogLine}>
+                          <Text style={styles.timeLogLabel}>Status</Text>
+                          <Text style={styles.timeLogRunning}>In progress...</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
           </View>
         </View>
 
@@ -1497,6 +1555,21 @@ const styles = StyleSheet.create({
   timerButtonDisabled: { backgroundColor: '#D1D5DB' },
   timerCompletedNote: { fontSize: 13, color: '#10B981', fontWeight: '600', marginBottom: 12 },
   timerButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 16 },
+  timeLogDivider: { width: '100%', height: 1, backgroundColor: '#E5E7EB', marginTop: 20, marginBottom: 14 },
+  timeLogHeading: { fontSize: 13, fontWeight: '700', color: '#6B7280', letterSpacing: 0.5, textTransform: 'uppercase', alignSelf: 'flex-start', marginBottom: 10 },
+  timeLogRow: { flexDirection: 'row', width: '100%', marginBottom: 10, alignItems: 'flex-start' },
+  timeLogIndexCol: {
+    width: 24, height: 24, borderRadius: 12,
+    backgroundColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center',
+    marginRight: 10, marginTop: 1,
+  },
+  timeLogIndex: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
+  timeLogDetails: { flex: 1 },
+  timeLogLine: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 3 },
+  timeLogLabel: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', width: 54 },
+  timeLogValue: { fontSize: 13, color: '#374151', flex: 1, flexWrap: 'wrap' },
+  timeLogDuration: { fontSize: 12, color: '#9CA3AF' },
+  timeLogRunning: { fontSize: 13, color: '#F59E0B', fontWeight: '600' },
   descriptionInput: {
     backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16,
     fontSize: 16, color: '#111827', borderWidth: 1, borderColor: '#E5E7EB',

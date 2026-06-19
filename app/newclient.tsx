@@ -10,23 +10,37 @@ import {
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRouter, Stack } from 'expo-router';
-import { ArrowLeft, Save } from 'lucide-react-native';
+import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react-native';
+
+type ContactDraft = {
+  name: string;
+  phone: string;
+  email: string;
+};
 
 export default function NewClientPage() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
-    company_name: '',
-    name: '',
-    phone: '',
-    email: '',
-    address: '',
-  });
+  const [companyName, setCompanyName] = useState('');
+  const [address, setAddress] = useState('');
+  const [contacts, setContacts] = useState<ContactDraft[]>([{ name: '', phone: '', email: '' }]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const addContact = () => {
+    setContacts(prev => [...prev, { name: '', phone: '', email: '' }]);
+  };
+
+  const removeContact = (index: number) => {
+    setContacts(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateContact = (index: number, field: keyof ContactDraft, value: string) => {
+    setContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
+  };
+
   const createClient = async () => {
     setError('');
-    if (!formData.company_name.trim()) {
+    if (!companyName.trim()) {
       setError('Please enter a company name');
       return;
     }
@@ -39,26 +53,36 @@ export default function NewClientPage() {
       return;
     }
 
+    const primary = contacts[0] ?? { name: '', phone: '', email: '' };
+
     const { data, error: insertError } = await supabase
       .from('clients')
       .insert({
         user_id: user.id,
-        company_name: formData.company_name,
-        name: formData.name,
-        phone: formData.phone,
-        email: formData.email,
-        address: formData.address,
+        company_name: companyName,
+        name: primary.name,
+        phone: primary.phone,
+        email: primary.email,
+        address,
       })
       .select()
       .single();
 
-    setLoading(false);
-
-    if (insertError) {
+    if (insertError || !data) {
       setError('Failed to create client. Please try again.');
-    } else if (data) {
-      router.replace(`/client/${data.id}`);
+      setLoading(false);
+      return;
     }
+
+    const extras = contacts.slice(1).filter(c => c.name.trim() || c.phone.trim() || c.email.trim());
+    if (extras.length > 0) {
+      await supabase.from('client_contacts').insert(
+        extras.map(c => ({ client_id: data.id, name: c.name, phone: c.phone, email: c.email }))
+      );
+    }
+
+    setLoading(false);
+    router.replace(`/client/${data.id}`);
   };
 
   return (
@@ -78,55 +102,66 @@ export default function NewClientPage() {
             style={styles.input}
             placeholder="Enter company name"
             placeholderTextColor="#9CA3AF"
-            value={formData.company_name}
-            onChangeText={text => setFormData(prev => ({ ...prev, company_name: text }))}
+            value={companyName}
+            onChangeText={setCompanyName}
           />
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Contact</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter contact name"
-            placeholderTextColor="#9CA3AF"
-            value={formData.name}
-            onChangeText={text => setFormData(prev => ({ ...prev, name: text }))}
-          />
+        <View style={styles.contactsHeader}>
+          <Text style={styles.label}>Contacts</Text>
+          <TouchableOpacity style={styles.addContactButton} onPress={addContact}>
+            <Plus size={16} color="#F59E0B" />
+            <Text style={styles.addContactText}>Add</Text>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Phone</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter phone number"
-            placeholderTextColor="#9CA3AF"
-            value={formData.phone}
-            onChangeText={text => setFormData(prev => ({ ...prev, phone: text }))}
-            keyboardType="phone-pad"
-          />
-        </View>
+        {contacts.map((contact, index) => (
+          <View key={index} style={styles.contactCard}>
+            <View style={styles.contactCardHeader}>
+              <Text style={styles.contactCardTitle}>
+                {index === 0 ? 'Primary Contact' : `Contact ${index + 1}`}
+              </Text>
+              {index > 0 && (
+                <TouchableOpacity onPress={() => removeContact(index)}>
+                  <Trash2 size={16} color="#EF4444" />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TextInput
+              style={styles.input}
+              placeholder="Contact name"
+              placeholderTextColor="#9CA3AF"
+              value={contact.name}
+              onChangeText={val => updateContact(index, 'name', val)}
+            />
+            <TextInput
+              style={[styles.input, styles.inputSpaced]}
+              placeholder="Phone number"
+              placeholderTextColor="#9CA3AF"
+              value={contact.phone}
+              onChangeText={val => updateContact(index, 'phone', val)}
+              keyboardType="phone-pad"
+            />
+            <TextInput
+              style={[styles.input, styles.inputSpaced]}
+              placeholder="email@example.com"
+              placeholderTextColor="#9CA3AF"
+              value={contact.email}
+              onChangeText={val => updateContact(index, 'email', val)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+        ))}
 
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="email@example.com"
-            placeholderTextColor="#9CA3AF"
-            value={formData.email}
-            onChangeText={text => setFormData(prev => ({ ...prev, email: text }))}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-        </View>
-
-        <View style={styles.formGroup}>
+        <View style={[styles.formGroup, { marginTop: 8 }]}>
           <Text style={styles.label}>Address</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             placeholder="Enter address"
             placeholderTextColor="#9CA3AF"
-            value={formData.address}
-            onChangeText={text => setFormData(prev => ({ ...prev, address: text }))}
+            value={address}
+            onChangeText={setAddress}
             multiline
             numberOfLines={3}
           />
@@ -151,10 +186,7 @@ export default function NewClientPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -164,30 +196,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  backButton: {
-    marginRight: 16,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  content: {
-    flex: 1,
-    padding: 20,
-  },
-  contentContainer: {
-    paddingBottom: 40,
-  },
-  formGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 8,
-  },
+  backButton: { marginRight: 16 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
+  content: { flex: 1, padding: 20 },
+  contentContainer: { paddingBottom: 40 },
+  formGroup: { marginBottom: 24 },
+  label: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 8 },
   input: {
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
@@ -197,15 +211,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#EF4444',
+  inputSpaced: { marginTop: 10 },
+  textArea: { minHeight: 100, textAlignVertical: 'top' },
+  contactsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
+  addContactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  addContactText: { fontSize: 13, fontWeight: '600', color: '#F59E0B' },
+  contactCard: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  contactCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  contactCardTitle: { fontSize: 13, fontWeight: '700', color: '#6B7280' },
+  errorText: { fontSize: 14, color: '#EF4444', marginBottom: 12 },
   createButton: {
     backgroundColor: '#F59E0B',
     padding: 16,
@@ -216,12 +257,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 8,
   },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  createButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  buttonDisabled: { opacity: 0.6 },
+  createButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600' },
 });
