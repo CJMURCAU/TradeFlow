@@ -292,6 +292,8 @@ export default function JobDetailPage() {
     const { data: { session } } = await supabase.auth.getSession();
     const filename = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
     const localUri = (FileSystem.cacheDirectory ?? '') + `${photo.id}_${filename}`;
+    const existing = await FileSystem.getInfoAsync(localUri);
+    if (existing.exists) await FileSystem.deleteAsync(localUri, { idempotent: true });
     const headers: Record<string, string> = {};
     if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
     const result = await FileSystem.downloadAsync(photo.public_url, localUri, { headers });
