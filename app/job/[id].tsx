@@ -95,6 +95,9 @@ export default function JobDetailPage() {
   const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
   const [isSharingPhoto, setIsSharingPhoto] = useState(false);
   const [shareError, setShareError] = useState('');
+  const [showMultiShareModal, setShowMultiShareModal] = useState(false);
+  const [multiSharePhotos, setMultiSharePhotos] = useState<JobPhoto[]>([]);
+  const [multiShareIndex, setMultiShareIndex] = useState<number | null>(null);
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -278,40 +281,23 @@ export default function JobDetailPage() {
     fetchPhotos();
   };
 
-  const sharePhotoUrls = async (photoList: JobPhoto[]) => {
-    if (photoList.length === 0) return;
+  const shareSinglePhotoFile = async (photo: JobPhoto) => {
     setShareError('');
     setIsSharingPhoto(true);
     try {
       if (Platform.OS === 'web') {
-        for (const p of photoList) window.open(p.public_url, '_blank');
+        window.open(photo.public_url, '_blank');
         return;
       }
-
-      if (photoList.length === 1) {
-        // For a single photo, try to download then share as a file so apps like
-        // WhatsApp receive an actual image rather than a URL string.
-        const photo = photoList[0];
-        const filename = photo.storage_path.split('/').pop() ?? 'photo.jpg';
-        const localUri = (FileSystem.cacheDirectory ?? '') + filename;
-        try {
-          const { uri } = await FileSystem.downloadAsync(photo.public_url, localUri);
-          const canShare = await Sharing.isAvailableAsync();
-          if (canShare) {
-            await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: 'Share photo' });
-            return;
-          }
-        } catch {
-          // fall through to URL share below
-        }
+      const filename = photo.storage_path.split('/').pop() ?? 'photo.jpg';
+      const localUri = (FileSystem.cacheDirectory ?? '') + filename;
+      const { uri } = await FileSystem.downloadAsync(photo.public_url, localUri);
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: 'Share photo' });
+      } else {
+        await Share.share({ message: photo.public_url });
       }
-
-      // Multi-photo or file-share fallback: share public URLs via the native Share sheet.
-      const message = photoList.length === 1
-        ? photoList[0].public_url
-        : `Job photos (${photoList.length}):\n\n` + photoList.map((p, i) => `${i + 1}. ${p.public_url}`).join('\n');
-
-      await Share.share({ message });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.toLowerCase().includes('cancel')) {
@@ -322,13 +308,49 @@ export default function JobDetailPage() {
     }
   };
 
-  const sharePhoto = (photo: JobPhoto) => sharePhotoUrls([photo]);
+  const sharePhoto = (photo: JobPhoto) => shareSinglePhotoFile(photo);
 
-  const shareAllPhotos = () => sharePhotoUrls(photos);
+  const openMultiShareModal = (photoList: JobPhoto[]) => {
+    setMultiSharePhotos(photoList);
+    setMultiShareIndex(null);
+    setShareError('');
+    setShowMultiShareModal(true);
+  };
 
   const shareSelectedPhotos = () => {
     const selected = photos.filter(p => selectedPhotoIds.has(p.id));
-    sharePhotoUrls(selected);
+    if (selected.length === 1) {
+      shareSinglePhotoFile(selected[0]);
+    } else {
+      openMultiShareModal(selected);
+    }
+  };
+
+  const shareMultiPhoto = async (photo: JobPhoto, index: number) => {
+    setMultiShareIndex(index);
+    setShareError('');
+    try {
+      if (Platform.OS === 'web') {
+        window.open(photo.public_url, '_blank');
+        return;
+      }
+      const filename = photo.storage_path.split('/').pop() ?? 'photo.jpg';
+      const localUri = (FileSystem.cacheDirectory ?? '') + filename;
+      const { uri } = await FileSystem.downloadAsync(photo.public_url, localUri);
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: `Share photo ${index + 1} of ${multiSharePhotos.length}` });
+      } else {
+        await Share.share({ message: photo.public_url });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('cancel')) {
+        setShareError('Could not share this photo. Please try again.');
+      }
+    } finally {
+      setMultiShareIndex(null);
+    }
   };
 
   const togglePhotoSelection = (photoId: string) => {
@@ -1301,21 +1323,13 @@ export default function JobDetailPage() {
               <Text style={styles.sectionTitle}>Photos</Text>
               <Text style={styles.photoCountBadge}>{photos.length} / 6</Text>
             </View>
-            <View style={styles.photoHeaderActions}>
-              {photos.length > 1 && !isSelectMode && (
-                <TouchableOpacity style={styles.photoShareAllBtn} onPress={shareAllPhotos} disabled={isSharingPhoto}>
-                  <Share2 size={15} color="#F59E0B" />
-                  <Text style={styles.photoShareAllText}>Share All</Text>
-                </TouchableOpacity>
-              )}
-              {photos.length < 6 && !isSelectMode && (
-                <TouchableOpacity onPress={openPhotoSource} disabled={isUploadingPhoto}>
-                  {isUploadingPhoto
-                    ? <ActivityIndicator size="small" color="#F59E0B" />
-                    : <Camera size={22} color="#F59E0B" />}
-                </TouchableOpacity>
-              )}
-            </View>
+            {photos.length < 6 && !isSelectMode && (
+              <TouchableOpacity onPress={openPhotoSource} disabled={isUploadingPhoto}>
+                {isUploadingPhoto
+                  ? <ActivityIndicator size="small" color="#F59E0B" />
+                  : <Camera size={22} color="#F59E0B" />}
+              </TouchableOpacity>
+            )}
           </View>
 
           {photoUploadError ? (
@@ -1392,7 +1406,7 @@ export default function JobDetailPage() {
                   </TouchableOpacity>
                 </View>
               ) : (
-                <Text style={styles.photoHint}>Tap to view and share  •  Long-press to select multiple</Text>
+                <Text style={styles.photoHint}>Tap to view & share  •  Long-press to select multiple</Text>
               )}
             </>
           )}
@@ -1942,6 +1956,69 @@ export default function JobDetailPage() {
           )}
         </View>
       </Modal>
+
+      {/* Multi-Photo Share Modal */}
+      <Modal
+        visible={showMultiShareModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { setShowMultiShareModal(false); exitSelectMode(); }}>
+        <View style={styles.multiShareOverlay}>
+          <View style={styles.multiShareSheet}>
+            <View style={styles.multiShareHeader}>
+              <Text style={styles.multiShareTitle}>Share {multiSharePhotos.length} Photos</Text>
+              <TouchableOpacity
+                style={styles.multiShareClose}
+                onPress={() => { setShowMultiShareModal(false); exitSelectMode(); }}>
+                <X size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.multiShareSubtitle}>
+              Tap the Share button on each photo to send it. Photos must be shared one at a time.
+            </Text>
+
+            {shareError ? (
+              <Text style={styles.photoUploadError}>{shareError}</Text>
+            ) : null}
+
+            <ScrollView style={styles.multiShareList} showsVerticalScrollIndicator={false}>
+              {multiSharePhotos.map((photo, index) => (
+                <View key={photo.id} style={styles.multiShareRow}>
+                  <Image
+                    source={{ uri: photo.public_url }}
+                    style={styles.multiShareThumb}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.multiShareRowInfo}>
+                    <Text style={styles.multiShareRowLabel}>Photo {index + 1}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[
+                      styles.multiShareRowBtn,
+                      multiShareIndex === index && styles.multiShareRowBtnLoading,
+                    ]}
+                    onPress={() => shareMultiPhoto(photo, index)}
+                    disabled={multiShareIndex !== null}>
+                    {multiShareIndex === index
+                      ? <ActivityIndicator size="small" color="#FFFFFF" />
+                      : <Share2 size={16} color="#FFFFFF" />}
+                    <Text style={styles.multiShareRowBtnText}>
+                      {multiShareIndex === index ? 'Sharing...' : 'Share'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.multiShareDoneBtn}
+              onPress={() => { setShowMultiShareModal(false); exitSelectMode(); }}>
+              <Text style={styles.multiShareDoneBtnText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2478,7 +2555,47 @@ const styles = StyleSheet.create({
   photoShareSelectedBtnDisabled: { backgroundColor: '#D1D5DB' },
   photoShareSelectedText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   // Hint text
-  photoHint: { fontSize: 12, color: '#9CA3AF', marginTop: 8, textAlign: 'center' },
+  photoHint: { fontSize: 14, fontWeight: '700', color: '#6B7280', marginTop: 10, textAlign: 'center' },
+  // Multi-share modal
+  multiShareOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  },
+  multiShareSheet: {
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingTop: 20, paddingHorizontal: 20, paddingBottom: 36, maxHeight: '80%',
+  },
+  multiShareHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
+  },
+  multiShareTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  multiShareClose: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  multiShareSubtitle: {
+    fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 19,
+  },
+  multiShareList: { flexGrow: 0 },
+  multiShareRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  multiShareThumb: {
+    width: 64, height: 64, borderRadius: 10, backgroundColor: '#F3F4F6',
+  },
+  multiShareRowInfo: { flex: 1 },
+  multiShareRowLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  multiShareRowBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F59E0B', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8,
+  },
+  multiShareRowBtnLoading: { backgroundColor: '#D1D5DB' },
+  multiShareRowBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  multiShareDoneBtn: {
+    marginTop: 20, backgroundColor: '#F3F4F6', paddingVertical: 14,
+    borderRadius: 12, alignItems: 'center',
+  },
+  multiShareDoneBtnText: { fontSize: 16, fontWeight: '700', color: '#374151' },
   // Photo source picker
   sourceModalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
