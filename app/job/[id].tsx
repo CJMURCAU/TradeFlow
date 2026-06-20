@@ -21,7 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
-import * as MediaLibrary from 'expo-media-library';
+
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobPhoto } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -308,6 +308,8 @@ export default function JobDetailPage() {
     setSaveSuccess('');
     setSaveError('');
     try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const MediaLibrary = require('expo-media-library');
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         setSaveError('Photo library permission denied. Please enable it in Settings.');
@@ -333,6 +335,8 @@ export default function JobDetailPage() {
     setSavingIndexes(prev => new Set(prev).add(index));
     setSaveError('');
     try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const MediaLibrary = require('expo-media-library');
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         setSaveError('Photo library permission denied. Please enable it in Settings.');
@@ -357,6 +361,8 @@ export default function JobDetailPage() {
     setSaveError('');
     setSavedIndexes(new Set());
     try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const MediaLibrary = require('expo-media-library');
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         setSaveError('Photo library permission denied. Please enable it in Settings.');
