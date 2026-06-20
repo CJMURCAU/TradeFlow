@@ -20,6 +20,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobPhoto } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
@@ -85,6 +86,10 @@ export default function JobDetailPage() {
   const [photoUploadError, setPhotoUploadError] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<JobPhoto | null>(null);
   const [includePhotosInEmail, setIncludePhotosInEmail] = useState(false);
+  const [showPhotoSourceModal, setShowPhotoSourceModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const cameraRef = useRef<CameraView>(null);
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -139,41 +144,67 @@ export default function JobDetailPage() {
     if (data) setPhotos(data);
   };
 
-  const uploadPhoto = async () => {
+  const openPhotoSource = () => {
     if (photos.length >= 6) {
       setPhotoUploadError('Maximum of 6 photos per job reached.');
       return;
     }
     setPhotoUploadError('');
-
-    let pickerResult: ImagePicker.ImagePickerResult | null = null;
-
     if (Platform.OS === 'web') {
-      pickerResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-        allowsEditing: false,
-      });
+      pickFromLibrary();
     } else {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        setPhotoUploadError('Photo library permission is required.');
+      setShowPhotoSourceModal(true);
+    }
+  };
+
+  const pickFromLibrary = async () => {
+    setShowPhotoSourceModal(false);
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      setPhotoUploadError('Photo library permission is required.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      await processAndUploadPhoto(result.assets[0].uri);
+    }
+  };
+
+  const openInAppCamera = async () => {
+    setShowPhotoSourceModal(false);
+    if (!cameraPermission?.granted) {
+      const { granted } = await requestCameraPermission();
+      if (!granted) {
+        setPhotoUploadError('Camera permission is required.');
         return;
       }
-      pickerResult = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-        allowsEditing: false,
-      });
     }
+    setShowCameraModal(true);
+  };
 
-    if (!pickerResult || pickerResult.canceled || !pickerResult.assets[0]) return;
+  const capturePhoto = async () => {
+    if (!cameraRef.current) return;
+    try {
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.8, base64: false });
+      setShowCameraModal(false);
+      if (photo?.uri) {
+        await processAndUploadPhoto(photo.uri);
+      }
+    } catch {
+      setShowCameraModal(false);
+      setPhotoUploadError('Failed to capture photo. Please try again.');
+    }
+  };
 
+  const processAndUploadPhoto = async (uri: string) => {
     setIsUploadingPhoto(true);
     try {
-      const asset = pickerResult.assets[0];
       const manipulated = await ImageManipulator.manipulateAsync(
-        asset.uri,
+        uri,
         [{ resize: { width: 1200 } }],
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
       );
@@ -1215,7 +1246,7 @@ export default function JobDetailPage() {
               <Text style={styles.photoCountBadge}>{photos.length} / 6</Text>
             </View>
             {photos.length < 6 && (
-              <TouchableOpacity onPress={uploadPhoto} disabled={isUploadingPhoto}>
+              <TouchableOpacity onPress={openPhotoSource} disabled={isUploadingPhoto}>
                 {isUploadingPhoto
                   ? <ActivityIndicator size="small" color="#F59E0B" />
                   : <Camera size={22} color="#F59E0B" />}
@@ -1232,7 +1263,7 @@ export default function JobDetailPage() {
               <Camera size={32} color="#D1D5DB" />
               <Text style={styles.photoEmptyText}>No photos added yet</Text>
               {photos.length < 6 && (
-                <TouchableOpacity style={styles.photoAddButton} onPress={uploadPhoto} disabled={isUploadingPhoto}>
+                <TouchableOpacity style={styles.photoAddButton} onPress={openPhotoSource} disabled={isUploadingPhoto}>
                   <Text style={styles.photoAddButtonText}>Add Photo</Text>
                 </TouchableOpacity>
               )}
@@ -1694,6 +1725,53 @@ export default function JobDetailPage() {
                 <Text style={styles.modalConfirmText}>Confirm</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Photo Source Picker Modal */}
+      <Modal
+        visible={showPhotoSourceModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPhotoSourceModal(false)}>
+        <TouchableOpacity
+          style={styles.sourceModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPhotoSourceModal(false)}>
+          <View style={styles.sourceModalSheet}>
+            <View style={styles.sourceModalHandle} />
+            <Text style={styles.sourceModalTitle}>Add Photo</Text>
+            <TouchableOpacity style={styles.sourceModalOption} onPress={openInAppCamera}>
+              <Camera size={22} color="#F59E0B" />
+              <Text style={styles.sourceModalOptionText}>Take Photo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sourceModalOption} onPress={pickFromLibrary}>
+              <ImageIcon size={22} color="#F59E0B" />
+              <Text style={styles.sourceModalOptionText}>Choose from Library</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.sourceModalCancel} onPress={() => setShowPhotoSourceModal(false)}>
+              <Text style={styles.sourceModalCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* In-App Camera Modal */}
+      <Modal
+        visible={showCameraModal}
+        animationType="slide"
+        onRequestClose={() => setShowCameraModal(false)}>
+        <View style={styles.cameraModalContainer}>
+          <CameraView ref={cameraRef} style={styles.cameraView} facing="back" />
+          <View style={styles.cameraControls}>
+            <TouchableOpacity style={styles.cameraCancelBtn} onPress={() => setShowCameraModal(false)}>
+              <X size={26} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cameraShutterBtn} onPress={capturePhoto}>
+              <View style={styles.cameraShutterInner} />
+            </TouchableOpacity>
+            <View style={{ width: 52 }} />
           </View>
         </View>
       </Modal>
@@ -2236,4 +2314,49 @@ const styles = StyleSheet.create({
   },
   photoModalDeleteBtn: { backgroundColor: 'rgba(239,68,68,0.75)' },
   photoModalActionText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
+  // Photo source picker
+  sourceModalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
+  },
+  sourceModalSheet: {
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingBottom: 36, paddingHorizontal: 20, paddingTop: 12,
+  },
+  sourceModalHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB',
+    alignSelf: 'center', marginBottom: 16,
+  },
+  sourceModalTitle: {
+    fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 16,
+  },
+  sourceModalOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  sourceModalOptionText: { fontSize: 16, color: '#111827', fontWeight: '500' },
+  sourceModalCancel: {
+    marginTop: 12, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: '#F3F4F6', borderRadius: 12,
+  },
+  sourceModalCancelText: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
+  // In-app camera
+  cameraModalContainer: { flex: 1, backgroundColor: '#000000' },
+  cameraView: { flex: 1 },
+  cameraControls: {
+    position: 'absolute', bottom: 48, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 40,
+  },
+  cameraCancelBtn: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
+  },
+  cameraShutterBtn: {
+    width: 76, height: 76, borderRadius: 38,
+    borderWidth: 4, borderColor: '#FFFFFF',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cameraShutterInner: {
+    width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF',
+  },
 });
