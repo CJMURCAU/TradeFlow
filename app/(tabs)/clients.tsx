@@ -44,7 +44,7 @@ export default function ClientsPage() {
     const { data } = await supabase
       .from('clients')
       .select('*')
-      .order('name', { ascending: true });
+      .order('company_name', { ascending: true });
 
     if (data) {
       setClients(data);

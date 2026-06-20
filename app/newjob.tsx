@@ -69,7 +69,7 @@ export default function NewJobPage() {
     const { data } = await supabase
       .from('clients')
       .select('*')
-      .order('name', { ascending: true });
+      .order('company_name', { ascending: true });
 
     if (data) {
       setClients(data);
@@ -105,7 +105,7 @@ export default function NewJobPage() {
     if (error) {
       setClientError('Failed to create client. Please try again.');
     } else if (data) {
-      setClients(prev => [...prev, data]);
+      setClients(prev => [...prev, data].sort((a, b) => (a.company_name || a.name).localeCompare(b.company_name || b.name)));
       setFormData(prev => ({ ...prev, client_id: data.id }));
       setNewClientData({ company_name: '', name: '', phone: '', email: '', address: '' });
       setShowNewClientForm(false);
