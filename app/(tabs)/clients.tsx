@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Platform,
   Image,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
@@ -53,27 +53,24 @@ export default function ClientsPage() {
   };
 
   const deleteClient = async (id: string, name: string) => {
-    Alert.alert(
-      'Delete Client',
-      `Are you sure you want to delete ${name}? This will also delete all associated jobs.`,
-      [
+    const message = `Are you sure you want to delete ${name}? This will also delete all associated jobs.`;
+    if (Platform.OS === 'web') {
+      if (!window.confirm(message)) return;
+      const { error } = await supabase.from('clients').delete().eq('id', id);
+      if (!error) fetchClients();
+    } else {
+      Alert.alert('Delete Client', message, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const { error } = await supabase
-              .from('clients')
-              .delete()
-              .eq('id', id);
-
-            if (!error) {
-              fetchClients();
-            }
+            const { error } = await supabase.from('clients').delete().eq('id', id);
+            if (!error) fetchClients();
           },
         },
-      ]
-    );
+      ]);
+    }
   };
 
   return (

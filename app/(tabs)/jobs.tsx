@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
   Image,
   TextInput,
 } from 'react-native';
@@ -164,10 +165,13 @@ export default function JobsPage() {
   };
 
   const deleteJob = async (id: string, title: string) => {
-    Alert.alert(
-      'Delete Job',
-      `Are you sure you want to delete "${title}"? This will also delete all associated parts and time entries.`,
-      [
+    const message = `Are you sure you want to delete "${title}"? This will also delete all associated parts and time entries.`;
+    if (Platform.OS === 'web') {
+      if (!window.confirm(message)) return;
+      const { error } = await supabase.from('jobs').delete().eq('id', id);
+      if (!error) fetchJobs();
+    } else {
+      Alert.alert('Delete Job', message, [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -177,8 +181,8 @@ export default function JobsPage() {
             if (!error) fetchJobs();
           },
         },
-      ]
-    );
+      ]);
+    }
   };
 
   const getStatusColor = (status: string) => {
