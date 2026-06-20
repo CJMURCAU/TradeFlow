@@ -442,7 +442,15 @@ export default function JobDetailPage() {
     setIsSharingPhoto(true);
     try {
       if (Platform.OS === 'web') {
-        await webDownloadPhoto(photo);
+        const resp = await fetch(photo.public_url);
+        const blob = await resp.blob();
+        const filename = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
+        const file = new File([blob], filename, { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Job Photo' });
+        } else {
+          await webDownloadPhoto(photo);
+        }
         return;
       }
       const uri = await downloadPhotoToCache(photo);
