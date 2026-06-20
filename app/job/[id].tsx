@@ -105,6 +105,10 @@ export default function JobDetailPage() {
   const [savingIndexes, setSavingIndexes] = useState<Set<number>>(new Set());
   const [savedIndexes, setSavedIndexes] = useState<Set<number>>(new Set());
   const [isSavingAll, setIsSavingAll] = useState(false);
+  const [isSharingAll, setIsSharingAll] = useState(false);
+  const [sharingIndexes, setSharingIndexes] = useState<Set<number>>(new Set());
+  const [sharedIndexes, setSharedIndexes] = useState<Set<number>>(new Set());
+  const [shareAllNote, setShareAllNote] = useState('');
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -437,6 +441,90 @@ export default function JobDetailPage() {
     }
   };
 
+  const SHARE_CAP = 5;
+
+  const shareAllPhotos = async () => {
+    setIsSharingAll(true);
+    setSaveError('');
+    setShareAllNote('');
+    const photos = multiSharePhotos.slice(0, SHARE_CAP);
+    const capped = multiSharePhotos.length > SHARE_CAP;
+    try {
+      if (Platform.OS === 'web') {
+        const files = await Promise.all(
+          photos.map(async (photo) => {
+            const resp = await fetch(photo.public_url);
+            const blob = await resp.blob();
+            const filename = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
+            return new File([blob], filename, { type: 'image/jpeg' });
+          })
+        );
+        if (navigator.canShare && navigator.canShare({ files })) {
+          if (capped) {
+            setShareAllNote(`Sharing is limited to ${SHARE_CAP} photos at a time. The first ${SHARE_CAP} will be shared.`);
+          }
+          await navigator.share({ files, title: 'Job Photos' });
+        } else {
+          // Fallback: download each
+          for (let i = 0; i < photos.length; i++) {
+            await webDownloadPhoto(photos[i]);
+          }
+        }
+        return;
+      }
+      // Native: share one at a time (expo-sharing is single-file)
+      for (let i = 0; i < photos.length; i++) {
+        const uri = await downloadPhotoToCache(photos[i]);
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: `Share photo ${i + 1} of ${photos.length}` });
+        }
+      }
+      if (capped) {
+        setShareAllNote(`Sharing is limited to ${SHARE_CAP} photos at a time. The first ${SHARE_CAP} were shared.`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('cancel')) {
+        setSaveError('Could not share photos. Please try again.');
+      }
+    } finally {
+      setIsSharingAll(false);
+    }
+  };
+
+  const shareMultiPhoto = async (photo: JobPhoto, index: number) => {
+    setSharingIndexes(prev => new Set(prev).add(index));
+    try {
+      if (Platform.OS === 'web') {
+        const resp = await fetch(photo.public_url);
+        const blob = await resp.blob();
+        const filename = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
+        const file = new File([blob], filename, { type: 'image/jpeg' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'Job Photo' });
+        } else {
+          await webDownloadPhoto(photo);
+        }
+        setSharedIndexes(prev => new Set(prev).add(index));
+        return;
+      }
+      const uri = await downloadPhotoToCache(photo);
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: 'Share photo' });
+        setSharedIndexes(prev => new Set(prev).add(index));
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('cancel')) {
+        setSaveError('Could not share this photo. Please try again.');
+      }
+    } finally {
+      setSharingIndexes(prev => { const n = new Set(prev); n.delete(index); return n; });
+    }
+  };
+
   const shareSinglePhotoFile = async (photo: JobPhoto) => {
     setShareError('');
     setIsSharingPhoto(true);
@@ -480,6 +568,10 @@ export default function JobDetailPage() {
     setSaveError('');
     setSaveSuccess('');
     setIsSavingAll(false);
+    setIsSharingAll(false);
+    setSharingIndexes(new Set());
+    setSharedIndexes(new Set());
+    setShareAllNote('');
     setShowMultiShareModal(true);
   };
 
@@ -2128,24 +2220,43 @@ export default function JobDetailPage() {
             </View>
 
             <Text style={styles.multiShareSubtitle}>
-              Save photos to your device, then share them from your Photos app to WhatsApp, Messenger, or anywhere else.
+              Save photos to your device or share them directly via WhatsApp, Messenger, email, and more.
+              {multiSharePhotos.length > SHARE_CAP ? ` Sharing is limited to ${SHARE_CAP} photos at a time.` : ''}
             </Text>
 
-            <TouchableOpacity
-              style={[styles.saveAllBtn, isSavingAll && styles.saveAllBtnLoading]}
-              onPress={saveAllPhotosToDevice}
-              disabled={isSavingAll || savedIndexes.size === multiSharePhotos.length}>
-              {isSavingAll
-                ? <ActivityIndicator size="small" color="#FFFFFF" />
-                : <Download size={18} color="#FFFFFF" />}
-              <Text style={styles.saveAllBtnText}>
+            <View style={styles.multiShareActionRow}>
+              <TouchableOpacity
+                style={[styles.saveAllBtn, styles.saveAllBtnHalf, isSavingAll && styles.saveAllBtnLoading]}
+                onPress={saveAllPhotosToDevice}
+                disabled={isSavingAll || isSharingAll || savedIndexes.size === multiSharePhotos.length}>
                 {isSavingAll
-                  ? `Saving ${savingIndexes.size > 0 ? Math.min(...savingIndexes) + 1 : ''}...`
-                  : savedIndexes.size === multiSharePhotos.length
-                    ? 'All Saved!'
-                    : 'Save All to Device'}
-              </Text>
-            </TouchableOpacity>
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Download size={18} color="#FFFFFF" />}
+                <Text style={styles.saveAllBtnText}>
+                  {isSavingAll
+                    ? `Saving...`
+                    : savedIndexes.size === multiSharePhotos.length
+                      ? 'All Saved!'
+                      : 'Save All'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.shareAllBtn, isSharingAll && styles.shareAllBtnLoading]}
+                onPress={shareAllPhotos}
+                disabled={isSharingAll || isSavingAll}>
+                {isSharingAll
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <Share2 size={18} color="#FFFFFF" />}
+                <Text style={styles.saveAllBtnText}>
+                  {isSharingAll ? 'Sharing...' : 'Share All'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {shareAllNote ? (
+              <Text style={styles.shareAllNote}>{shareAllNote}</Text>
+            ) : null}
 
             {saveError ? (
               <Text style={styles.photoUploadError}>{saveError}</Text>
@@ -2155,6 +2266,8 @@ export default function JobDetailPage() {
               {multiSharePhotos.map((photo, index) => {
                 const isSaving = savingIndexes.has(index);
                 const isSaved = savedIndexes.has(index);
+                const isSharing = sharingIndexes.has(index);
+                const isShared = sharedIndexes.has(index);
                 return (
                   <View key={photo.id} style={styles.multiShareRow}>
                     <Image
@@ -2165,24 +2278,43 @@ export default function JobDetailPage() {
                     <View style={styles.multiShareRowInfo}>
                       <Text style={styles.multiShareRowLabel}>Photo {index + 1}</Text>
                       {isSaved && <Text style={styles.multiShareRowSaved}>Saved</Text>}
+                      {isShared && !isSaved && <Text style={styles.multiShareRowShared}>Shared</Text>}
                     </View>
-                    <TouchableOpacity
-                      style={[
-                        styles.multiShareRowBtn,
-                        isSaving && styles.multiShareRowBtnLoading,
-                        isSaved && styles.multiShareRowBtnSaved,
-                      ]}
-                      onPress={() => saveMultiPhotoToDevice(photo, index)}
-                      disabled={isSaving || isSavingAll}>
-                      {isSaving
-                        ? <ActivityIndicator size="small" color="#FFFFFF" />
-                        : isSaved
-                          ? <Check size={16} color="#FFFFFF" />
-                          : <Download size={16} color="#FFFFFF" />}
-                      <Text style={styles.multiShareRowBtnText}>
-                        {isSaving ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
-                      </Text>
-                    </TouchableOpacity>
+                    <View style={styles.multiShareRowActions}>
+                      <TouchableOpacity
+                        style={[
+                          styles.multiShareRowBtn,
+                          isSaving && styles.multiShareRowBtnLoading,
+                          isSaved && styles.multiShareRowBtnSaved,
+                        ]}
+                        onPress={() => saveMultiPhotoToDevice(photo, index)}
+                        disabled={isSaving || isSavingAll || isSharing}>
+                        {isSaving
+                          ? <ActivityIndicator size="small" color="#FFFFFF" />
+                          : isSaved
+                            ? <Check size={16} color="#FFFFFF" />
+                            : <Download size={16} color="#FFFFFF" />}
+                        <Text style={styles.multiShareRowBtnText}>
+                          {isSaving ? 'Saving...' : isSaved ? 'Saved' : 'Save'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.multiShareRowShareBtn,
+                          isSharing && styles.multiShareRowBtnLoading,
+                          isShared && styles.multiShareRowBtnShared,
+                        ]}
+                        onPress={() => shareMultiPhoto(photo, index)}
+                        disabled={isSharing || isSharingAll || isSaving}>
+                        {isSharing
+                          ? <ActivityIndicator size="small" color="#FFFFFF" />
+                          : <Share2 size={16} color="#FFFFFF" />}
+                        <Text style={styles.multiShareRowBtnText}>
+                          {isSharing ? '...' : 'Share'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 );
               })}
@@ -2770,19 +2902,38 @@ const styles = StyleSheet.create({
   multiShareRowInfo: { flex: 1 },
   multiShareRowLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
   multiShareRowSaved: { fontSize: 12, color: '#10B981', fontWeight: '600', marginTop: 2 },
+  multiShareRowActions: { flexDirection: 'row', gap: 6 },
   multiShareRowBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#F59E0B', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8,
+    backgroundColor: '#F59E0B', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8,
+  },
+  multiShareRowShareBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#2563EB', paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8,
   },
   multiShareRowBtnLoading: { backgroundColor: '#D1D5DB' },
   multiShareRowBtnSaved: { backgroundColor: '#10B981' },
-  multiShareRowBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  multiShareRowBtnShared: { backgroundColor: '#0891B2' },
+  multiShareRowBtnText: { fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
+  multiShareRowShared: { fontSize: 12, color: '#0891B2', fontWeight: '600', marginTop: 2 },
+  multiShareActionRow: {
+    flexDirection: 'row', gap: 10, marginBottom: 12,
+  },
   saveAllBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: '#111827', paddingVertical: 13, borderRadius: 12, marginBottom: 12,
   },
+  saveAllBtnHalf: { flex: 1, marginBottom: 0 },
   saveAllBtnLoading: { backgroundColor: '#6B7280' },
   saveAllBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  shareAllBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#2563EB', paddingVertical: 13, borderRadius: 12,
+  },
+  shareAllBtnLoading: { backgroundColor: '#6B7280' },
+  shareAllNote: {
+    fontSize: 12, color: '#6B7280', marginBottom: 10, lineHeight: 17,
+  },
   multiShareDoneBtn: {
     marginTop: 20, backgroundColor: '#F3F4F6', paddingVertical: 14,
     borderRadius: 12, alignItems: 'center',
