@@ -10,11 +10,17 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  Image,
   Dimensions,
+  Platform,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
-import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment } from '@/lib/supabase';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobPhoto } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -30,7 +36,7 @@ import {
   deleteLocalPart,
   enqueue,
 } from '@/lib/localDb';
-import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react-native';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Camera, Share2, Image as ImageIcon } from 'lucide-react-native';
 
 const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
 
@@ -73,6 +79,13 @@ export default function JobDetailPage() {
   const [markingComplete, setMarkingComplete] = useState(false);
   const [markedCompleteSuccess, setMarkedCompleteSuccess] = useState(false);
 
+  // Photos
+  const [photos, setPhotos] = useState<JobPhoto[]>([]);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoUploadError, setPhotoUploadError] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<JobPhoto | null>(null);
+  const [includePhotosInEmail, setIncludePhotosInEmail] = useState(false);
+
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -91,7 +104,10 @@ export default function JobDetailPage() {
   const editCalFlatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
-    if (id) fetchJobDetails();
+    if (id) {
+      fetchJobDetails();
+      fetchPhotos();
+    }
     fetchBusinessDetails();
     fetchEditClients();
   }, [id]);
@@ -112,6 +128,135 @@ export default function JobDetailPage() {
       data = getLocalBusinessDetails();
     }
     if (data) { setBusiness(data); setHourlyRate(data.default_hourly_rate ?? 0); }
+  };
+
+  const fetchPhotos = async () => {
+    const { data } = await supabase
+      .from('job_photos')
+      .select('*')
+      .eq('job_id', id as string)
+      .order('created_at', { ascending: true });
+    if (data) setPhotos(data);
+  };
+
+  const uploadPhoto = async () => {
+    if (photos.length >= 6) {
+      setPhotoUploadError('Maximum of 6 photos per job reached.');
+      return;
+    }
+    setPhotoUploadError('');
+
+    let pickerResult: ImagePicker.ImagePickerResult | null = null;
+
+    if (Platform.OS === 'web') {
+      pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: false,
+      });
+    } else {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setPhotoUploadError('Photo library permission is required.');
+        return;
+      }
+      pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: false,
+      });
+    }
+
+    if (!pickerResult || pickerResult.canceled || !pickerResult.assets[0]) return;
+
+    setIsUploadingPhoto(true);
+    try {
+      const asset = pickerResult.assets[0];
+      const manipulated = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 1200 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).slice(2, 8);
+      const filename = `${timestamp}_${random}.jpg`;
+      const storagePath = `${user.id}/${id}/${filename}`;
+
+      let uploadData: ArrayBuffer;
+      if (Platform.OS === 'web') {
+        const resp = await fetch(manipulated.uri);
+        uploadData = await resp.arrayBuffer();
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(manipulated.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        const byteChars = atob(base64);
+        const byteArray = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+          byteArray[i] = byteChars.charCodeAt(i);
+        }
+        uploadData = byteArray.buffer;
+      }
+
+      const { error: storageError } = await supabase.storage
+        .from('job-photos')
+        .upload(storagePath, uploadData, { contentType: 'image/jpeg', upsert: false });
+
+      if (storageError) throw storageError;
+
+      const { data: urlData } = supabase.storage
+        .from('job-photos')
+        .getPublicUrl(storagePath);
+
+      const photoRow: Record<string, unknown> = {
+        job_id: id as string,
+        user_id: user.id,
+        storage_path: storagePath,
+        public_url: urlData.publicUrl,
+      };
+
+      if (role === 'employee' && employeeRecord) {
+        photoRow.uploaded_by_employee_id = employeeRecord.id;
+      }
+
+      const { error: dbError } = await supabase.from('job_photos').insert(photoRow);
+      if (dbError) throw dbError;
+
+      await fetchPhotos();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setPhotoUploadError(msg.includes('Maximum') ? msg : 'Upload failed. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const deletePhoto = async (photo: JobPhoto) => {
+    await supabase.storage.from('job-photos').remove([photo.storage_path]);
+    await supabase.from('job_photos').delete().eq('id', photo.id);
+    setSelectedPhoto(null);
+    fetchPhotos();
+  };
+
+  const sharePhoto = async (photo: JobPhoto) => {
+    if (Platform.OS === 'web') {
+      window.open(photo.public_url, '_blank');
+      return;
+    }
+    try {
+      const localUri = FileSystem.cacheDirectory + photo.storage_path.split('/').pop();
+      const { uri } = await FileSystem.downloadAsync(photo.public_url, localUri!);
+      const canShare = await Sharing.isAvailableAsync();
+      if (canShare) {
+        await Sharing.shareAsync(uri, { mimeType: 'image/jpeg' });
+      }
+    } catch {
+      // silently fail — photo remains viewable in modal
+    }
   };
 
   useEffect(() => {
@@ -500,7 +645,7 @@ export default function JobDetailPage() {
           'Authorization': `Bearer ${supabaseAnonKey}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ jobId: job.id }),
+        body: JSON.stringify({ jobId: job.id, includePhotos: includePhotosInEmail }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -1061,6 +1206,48 @@ export default function JobDetailPage() {
           />
         </View>
 
+        {/* Photos — visible to both owner and employee */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionTitleRow}>
+              <ImageIcon size={18} color="#111827" />
+              <Text style={styles.sectionTitle}>Photos</Text>
+              <Text style={styles.photoCountBadge}>{photos.length} / 6</Text>
+            </View>
+            {photos.length < 6 && (
+              <TouchableOpacity onPress={uploadPhoto} disabled={isUploadingPhoto}>
+                {isUploadingPhoto
+                  ? <ActivityIndicator size="small" color="#F59E0B" />
+                  : <Camera size={22} color="#F59E0B" />}
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {photoUploadError ? (
+            <Text style={styles.photoUploadError}>{photoUploadError}</Text>
+          ) : null}
+
+          {photos.length === 0 ? (
+            <View style={styles.photoEmptyState}>
+              <Camera size={32} color="#D1D5DB" />
+              <Text style={styles.photoEmptyText}>No photos added yet</Text>
+              {photos.length < 6 && (
+                <TouchableOpacity style={styles.photoAddButton} onPress={uploadPhoto} disabled={isUploadingPhoto}>
+                  <Text style={styles.photoAddButtonText}>Add Photo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+              {photos.map(photo => (
+                <TouchableOpacity key={photo.id} style={styles.photoThumb} onPress={() => setSelectedPhoto(photo)}>
+                  <Image source={{ uri: photo.public_url }} style={styles.photoThumbImage} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+
         {/* Parts — owner only */}
         {!isEmployee && (
           <View style={styles.section}>
@@ -1382,6 +1569,20 @@ export default function JobDetailPage() {
         {/* Send Job Card — owner only */}
         {!isEmployee && (
           <View style={styles.section}>
+            {photos.length > 0 && (
+              <TouchableOpacity
+                style={styles.includePhotosRow}
+                onPress={() => setIncludePhotosInEmail(v => !v)}
+                activeOpacity={0.7}>
+                <View style={[styles.checkbox, includePhotosInEmail && styles.checkboxChecked]}>
+                  {includePhotosInEmail && <Check size={14} color="#FFFFFF" />}
+                </View>
+                <View style={styles.includePhotosTextBlock}>
+                  <Text style={styles.includePhotosLabel}>Include photos in this email</Text>
+                  <Text style={styles.includePhotosHint}>Leave unchecked to keep your job card print-friendly</Text>
+                </View>
+              </TouchableOpacity>
+            )}
             {emailStatus && (
               <View style={[styles.emailStatusBanner, emailStatus.type === 'success' ? styles.emailStatusSuccess : styles.emailStatusError]}>
                 <Text style={[styles.emailStatusText, emailStatus.type === 'success' ? styles.emailStatusTextSuccess : styles.emailStatusTextError]}>
@@ -1494,6 +1695,44 @@ export default function JobDetailPage() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Photo Preview Modal */}
+      <Modal
+        visible={selectedPhoto !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedPhoto(null)}>
+        <View style={styles.photoModalOverlay}>
+          <View style={styles.photoModalHeader}>
+            <TouchableOpacity style={styles.photoModalClose} onPress={() => setSelectedPhoto(null)}>
+              <X size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          {selectedPhoto && (
+            <>
+              <Image
+                source={{ uri: selectedPhoto.public_url }}
+                style={styles.photoModalImage}
+                resizeMode="contain"
+              />
+              <View style={styles.photoModalActions}>
+                <TouchableOpacity style={styles.photoModalActionBtn} onPress={() => sharePhoto(selectedPhoto)}>
+                  <Share2 size={20} color="#FFFFFF" />
+                  <Text style={styles.photoModalActionText}>Share</Text>
+                </TouchableOpacity>
+                {(role === 'owner' || selectedPhoto.uploaded_by_employee_id === employeeRecord?.id) && (
+                  <TouchableOpacity
+                    style={[styles.photoModalActionBtn, styles.photoModalDeleteBtn]}
+                    onPress={() => deletePhoto(selectedPhoto)}>
+                    <Trash2 size={20} color="#FFFFFF" />
+                    <Text style={styles.photoModalActionText}>Delete</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </>
+          )}
         </View>
       </Modal>
     </View>
@@ -1934,4 +2173,67 @@ const styles = StyleSheet.create({
   editCalGridDayNumOther: { color: '#E5E7EB' },
   editCalGridDayNumToday: { color: '#F59E0B', fontWeight: '800' },
   editCalGridDayNumSelected: { color: '#FFFFFF', fontWeight: '800' },
+  // Photos
+  photoCountBadge: {
+    fontSize: 12, fontWeight: '700', color: '#9CA3AF',
+    backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+  },
+  photoUploadError: { fontSize: 13, color: '#EF4444', marginBottom: 10 },
+  photoEmptyState: {
+    alignItems: 'center', paddingVertical: 28, backgroundColor: '#F9FAFB',
+    borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed' as const,
+    gap: 8,
+  },
+  photoEmptyText: { fontSize: 14, color: '#9CA3AF' },
+  photoAddButton: {
+    marginTop: 4, backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingVertical: 9,
+    borderRadius: 8,
+  },
+  photoAddButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
+  photoScroll: { marginTop: 4 },
+  photoThumb: {
+    width: 88, height: 88, borderRadius: 10, marginRight: 10,
+    overflow: 'hidden', backgroundColor: '#F3F4F6',
+  },
+  photoThumbImage: { width: '100%', height: '100%' },
+  // Include photos checkbox
+  includePhotosRow: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1,
+    borderColor: '#E5E7EB', padding: 14, marginBottom: 12,
+  },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1,
+  },
+  checkboxChecked: { backgroundColor: '#F59E0B', borderColor: '#F59E0B' },
+  includePhotosTextBlock: { flex: 1 },
+  includePhotosLabel: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  includePhotosHint: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  // Photo modal
+  photoModalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  photoModalHeader: {
+    position: 'absolute', top: 52, right: 20, zIndex: 10,
+  },
+  photoModalClose: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center',
+  },
+  photoModalImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height * 0.7,
+  },
+  photoModalActions: {
+    flexDirection: 'row', gap: 12, marginTop: 28,
+  },
+  photoModalActionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 22, paddingVertical: 12,
+    borderRadius: 10,
+  },
+  photoModalDeleteBtn: { backgroundColor: 'rgba(239,68,68,0.75)' },
+  photoModalActionText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
 });

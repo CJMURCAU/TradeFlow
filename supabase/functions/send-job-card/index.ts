@@ -20,7 +20,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { jobId } = await req.json();
+    const { jobId, includePhotos } = await req.json();
 
     if (!jobId) {
       return new Response(JSON.stringify({ error: "jobId is required" }), {
@@ -49,17 +49,21 @@ Deno.serve(async (req: Request) => {
 
     const client = Array.isArray(job.client) ? job.client[0] : job.client;
 
-    const [partsRes, timeEntriesRes, businessRes, employeesRes] = await Promise.all([
+    const [partsRes, timeEntriesRes, businessRes, employeesRes, photosRes] = await Promise.all([
       supabase.from("parts").select("*").eq("job_id", jobId),
       supabase.from("time_entries").select("*").eq("job_id", jobId),
       supabase.from("business_details").select("*").eq("user_id", job.user_id).maybeSingle(),
       supabase.from("employees").select("*").eq("user_id", job.user_id).eq("status", "active"),
+      includePhotos
+        ? supabase.from("job_photos").select("public_url").eq("job_id", jobId).order("created_at", { ascending: true })
+        : Promise.resolve({ data: [] }),
     ]);
 
     const parts: { name: string; cost: number; quantity: number }[] = partsRes.data || [];
     const timeEntries: { start_time: string; end_time: string | null; employee_id: string | null }[] = timeEntriesRes.data || [];
     const business = businessRes.data;
     const employees: { id: string; name: string; hourly_rate: number | null }[] = employeesRes.data || [];
+    const jobPhotos: { public_url: string }[] = photosRes.data || [];
 
     const defaultRate: number = business?.default_hourly_rate ?? 0;
     const tradesmanName: string = business?.tradesman_name || "Owner";
@@ -159,6 +163,23 @@ Deno.serve(async (req: Request) => {
         </table>`
       : `<p style="color:#6b7280;font-size:14px;">No parts used.</p>`;
 
+    let photosHtml = '';
+    if (includePhotos && jobPhotos.length > 0) {
+      const photoRows: string[] = [];
+      for (let i = 0; i < jobPhotos.length; i += 2) {
+        const left = `<td style="padding:4px;width:50%;vertical-align:top;"><img src="${jobPhotos[i].public_url}" style="width:100%;border-radius:4px;display:block;" alt="Job photo" /></td>`;
+        const right = jobPhotos[i + 1]
+          ? `<td style="padding:4px;width:50%;vertical-align:top;"><img src="${jobPhotos[i + 1].public_url}" style="width:100%;border-radius:4px;display:block;" alt="Job photo" /></td>`
+          : `<td style="width:50%;"></td>`;
+        photoRows.push(`<tr>${left}${right}</tr>`);
+      }
+      photosHtml = `
+      <div style="margin-bottom:24px;">
+        <p style="margin:0 0 12px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Photos</p>
+        <table style="width:100%;border-collapse:collapse;">${photoRows.join('')}</table>
+      </div>`;
+    }
+
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -191,6 +212,8 @@ Deno.serve(async (req: Request) => {
         <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Parts Used</p>
         ${partsHtml}
       </div>
+
+      ${photosHtml}
 
       <div style="padding:16px;border:1px solid #000000;">
         <p style="margin:0 0 12px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Cost Summary</p>

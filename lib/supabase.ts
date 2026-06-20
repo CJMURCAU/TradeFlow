@@ -114,4 +114,14 @@ export type EmployeeNotification = {
   created_at: string;
 };
 
+export type JobPhoto = {
+  id: string;
+  job_id: string;
+  user_id: string;
+  storage_path: string;
+  public_url: string;
+  uploaded_by_employee_id: string | null;
+  created_at: string;
+};
+
 export type UserRole = 'owner' | 'employee';
