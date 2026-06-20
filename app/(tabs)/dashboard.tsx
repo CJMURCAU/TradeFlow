@@ -105,13 +105,15 @@ export default function DashboardPage() {
             <Text style={styles.statLabel}>Completed Jobs</Text>
           </TouchableOpacity>
 
-          <View style={styles.statCard}>
+          <TouchableOpacity
+            style={styles.statCard}
+            onPress={() => router.push({ pathname: '/jobs', params: { filter: 'pending' } })}>
             <View style={styles.statIconContainer}>
               <AlertCircle size={32} color="#F59E0B" />
             </View>
             <Text style={styles.statValue}>{stats.pendingJobs}</Text>
             <Text style={styles.statLabel}>Pending Jobs</Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
