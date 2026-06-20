@@ -166,10 +166,26 @@ export default function JobDetailPage() {
     }
     setPhotoUploadError('');
     if (Platform.OS === 'web') {
-      pickFromLibrary();
+      triggerWebFileInput();
     } else {
       setShowPhotoSourceModal(true);
     }
+  };
+
+  const triggerWebFileInput = () => {
+    if (typeof document === 'undefined') return;
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = async (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const uri = URL.createObjectURL(file);
+      await processAndUploadPhoto(uri);
+      URL.revokeObjectURL(uri);
+    };
+    input.click();
   };
 
   const pickFromLibrary = async () => {
@@ -301,9 +317,32 @@ export default function JobDetailPage() {
     return result.uri;
   };
 
+  const webDownloadPhoto = async (photo: JobPhoto) => {
+    try {
+      const resp = await fetch(photo.public_url);
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setSaveError('Could not download photo. Please try again.');
+    }
+  };
+
   const savePhotoToDevice = async (photo: JobPhoto) => {
     if (Platform.OS === 'web') {
-      window.open(photo.public_url, '_blank');
+      setIsSavingPhoto(true);
+      setSaveSuccess('');
+      setSaveError('');
+      await webDownloadPhoto(photo);
+      setSaveSuccess('Download started!');
+      setTimeout(() => setSaveSuccess(''), 3000);
+      setIsSavingPhoto(false);
       return;
     }
     setIsSavingPhoto(true);
@@ -331,7 +370,10 @@ export default function JobDetailPage() {
 
   const saveMultiPhotoToDevice = async (photo: JobPhoto, index: number) => {
     if (Platform.OS === 'web') {
-      window.open(photo.public_url, '_blank');
+      setSavingIndexes(prev => new Set(prev).add(index));
+      await webDownloadPhoto(photo);
+      setSavedIndexes(prev => new Set(prev).add(index));
+      setSavingIndexes(prev => { const n = new Set(prev); n.delete(index); return n; });
       return;
     }
     setSavingIndexes(prev => new Set(prev).add(index));
@@ -356,7 +398,17 @@ export default function JobDetailPage() {
 
   const saveAllPhotosToDevice = async () => {
     if (Platform.OS === 'web') {
-      multiSharePhotos.forEach(p => window.open(p.public_url, '_blank'));
+      setIsSavingAll(true);
+      setSaveError('');
+      setSavedIndexes(new Set());
+      for (let i = 0; i < multiSharePhotos.length; i++) {
+        setSavingIndexes(new Set([i]));
+        await webDownloadPhoto(multiSharePhotos[i]);
+        setSavedIndexes(prev => new Set(prev).add(i));
+        setSavingIndexes(new Set());
+        if (i < multiSharePhotos.length - 1) await new Promise(r => setTimeout(r, 600));
+      }
+      setIsSavingAll(false);
       return;
     }
     setIsSavingAll(true);
@@ -390,7 +442,7 @@ export default function JobDetailPage() {
     setIsSharingPhoto(true);
     try {
       if (Platform.OS === 'web') {
-        window.open(photo.public_url, '_blank');
+        await webDownloadPhoto(photo);
         return;
       }
       const uri = await downloadPhotoToCache(photo);
