@@ -291,7 +291,7 @@ export default function JobDetailPage() {
   const downloadPhotoToCache = async (photo: JobPhoto): Promise<string> => {
     const { data: { session } } = await supabase.auth.getSession();
     const filename = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
-    const localUri = (FileSystem.cacheDirectory ?? '') + filename;
+    const localUri = (FileSystem.cacheDirectory ?? '') + `${photo.id}_${filename}`;
     const headers: Record<string, string> = {};
     if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
     const result = await FileSystem.downloadAsync(photo.public_url, localUri, { headers });
