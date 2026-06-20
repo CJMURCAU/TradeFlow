@@ -13,6 +13,7 @@ import {
   Image,
   Dimensions,
   Platform,
+  Share,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
@@ -90,6 +91,10 @@ export default function JobDetailPage() {
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
+  const [isSharingPhoto, setIsSharingPhoto] = useState(false);
+  const [shareError, setShareError] = useState('');
 
   // Edit mode
   const [isEditing, setIsEditing] = useState(false);
@@ -273,21 +278,72 @@ export default function JobDetailPage() {
     fetchPhotos();
   };
 
-  const sharePhoto = async (photo: JobPhoto) => {
-    if (Platform.OS === 'web') {
-      window.open(photo.public_url, '_blank');
-      return;
-    }
+  const sharePhotoUrls = async (photoList: JobPhoto[]) => {
+    if (photoList.length === 0) return;
+    setShareError('');
+    setIsSharingPhoto(true);
     try {
-      const localUri = FileSystem.cacheDirectory + photo.storage_path.split('/').pop();
-      const { uri } = await FileSystem.downloadAsync(photo.public_url, localUri!);
-      const canShare = await Sharing.isAvailableAsync();
-      if (canShare) {
-        await Sharing.shareAsync(uri, { mimeType: 'image/jpeg' });
+      if (Platform.OS === 'web') {
+        for (const p of photoList) window.open(p.public_url, '_blank');
+        return;
       }
-    } catch {
-      // silently fail — photo remains viewable in modal
+
+      if (photoList.length === 1) {
+        // For a single photo, try to download then share as a file so apps like
+        // WhatsApp receive an actual image rather than a URL string.
+        const photo = photoList[0];
+        const filename = photo.storage_path.split('/').pop() ?? 'photo.jpg';
+        const localUri = (FileSystem.cacheDirectory ?? '') + filename;
+        try {
+          const { uri } = await FileSystem.downloadAsync(photo.public_url, localUri);
+          const canShare = await Sharing.isAvailableAsync();
+          if (canShare) {
+            await Sharing.shareAsync(uri, { mimeType: 'image/jpeg', dialogTitle: 'Share photo' });
+            return;
+          }
+        } catch {
+          // fall through to URL share below
+        }
+      }
+
+      // Multi-photo or file-share fallback: share public URLs via the native Share sheet.
+      const message = photoList.length === 1
+        ? photoList[0].public_url
+        : `Job photos (${photoList.length}):\n\n` + photoList.map((p, i) => `${i + 1}. ${p.public_url}`).join('\n');
+
+      await Share.share({ message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.toLowerCase().includes('cancel')) {
+        setShareError('Could not share. Please try again.');
+      }
+    } finally {
+      setIsSharingPhoto(false);
     }
+  };
+
+  const sharePhoto = (photo: JobPhoto) => sharePhotoUrls([photo]);
+
+  const shareAllPhotos = () => sharePhotoUrls(photos);
+
+  const shareSelectedPhotos = () => {
+    const selected = photos.filter(p => selectedPhotoIds.has(p.id));
+    sharePhotoUrls(selected);
+  };
+
+  const togglePhotoSelection = (photoId: string) => {
+    setSelectedPhotoIds(prev => {
+      const next = new Set(prev);
+      if (next.has(photoId)) next.delete(photoId);
+      else next.add(photoId);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedPhotoIds(new Set());
+    setShareError('');
   };
 
   useEffect(() => {
@@ -1245,17 +1301,29 @@ export default function JobDetailPage() {
               <Text style={styles.sectionTitle}>Photos</Text>
               <Text style={styles.photoCountBadge}>{photos.length} / 6</Text>
             </View>
-            {photos.length < 6 && (
-              <TouchableOpacity onPress={openPhotoSource} disabled={isUploadingPhoto}>
-                {isUploadingPhoto
-                  ? <ActivityIndicator size="small" color="#F59E0B" />
-                  : <Camera size={22} color="#F59E0B" />}
-              </TouchableOpacity>
-            )}
+            <View style={styles.photoHeaderActions}>
+              {photos.length > 1 && !isSelectMode && (
+                <TouchableOpacity style={styles.photoShareAllBtn} onPress={shareAllPhotos} disabled={isSharingPhoto}>
+                  <Share2 size={15} color="#F59E0B" />
+                  <Text style={styles.photoShareAllText}>Share All</Text>
+                </TouchableOpacity>
+              )}
+              {photos.length < 6 && !isSelectMode && (
+                <TouchableOpacity onPress={openPhotoSource} disabled={isUploadingPhoto}>
+                  {isUploadingPhoto
+                    ? <ActivityIndicator size="small" color="#F59E0B" />
+                    : <Camera size={22} color="#F59E0B" />}
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
 
           {photoUploadError ? (
             <Text style={styles.photoUploadError}>{photoUploadError}</Text>
+          ) : null}
+
+          {shareError ? (
+            <Text style={styles.photoUploadError}>{shareError}</Text>
           ) : null}
 
           {photos.length === 0 ? (
@@ -1269,13 +1337,64 @@ export default function JobDetailPage() {
               )}
             </View>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
-              {photos.map(photo => (
-                <TouchableOpacity key={photo.id} style={styles.photoThumb} onPress={() => setSelectedPhoto(photo)}>
-                  <Image source={{ uri: photo.public_url }} style={styles.photoThumbImage} />
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoScroll}>
+                {photos.map(photo => {
+                  const isSelected = selectedPhotoIds.has(photo.id);
+                  return (
+                    <TouchableOpacity
+                      key={photo.id}
+                      style={[styles.photoThumb, isSelected && styles.photoThumbSelected]}
+                      onPress={() => {
+                        if (isSelectMode) {
+                          togglePhotoSelection(photo.id);
+                        } else {
+                          setShareError('');
+                          setSelectedPhoto(photo);
+                        }
+                      }}
+                      onLongPress={() => {
+                        setIsSelectMode(true);
+                        setSelectedPhotoIds(new Set([photo.id]));
+                      }}
+                      delayLongPress={350}>
+                      <Image source={{ uri: photo.public_url }} style={styles.photoThumbImage} />
+                      {isSelected && (
+                        <View style={styles.photoThumbCheckOverlay}>
+                          <Check size={16} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {isSelectMode ? (
+                <View style={styles.photoSelectBar}>
+                  <TouchableOpacity style={styles.photoSelectCancel} onPress={exitSelectMode}>
+                    <Text style={styles.photoSelectCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.photoShareSelectedBtn,
+                      (selectedPhotoIds.size === 0 || isSharingPhoto) && styles.photoShareSelectedBtnDisabled,
+                    ]}
+                    onPress={shareSelectedPhotos}
+                    disabled={selectedPhotoIds.size === 0 || isSharingPhoto}>
+                    {isSharingPhoto
+                      ? <ActivityIndicator size="small" color="#FFFFFF" />
+                      : <Share2 size={16} color="#FFFFFF" />}
+                    <Text style={styles.photoShareSelectedText}>
+                      {selectedPhotoIds.size === 0
+                        ? 'Select photos to share'
+                        : `Share ${selectedPhotoIds.size} Photo${selectedPhotoIds.size > 1 ? 's' : ''}`}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <Text style={styles.photoHint}>Tap to view and share  •  Long-press to select multiple</Text>
+              )}
+            </>
           )}
         </View>
 
@@ -1781,10 +1900,10 @@ export default function JobDetailPage() {
         visible={selectedPhoto !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => setSelectedPhoto(null)}>
+        onRequestClose={() => { setSelectedPhoto(null); setShareError(''); }}>
         <View style={styles.photoModalOverlay}>
           <View style={styles.photoModalHeader}>
-            <TouchableOpacity style={styles.photoModalClose} onPress={() => setSelectedPhoto(null)}>
+            <TouchableOpacity style={styles.photoModalClose} onPress={() => { setSelectedPhoto(null); setShareError(''); }}>
               <X size={22} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
@@ -1795,10 +1914,20 @@ export default function JobDetailPage() {
                 style={styles.photoModalImage}
                 resizeMode="contain"
               />
+              {shareError ? (
+                <Text style={styles.photoModalError}>{shareError}</Text>
+              ) : null}
               <View style={styles.photoModalActions}>
-                <TouchableOpacity style={styles.photoModalActionBtn} onPress={() => sharePhoto(selectedPhoto)}>
-                  <Share2 size={20} color="#FFFFFF" />
-                  <Text style={styles.photoModalActionText}>Share</Text>
+                <TouchableOpacity
+                  style={[styles.photoModalActionBtn, isSharingPhoto && styles.photoModalActionBtnDisabled]}
+                  onPress={() => sharePhoto(selectedPhoto)}
+                  disabled={isSharingPhoto}>
+                  {isSharingPhoto
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <Share2 size={20} color="#FFFFFF" />}
+                  <Text style={styles.photoModalActionText}>
+                    {isSharingPhoto ? 'Sharing...' : 'Share'}
+                  </Text>
                 </TouchableOpacity>
                 {(role === 'owner' || selectedPhoto.uploaded_by_employee_id === employeeRecord?.id) && (
                   <TouchableOpacity
@@ -2314,6 +2443,42 @@ const styles = StyleSheet.create({
   },
   photoModalDeleteBtn: { backgroundColor: 'rgba(239,68,68,0.75)' },
   photoModalActionText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
+  photoModalActionBtnDisabled: { opacity: 0.6 },
+  photoModalError: {
+    fontSize: 13, color: '#FCA5A5', textAlign: 'center', marginBottom: 8, paddingHorizontal: 24,
+  },
+  // Photo header actions
+  photoHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  photoShareAllBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 8, borderWidth: 1, borderColor: '#F59E0B', backgroundColor: '#FFFBEB',
+  },
+  photoShareAllText: { fontSize: 13, fontWeight: '600', color: '#F59E0B' },
+  // Thumbnail selected state
+  photoThumbSelected: { borderWidth: 2.5, borderColor: '#F59E0B' },
+  photoThumbCheckOverlay: {
+    position: 'absolute', bottom: 4, right: 4,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: '#F59E0B', alignItems: 'center', justifyContent: 'center',
+  },
+  // Select mode bar
+  photoSelectBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10,
+  },
+  photoSelectCancel: {
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB',
+  },
+  photoSelectCancelText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  photoShareSelectedBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, paddingVertical: 9, borderRadius: 8, backgroundColor: '#F59E0B',
+  },
+  photoShareSelectedBtnDisabled: { backgroundColor: '#D1D5DB' },
+  photoShareSelectedText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  // Hint text
+  photoHint: { fontSize: 12, color: '#9CA3AF', marginTop: 8, textAlign: 'center' },
   // Photo source picker
   sourceModalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
