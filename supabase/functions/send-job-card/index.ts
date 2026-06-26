@@ -49,8 +49,8 @@ Deno.serve(async (req: Request) => {
 
     const client = Array.isArray(job.client) ? job.client[0] : job.client;
 
-    const [partsRes, timeEntriesRes, businessRes, employeesRes, photosRes] = await Promise.all([
-      supabase.from("parts").select("*").eq("job_id", jobId),
+    const [inventoryRes, timeEntriesRes, businessRes, employeesRes, photosRes] = await Promise.all([
+      supabase.from("job_inventory").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
       supabase.from("time_entries").select("*").eq("job_id", jobId),
       supabase.from("business_details").select("*").eq("user_id", job.user_id).maybeSingle(),
       supabase.from("employees").select("*").eq("user_id", job.user_id).eq("status", "active"),
@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
         : Promise.resolve({ data: [] }),
     ]);
 
-    const parts: { name: string; cost: number; quantity: number }[] = partsRes.data || [];
+    const inventoryItems: { name: string; unit_price: number; quantity: number; type: string }[] = inventoryRes.data || [];
     const timeEntries: { start_time: string; end_time: string | null; employee_id: string | null }[] = timeEntriesRes.data || [];
     const business = businessRes.data;
     const employees: { id: string; name: string; hourly_rate: number | null }[] = employeesRes.data || [];
@@ -109,8 +109,8 @@ Deno.serve(async (req: Request) => {
     const empLabourCost = empRows.reduce((sum, r) => sum + (r.seconds / 3600) * r.rate, 0);
     const totalLabourCost = ownerCost + empLabourCost;
 
-    const totalPartsCost = parts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
-    const totalCost = totalLabourCost + totalPartsCost;
+    const totalInventoryCost = inventoryItems.reduce((sum, p) => sum + p.unit_price * p.quantity, 0);
+    const totalCost = totalLabourCost + totalInventoryCost;
 
     const labourRowsHtml = `
       <tr>
@@ -136,32 +136,34 @@ Deno.serve(async (req: Request) => {
         <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
       </tr>`;
 
-    const partsHtml = parts.length > 0
+    const inventoryHtml = inventoryItems.length > 0
       ? `
         <table style="width:100%;border-collapse:collapse;margin-top:8px;">
           <thead>
             <tr style="background:#f3f4f6;">
-              <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Part</th>
-              <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Unit Cost</th>
+              <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Description</th>
+              <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Type</th>
+              <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Unit Price</th>
               <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Qty</th>
               <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Total</th>
             </tr>
           </thead>
           <tbody>
-            ${parts
+            ${inventoryItems
               .map(
                 (p) => `
               <tr>
                 <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.name}</td>
-                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.cost.toFixed(2)}</td>
+                <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;text-transform:capitalize;">${p.type}</td>
+                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.unit_price.toFixed(2)}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.quantity}</td>
-                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.cost * p.quantity).toFixed(2)}</td>
+                <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.unit_price * p.quantity).toFixed(2)}</td>
               </tr>`
               )
               .join("")}
           </tbody>
         </table>`
-      : `<p style="color:#6b7280;font-size:14px;">No parts used.</p>`;
+      : `<p style="color:#6b7280;font-size:14px;">No items or services recorded.</p>`;
 
     let photosHtml = '';
     if (includePhotos && jobPhotos.length > 0) {
@@ -209,8 +211,8 @@ Deno.serve(async (req: Request) => {
       </div>` : ""}
 
       <div style="margin-bottom:24px;">
-        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Parts Used</p>
-        ${partsHtml}
+        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Inventory</p>
+        ${inventoryHtml}
       </div>
 
       ${photosHtml}
@@ -224,8 +226,8 @@ Deno.serve(async (req: Request) => {
           </tr>
           ${labourRowsHtml}
           <tr>
-            <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:15px;color:#000000;">Inventory</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalInventoryCost.toFixed(2)}</td>
           </tr>
           <tr>
             <td colspan="2" style="padding:4px 0;"><hr style="border:none;border-top:1px solid #000000;margin:4px 0;" /></td>
