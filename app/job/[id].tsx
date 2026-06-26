@@ -23,7 +23,7 @@ import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobPhoto } from '@/lib/supabase';
+import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobAssignment, JobPhoto, InventoryCatalogueItem, JobInventoryItem } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -39,7 +39,7 @@ import {
   deleteLocalPart,
   enqueue,
 } from '@/lib/localDb';
-import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Camera, Share2, Image as ImageIcon, Download } from 'lucide-react-native';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Camera, Share2, Image as ImageIcon, Download, Package, Wrench, BookOpen, Tag } from 'lucide-react-native';
 
 const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
 
@@ -51,6 +51,8 @@ export default function JobDetailPage() {
 
   const [job, setJob] = useState<(Job & { client?: Client }) | null>(null);
   const [parts, setParts] = useState<Part[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<JobInventoryItem[]>([]);
+  const [catalogue, setCatalogue] = useState<InventoryCatalogueItem[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [currentTimeEntry, setCurrentTimeEntry] = useState<TimeEntry | null>(null);
@@ -62,6 +64,20 @@ export default function JobDetailPage() {
   const [newPart, setNewPart] = useState({ name: '', cost: '', quantity: '1' });
   const [showAddPart, setShowAddPart] = useState(false);
   const [partError, setPartError] = useState('');
+
+  // Inventory state
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [inventoryModalTab, setInventoryModalTab] = useState<'catalogue' | 'custom'>('catalogue');
+  const [inventoryForm, setInventoryForm] = useState({ name: '', unit_price: '', quantity: '1', type: 'item' as 'item' | 'service' });
+  const [inventoryFormError, setInventoryFormError] = useState('');
+  const [catalogueSearch, setCatalogueSearch] = useState('');
+  const [isAddingInventory, setIsAddingInventory] = useState(false);
+  // Catalogue management modal
+  const [showCatalogueModal, setShowCatalogueModal] = useState(false);
+  const [catalogueForm, setCatalogueForm] = useState({ name: '', default_price: '', unit: '', type: 'item' as 'item' | 'service' });
+  const [catalogueFormError, setCatalogueFormError] = useState('');
+  const [isSavingCatalogueItem, setIsSavingCatalogueItem] = useState(false);
+  const [editingCatalogueId, setEditingCatalogueId] = useState<string | null>(null);
   const [hourlyRate, setHourlyRate] = useState(0);
   const [business, setBusiness] = useState<BusinessDetails | null>(null);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
@@ -131,9 +147,11 @@ export default function JobDetailPage() {
     if (id) {
       fetchJobDetails();
       fetchPhotos();
+      fetchInventory();
     }
     fetchBusinessDetails();
     fetchEditClients();
+    fetchCatalogue();
   }, [id]);
 
   useEffect(() => {
@@ -161,6 +179,135 @@ export default function JobDetailPage() {
       .eq('job_id', id as string)
       .order('created_at', { ascending: true });
     if (data) setPhotos(data);
+  };
+
+  const fetchInventory = async () => {
+    const { data } = await supabase
+      .from('job_inventory')
+      .select('*')
+      .eq('job_id', id as string)
+      .order('created_at', { ascending: true });
+    if (data) setInventoryItems(data);
+  };
+
+  const fetchCatalogue = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from('inventory_catalogue')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('type', { ascending: true })
+      .order('name', { ascending: true });
+    if (data) setCatalogue(data);
+  };
+
+  const openAddInventoryModal = () => {
+    setInventoryForm({ name: '', unit_price: '', quantity: '1', type: 'item' });
+    setInventoryFormError('');
+    setCatalogueSearch('');
+    setInventoryModalTab('catalogue');
+    setShowInventoryModal(true);
+  };
+
+  const addInventoryFromCatalogue = async (item: InventoryCatalogueItem) => {
+    setIsAddingInventory(true);
+    const now = new Date().toISOString();
+    const tempId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const employeeId = (role === 'employee' && employeeRecord) ? employeeRecord.id : null;
+    const payload = {
+      job_id: id as string,
+      catalogue_id: item.id,
+      name: item.name,
+      unit_price: item.default_price,
+      quantity: 1,
+      type: item.type,
+      employee_id: employeeId,
+    };
+    const localItem: JobInventoryItem = { id: tempId, ...payload, created_at: now };
+    setInventoryItems(prev => [...prev, localItem]);
+    setShowInventoryModal(false);
+    const { data } = await supabase.from('job_inventory').insert(payload).select().single();
+    if (data) setInventoryItems(prev => prev.map(p => p.id === tempId ? data : p));
+    setIsAddingInventory(false);
+  };
+
+  const addInventoryCustom = async () => {
+    setInventoryFormError('');
+    if (!inventoryForm.name.trim()) { setInventoryFormError('Please enter a name.'); return; }
+    setIsAddingInventory(true);
+    const now = new Date().toISOString();
+    const tempId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const employeeId = (role === 'employee' && employeeRecord) ? employeeRecord.id : null;
+    const payload = {
+      job_id: id as string,
+      catalogue_id: null,
+      name: inventoryForm.name.trim(),
+      unit_price: parseFloat(inventoryForm.unit_price) || 0,
+      quantity: parseInt(inventoryForm.quantity) || 1,
+      type: (role === 'employee' ? 'item' : inventoryForm.type) as 'item' | 'service',
+      employee_id: employeeId,
+    };
+    const localItem: JobInventoryItem = { id: tempId, ...payload, created_at: now };
+    setInventoryItems(prev => [...prev, localItem]);
+    setInventoryForm({ name: '', unit_price: '', quantity: '1', type: 'item' });
+    setShowInventoryModal(false);
+    const { data } = await supabase.from('job_inventory').insert(payload).select().single();
+    if (data) setInventoryItems(prev => prev.map(p => p.id === tempId ? data : p));
+    setIsAddingInventory(false);
+  };
+
+  const deleteInventoryItem = async (itemId: string) => {
+    setInventoryItems(prev => prev.filter(p => p.id !== itemId));
+    await supabase.from('job_inventory').delete().eq('id', itemId);
+  };
+
+  // Catalogue CRUD
+  const openAddCatalogueItem = () => {
+    setEditingCatalogueId(null);
+    setCatalogueForm({ name: '', default_price: '', unit: '', type: 'item' });
+    setCatalogueFormError('');
+    setShowCatalogueModal(true);
+  };
+
+  const openEditCatalogueItem = (item: InventoryCatalogueItem) => {
+    setEditingCatalogueId(item.id);
+    setCatalogueForm({
+      name: item.name,
+      default_price: item.default_price > 0 ? String(item.default_price) : '',
+      unit: item.unit,
+      type: item.type,
+    });
+    setCatalogueFormError('');
+    setShowCatalogueModal(true);
+  };
+
+  const saveCatalogueItem = async () => {
+    setCatalogueFormError('');
+    if (!catalogueForm.name.trim()) { setCatalogueFormError('Please enter a name.'); return; }
+    setIsSavingCatalogueItem(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setIsSavingCatalogueItem(false); return; }
+    const payload = {
+      user_id: user.id,
+      name: catalogueForm.name.trim(),
+      default_price: parseFloat(catalogueForm.default_price) || 0,
+      unit: catalogueForm.unit.trim(),
+      type: catalogueForm.type,
+    };
+    if (editingCatalogueId) {
+      await supabase.from('inventory_catalogue').update(payload).eq('id', editingCatalogueId);
+    } else {
+      await supabase.from('inventory_catalogue').insert(payload);
+    }
+    await fetchCatalogue();
+    setShowCatalogueModal(false);
+    setIsSavingCatalogueItem(false);
+  };
+
+  const deleteCatalogueItem = async (itemId: string) => {
+    setCatalogue(prev => prev.filter(c => c.id !== itemId));
+    await supabase.from('inventory_catalogue').delete().eq('id', itemId);
   };
 
   const openPhotoSource = () => {
@@ -1110,11 +1257,14 @@ export default function JobDetailPage() {
         return total + (end - start) / 1000;
       }, 0);
 
-  // Parts cost: owner-added parts only for owner summary; employee parts only when assignment completed
-  const getTotalPartsCost = () =>
-    parts
+  // Inventory cost: owner-added items + completed employee items
+  const getTotalInventoryCost = () =>
+    inventoryItems
       .filter(p => p.employee_id == null || completedAssignmentEmployeeIds.has(p.employee_id))
-      .reduce((total, part) => total + (part.cost * part.quantity), 0);
+      .reduce((total, item) => total + (item.unit_price * item.quantity), 0);
+
+  // Keep getTotalPartsCost as alias used by PDF (parts table still exists for legacy)
+  const getTotalPartsCost = getTotalInventoryCost;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1637,63 +1787,75 @@ export default function JobDetailPage() {
           )}
         </View>
 
-        {/* Parts — owner only */}
+        {/* Inventory — owner only */}
         {!isEmployee && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Costs</Text>
-              <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
-                <Plus size={20} color="#F59E0B" />
-              </TouchableOpacity>
-            </View>
-
-            {showAddPart && (
-              <View style={styles.addPartForm}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Cost name"
-                  placeholderTextColor="#94A3B8"
-                  value={newPart.name}
-                  onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
-                />
-                <View style={styles.partRow}>
-                  <TextInput
-                    style={[styles.input, styles.inputSmall]}
-                    placeholder="Cost"
-                    placeholderTextColor="#94A3B8"
-                    value={newPart.cost}
-                    onChangeText={text => setNewPart(prev => ({ ...prev, cost: text }))}
-                    keyboardType="decimal-pad"
-                  />
-                  <TextInput
-                    style={[styles.input, styles.inputSmall]}
-                    placeholder="Qty"
-                    placeholderTextColor="#94A3B8"
-                    value={newPart.quantity}
-                    onChangeText={text => setNewPart(prev => ({ ...prev, quantity: text }))}
-                    keyboardType="number-pad"
-                  />
-                </View>
-                {partError ? <Text style={styles.errorText}>{partError}</Text> : null}
-                <TouchableOpacity style={styles.addButton} onPress={addPart}>
-                  <Text style={styles.addButtonText}>Add Part</Text>
+              <Text style={styles.sectionTitle}>Inventory</Text>
+              <View style={styles.inventoryHeaderActions}>
+                <TouchableOpacity
+                  style={styles.catalogueBtn}
+                  onPress={() => {
+                    setCatalogueSearch('');
+                    setShowCatalogueModal(true);
+                    setEditingCatalogueId(null);
+                    setCatalogueForm({ name: '', default_price: '', unit: '', type: 'item' });
+                    setCatalogueFormError('');
+                  }}>
+                  <BookOpen size={14} color="#6B7280" />
+                  <Text style={styles.catalogueBtnText}>Catalogue</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={openAddInventoryModal}>
+                  <Plus size={20} color="#F59E0B" />
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {inventoryItems.filter(p => p.employee_id == null).length === 0 && (
+              <Text style={styles.emptyText}>No items added yet. Tap + to add from catalogue or enter a custom item.</Text>
             )}
 
-            {parts.filter(p => p.employee_id == null).map(part => (
-              <View key={part.id} style={styles.partCard}>
+            {inventoryItems.filter(p => p.employee_id == null).map(item => (
+              <View key={item.id} style={styles.partCard}>
+                <View style={[styles.inventoryTypeBadge, item.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
+                  {item.type === 'service'
+                    ? <Wrench size={10} color="#FFFFFF" />
+                    : <Package size={10} color="#FFFFFF" />}
+                </View>
                 <View style={styles.partInfo}>
-                  <Text style={styles.partName}>{part.name}</Text>
+                  <Text style={styles.partName}>{item.name}</Text>
                   <Text style={styles.partDetails}>
-                    ${part.cost.toFixed(2)} x {part.quantity} = ${(part.cost * part.quantity).toFixed(2)}
+                    ${item.unit_price.toFixed(2)} x {item.quantity} = ${(item.unit_price * item.quantity).toFixed(2)}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => deletePart(part.id)}>
+                <TouchableOpacity onPress={() => deleteInventoryItem(item.id)}>
                   <Trash2 size={20} color="#EF4444" />
                 </TouchableOpacity>
               </View>
             ))}
+
+            {/* Employee-submitted items visible to owner */}
+            {inventoryItems.filter(p => p.employee_id != null).length > 0 && (
+              <>
+                <Text style={styles.inventoryEmpHeading}>Submitted by Employees</Text>
+                {inventoryItems.filter(p => p.employee_id != null).map(item => (
+                  <View key={item.id} style={[styles.partCard, styles.partCardEmployee]}>
+                    <View style={[styles.inventoryTypeBadge, styles.inventoryTypeBadgeItem]}>
+                      <Package size={10} color="#FFFFFF" />
+                    </View>
+                    <View style={styles.partInfo}>
+                      <Text style={styles.partName}>{item.name}</Text>
+                      <Text style={styles.partDetails}>
+                        ${item.unit_price.toFixed(2)} x {item.quantity} = ${(item.unit_price * item.quantity).toFixed(2)}
+                      </Text>
+                    </View>
+                    <TouchableOpacity onPress={() => deleteInventoryItem(item.id)}>
+                      <Trash2 size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
           </View>
         )}
 
@@ -1750,8 +1912,8 @@ export default function JobDetailPage() {
               })()}
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Costs:</Text>
-                <Text style={styles.summaryValue}>${getTotalPartsCost().toFixed(2)}</Text>
+                <Text style={styles.summaryLabel}>Inventory:</Text>
+                <Text style={styles.summaryValue}>${getTotalInventoryCost().toFixed(2)}</Text>
               </View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryRow}>
@@ -1776,64 +1938,35 @@ export default function JobDetailPage() {
               </View>
             </View>
 
-            {/* Costs submitted by this employee */}
+            {/* Items submitted by this employee */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Costs</Text>
-                <TouchableOpacity onPress={() => { setShowAddPart(!showAddPart); setPartError(''); }}>
+                <Text style={styles.sectionTitle}>Items Used</Text>
+                <TouchableOpacity onPress={openAddInventoryModal}>
                   <Plus size={20} color="#F59E0B" />
                 </TouchableOpacity>
               </View>
 
-              {showAddPart && (
-                <View style={styles.addPartForm}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Cost name"
-                    placeholderTextColor="#94A3B8"
-                    value={newPart.name}
-                    onChangeText={text => setNewPart(prev => ({ ...prev, name: text }))}
-                  />
-                  <View style={styles.partRow}>
-                    <TextInput
-                      style={[styles.input, styles.inputSmall]}
-                      placeholder="Cost"
-                      placeholderTextColor="#94A3B8"
-                      value={newPart.cost}
-                      onChangeText={text => setNewPart(prev => ({ ...prev, cost: text }))}
-                      keyboardType="decimal-pad"
-                    />
-                    <TextInput
-                      style={[styles.input, styles.inputSmall]}
-                      placeholder="Qty"
-                      placeholderTextColor="#94A3B8"
-                      value={newPart.quantity}
-                      onChangeText={text => setNewPart(prev => ({ ...prev, quantity: text }))}
-                      keyboardType="number-pad"
-                    />
-                  </View>
-                  {partError ? <Text style={styles.errorText}>{partError}</Text> : null}
-                  <TouchableOpacity style={styles.addButton} onPress={addEmployeePart}>
-                    <Text style={styles.addButtonText}>Add Cost</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {parts.filter(p => employeeRecord ? p.employee_id === employeeRecord.id : p.employee_id != null).length === 0
-                ? <Text style={styles.emptyText}>No costs submitted yet.</Text>
-                : parts.filter(p => employeeRecord ? p.employee_id === employeeRecord.id : p.employee_id != null).map(part => (
-                    <View key={part.id} style={styles.partCard}>
-                      <View style={styles.partInfo}>
-                        <Text style={styles.partName}>{part.name}</Text>
-                        <Text style={styles.partDetails}>
-                          {`$${part.cost.toFixed(2)} x ${part.quantity} = $${(part.cost * part.quantity).toFixed(2)}`}
-                        </Text>
+              {inventoryItems.filter(p => employeeRecord ? p.employee_id === employeeRecord.id : false).length === 0
+                ? <Text style={styles.emptyText}>No items submitted yet. Tap + to add.</Text>
+                : inventoryItems
+                    .filter(p => employeeRecord ? p.employee_id === employeeRecord.id : false)
+                    .map(item => (
+                      <View key={item.id} style={styles.partCard}>
+                        <View style={[styles.inventoryTypeBadge, styles.inventoryTypeBadgeItem]}>
+                          <Package size={10} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.partInfo}>
+                          <Text style={styles.partName}>{item.name}</Text>
+                          <Text style={styles.partDetails}>
+                            {`$${item.unit_price.toFixed(2)} x ${item.quantity} = $${(item.unit_price * item.quantity).toFixed(2)}`}
+                          </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => deleteInventoryItem(item.id)}>
+                          <Trash2 size={20} color="#EF4444" />
+                        </TouchableOpacity>
                       </View>
-                      <TouchableOpacity onPress={() => deletePart(part.id)}>
-                        <Trash2 size={20} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  ))
+                    ))
               }
             </View>
 
@@ -2325,6 +2458,274 @@ export default function JobDetailPage() {
               onPress={() => { setShowMultiShareModal(false); exitSelectMode(); }}>
               <Text style={styles.multiShareDoneBtnText}>Done</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add Inventory Item Modal */}
+      <Modal
+        visible={showInventoryModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowInventoryModal(false)}>
+        <View style={styles.multiShareOverlay}>
+          <View style={styles.multiShareSheet}>
+            <View style={styles.multiShareHeader}>
+              <Text style={styles.multiShareTitle}>Add to Inventory</Text>
+              <TouchableOpacity style={styles.multiShareClose} onPress={() => setShowInventoryModal(false)}>
+                <X size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Tab bar */}
+            <View style={styles.invModalTabs}>
+              <TouchableOpacity
+                style={[styles.invModalTab, inventoryModalTab === 'catalogue' && styles.invModalTabActive]}
+                onPress={() => setInventoryModalTab('catalogue')}>
+                <BookOpen size={14} color={inventoryModalTab === 'catalogue' ? '#111827' : '#9CA3AF'} />
+                <Text style={[styles.invModalTabText, inventoryModalTab === 'catalogue' && styles.invModalTabTextActive]}>
+                  Catalogue
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.invModalTab, inventoryModalTab === 'custom' && styles.invModalTabActive]}
+                onPress={() => setInventoryModalTab('custom')}>
+                <Tag size={14} color={inventoryModalTab === 'custom' ? '#111827' : '#9CA3AF'} />
+                <Text style={[styles.invModalTabText, inventoryModalTab === 'custom' && styles.invModalTabTextActive]}>
+                  Custom
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {inventoryModalTab === 'catalogue' ? (
+              <>
+                {(() => {
+                  const catalogueForRole = isEmployee
+                    ? catalogue.filter(c => c.type === 'item')
+                    : catalogue;
+                  const filtered = catalogueForRole.filter(c =>
+                    c.name.toLowerCase().includes(catalogueSearch.toLowerCase())
+                  );
+                  return (
+                    <>
+                      <TextInput
+                        style={styles.invSearchInput}
+                        placeholder="Search catalogue..."
+                        placeholderTextColor="#9CA3AF"
+                        value={catalogueSearch}
+                        onChangeText={setCatalogueSearch}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                      {filtered.length === 0 ? (
+                        <Text style={styles.emptyText}>
+                          {catalogue.length === 0
+                            ? 'Your catalogue is empty. Use the Catalogue button in the Inventory section to add items.'
+                            : 'No results found.'}
+                        </Text>
+                      ) : (
+                        <ScrollView style={styles.invCatalogueList} showsVerticalScrollIndicator={false}>
+                          {filtered.map(item => (
+                            <TouchableOpacity
+                              key={item.id}
+                              style={styles.invCatalogueRow}
+                              onPress={() => addInventoryFromCatalogue(item)}
+                              disabled={isAddingInventory}>
+                              <View style={[styles.inventoryTypeBadge, item.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
+                                {item.type === 'service'
+                                  ? <Wrench size={10} color="#FFFFFF" />
+                                  : <Package size={10} color="#FFFFFF" />}
+                              </View>
+                              <View style={styles.invCatalogueRowInfo}>
+                                <Text style={styles.invCatalogueRowName}>{item.name}</Text>
+                                {item.unit ? <Text style={styles.invCatalogueRowUnit}>{item.unit}</Text> : null}
+                              </View>
+                              <Text style={styles.invCatalogueRowPrice}>${item.default_price.toFixed(2)}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </ScrollView>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
+            ) : (
+              <View style={styles.invCustomForm}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Name *"
+                  placeholderTextColor="#94A3B8"
+                  value={inventoryForm.name}
+                  onChangeText={t => setInventoryForm(prev => ({ ...prev, name: t }))}
+                />
+                <View style={styles.partRow}>
+                  <TextInput
+                    style={[styles.input, styles.inputSmall]}
+                    placeholder="Unit price"
+                    placeholderTextColor="#94A3B8"
+                    value={inventoryForm.unit_price}
+                    onChangeText={t => setInventoryForm(prev => ({ ...prev, unit_price: t }))}
+                    keyboardType="decimal-pad"
+                  />
+                  <TextInput
+                    style={[styles.input, styles.inputSmall]}
+                    placeholder="Qty"
+                    placeholderTextColor="#94A3B8"
+                    value={inventoryForm.quantity}
+                    onChangeText={t => setInventoryForm(prev => ({ ...prev, quantity: t }))}
+                    keyboardType="number-pad"
+                  />
+                </View>
+                {!isEmployee && (
+                  <View style={styles.invTypeToggleRow}>
+                    <TouchableOpacity
+                      style={[styles.invTypeToggleBtn, inventoryForm.type === 'item' && styles.invTypeToggleBtnActive]}
+                      onPress={() => setInventoryForm(prev => ({ ...prev, type: 'item' }))}>
+                      <Package size={14} color={inventoryForm.type === 'item' ? '#FFFFFF' : '#6B7280'} />
+                      <Text style={[styles.invTypeToggleBtnText, inventoryForm.type === 'item' && styles.invTypeToggleBtnTextActive]}>Item</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.invTypeToggleBtn, inventoryForm.type === 'service' && styles.invTypeToggleBtnServiceActive]}
+                      onPress={() => setInventoryForm(prev => ({ ...prev, type: 'service' }))}>
+                      <Wrench size={14} color={inventoryForm.type === 'service' ? '#FFFFFF' : '#6B7280'} />
+                      <Text style={[styles.invTypeToggleBtnText, inventoryForm.type === 'service' && styles.invTypeToggleBtnTextActive]}>Service</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {inventoryFormError ? <Text style={styles.errorText}>{inventoryFormError}</Text> : null}
+                <TouchableOpacity
+                  style={[styles.addButton, isAddingInventory && styles.buttonDisabled]}
+                  onPress={addInventoryCustom}
+                  disabled={isAddingInventory}>
+                  {isAddingInventory
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <Text style={styles.addButtonText}>Add</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Catalogue Management Modal */}
+      <Modal
+        visible={showCatalogueModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCatalogueModal(false)}>
+        <View style={styles.multiShareOverlay}>
+          <View style={styles.multiShareSheet}>
+            <View style={styles.multiShareHeader}>
+              <Text style={styles.multiShareTitle}>Manage Catalogue</Text>
+              <TouchableOpacity style={styles.multiShareClose} onPress={() => setShowCatalogueModal(false)}>
+                <X size={20} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.invCatalogueList} showsVerticalScrollIndicator={false}>
+              {catalogue.length === 0 && (
+                <Text style={styles.emptyText}>No catalogue items yet. Add your standard items and services below.</Text>
+              )}
+              {['item', 'service'].map(typeGroup => {
+                const group = catalogue.filter(c => c.type === typeGroup);
+                if (group.length === 0) return null;
+                return (
+                  <View key={typeGroup}>
+                    <Text style={styles.invCatalogueGroupHeading}>
+                      {typeGroup === 'item' ? 'Items' : 'Services'}
+                    </Text>
+                    {group.map(item => (
+                      <View key={item.id} style={styles.invCatalogueManageRow}>
+                        <View style={[styles.inventoryTypeBadge, item.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
+                          {item.type === 'service'
+                            ? <Wrench size={10} color="#FFFFFF" />
+                            : <Package size={10} color="#FFFFFF" />}
+                        </View>
+                        <View style={styles.invCatalogueRowInfo}>
+                          <Text style={styles.invCatalogueRowName}>{item.name}</Text>
+                          <Text style={styles.invCatalogueRowUnit}>
+                            ${item.default_price.toFixed(2)}{item.unit ? ` / ${item.unit}` : ''}
+                          </Text>
+                        </View>
+                        <TouchableOpacity style={styles.invCatalogueEditBtn} onPress={() => openEditCatalogueItem(item)}>
+                          <Pencil size={14} color="#6B7280" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => deleteCatalogueItem(item.id)}>
+                          <Trash2 size={16} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Add/Edit form */}
+            <View style={styles.invCatalogueAddForm}>
+              <Text style={styles.invCatalogueFormHeading}>
+                {editingCatalogueId ? 'Edit Item' : 'Add New'}
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Name *"
+                placeholderTextColor="#94A3B8"
+                value={catalogueForm.name}
+                onChangeText={t => setCatalogueForm(prev => ({ ...prev, name: t }))}
+              />
+              <View style={styles.partRow}>
+                <TextInput
+                  style={[styles.input, styles.inputSmall]}
+                  placeholder="Default price"
+                  placeholderTextColor="#94A3B8"
+                  value={catalogueForm.default_price}
+                  onChangeText={t => setCatalogueForm(prev => ({ ...prev, default_price: t }))}
+                  keyboardType="decimal-pad"
+                />
+                <TextInput
+                  style={[styles.input, styles.inputSmall]}
+                  placeholder="Unit (e.g. each)"
+                  placeholderTextColor="#94A3B8"
+                  value={catalogueForm.unit}
+                  onChangeText={t => setCatalogueForm(prev => ({ ...prev, unit: t }))}
+                />
+              </View>
+              <View style={styles.invTypeToggleRow}>
+                <TouchableOpacity
+                  style={[styles.invTypeToggleBtn, catalogueForm.type === 'item' && styles.invTypeToggleBtnActive]}
+                  onPress={() => setCatalogueForm(prev => ({ ...prev, type: 'item' }))}>
+                  <Package size={14} color={catalogueForm.type === 'item' ? '#FFFFFF' : '#6B7280'} />
+                  <Text style={[styles.invTypeToggleBtnText, catalogueForm.type === 'item' && styles.invTypeToggleBtnTextActive]}>Item</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.invTypeToggleBtn, catalogueForm.type === 'service' && styles.invTypeToggleBtnServiceActive]}
+                  onPress={() => setCatalogueForm(prev => ({ ...prev, type: 'service' }))}>
+                  <Wrench size={14} color={catalogueForm.type === 'service' ? '#FFFFFF' : '#6B7280'} />
+                  <Text style={[styles.invTypeToggleBtnText, catalogueForm.type === 'service' && styles.invTypeToggleBtnTextActive]}>Service</Text>
+                </TouchableOpacity>
+              </View>
+              {catalogueFormError ? <Text style={styles.errorText}>{catalogueFormError}</Text> : null}
+              <View style={styles.catalogueFormActions}>
+                {editingCatalogueId && (
+                  <TouchableOpacity
+                    style={styles.catalogueCancelEditBtn}
+                    onPress={() => {
+                      setEditingCatalogueId(null);
+                      setCatalogueForm({ name: '', default_price: '', unit: '', type: 'item' });
+                      setCatalogueFormError('');
+                    }}>
+                    <Text style={styles.catalogueCancelEditBtnText}>Cancel Edit</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={[styles.addButton, styles.catalogueSaveBtn, isSavingCatalogueItem && styles.buttonDisabled]}
+                  onPress={saveCatalogueItem}
+                  disabled={isSavingCatalogueItem}>
+                  {isSavingCatalogueItem
+                    ? <ActivityIndicator size="small" color="#FFFFFF" />
+                    : <Text style={styles.addButtonText}>{editingCatalogueId ? 'Save Changes' : 'Add to Catalogue'}</Text>}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </Modal>
@@ -2984,4 +3385,83 @@ const styles = StyleSheet.create({
   cameraShutterInner: {
     width: 60, height: 60, borderRadius: 30, backgroundColor: '#FFFFFF',
   },
+  // Inventory
+  inventoryHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  catalogueBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#F3F4F6', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
+  },
+  catalogueBtnText: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  inventoryTypeBadge: {
+    width: 18, height: 18, borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginRight: 6,
+  },
+  inventoryTypeBadgeItem: { backgroundColor: '#F59E0B' },
+  inventoryTypeBadgeService: { backgroundColor: '#3B82F6' },
+  partCardEmployee: { backgroundColor: '#F9FAFB' },
+  inventoryEmpHeading: {
+    fontSize: 12, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase',
+    letterSpacing: 0.5, marginTop: 12, marginBottom: 4,
+  },
+  // Inventory modal
+  invModalTabs: {
+    flexDirection: 'row', gap: 8, marginBottom: 16,
+    backgroundColor: '#F3F4F6', borderRadius: 10, padding: 4,
+  },
+  invModalTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 8, borderRadius: 8,
+  },
+  invModalTabActive: { backgroundColor: '#FFFFFF' },
+  invModalTabText: { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
+  invModalTabTextActive: { color: '#111827' },
+  invSearchInput: {
+    backgroundColor: '#F3F4F6', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 14, color: '#111827', marginBottom: 12,
+  },
+  invCatalogueList: { maxHeight: 260, marginBottom: 4 },
+  invCatalogueRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  invCatalogueRowInfo: { flex: 1 },
+  invCatalogueRowName: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  invCatalogueRowUnit: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
+  invCatalogueRowPrice: { fontSize: 14, fontWeight: '700', color: '#374151' },
+  invCustomForm: { gap: 0 },
+  invTypeToggleRow: { flexDirection: 'row', gap: 8, marginBottom: 12, marginTop: 4 },
+  invTypeToggleBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  invTypeToggleBtnActive: { backgroundColor: '#F59E0B', borderColor: '#F59E0B' },
+  invTypeToggleBtnServiceActive: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
+  invTypeToggleBtnText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  invTypeToggleBtnTextActive: { color: '#FFFFFF' },
+  // Catalogue management modal
+  invCatalogueGroupHeading: {
+    fontSize: 11, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase',
+    letterSpacing: 0.5, marginTop: 8, marginBottom: 4,
+  },
+  invCatalogueManageRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  invCatalogueEditBtn: {
+    width: 32, height: 32, borderRadius: 8, backgroundColor: '#F3F4F6',
+    alignItems: 'center', justifyContent: 'center', marginRight: 8,
+  },
+  invCatalogueAddForm: {
+    marginTop: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB', paddingTop: 16,
+  },
+  invCatalogueFormHeading: {
+    fontSize: 13, fontWeight: '700', color: '#374151', marginBottom: 10,
+  },
+  catalogueFormActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  catalogueSaveBtn: { flex: 1, marginTop: 0 },
+  catalogueCancelEditBtn: {
+    paddingHorizontal: 16, paddingVertical: 13, borderRadius: 10,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+  },
+  catalogueCancelEditBtnText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
 });
