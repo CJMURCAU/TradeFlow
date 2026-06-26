@@ -124,4 +124,26 @@ export type JobPhoto = {
   created_at: string;
 };
 
+export type InventoryCatalogueItem = {
+  id: string;
+  user_id: string;
+  name: string;
+  default_price: number;
+  unit: string;
+  type: 'item' | 'service';
+  created_at: string;
+};
+
+export type JobInventoryItem = {
+  id: string;
+  job_id: string;
+  catalogue_id: string | null;
+  name: string;
+  unit_price: number;
+  quantity: number;
+  type: 'item' | 'service';
+  employee_id: string | null;
+  created_at: string;
+};
+
 export type UserRole = 'owner' | 'employee';
