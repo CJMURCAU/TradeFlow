@@ -1,10 +1,10 @@
 import * as Print from 'expo-print';
 import * as FileSystem from 'expo-file-system';
-import { Job, Client, Part, TimeEntry, BusinessDetails, Employee } from './supabase';
+import { Job, Client, JobInventoryItem, TimeEntry, BusinessDetails, Employee } from './supabase';
 
 type JobCardData = {
   job: Job & { client?: Client };
-  parts: Part[];
+  inventoryItems: JobInventoryItem[];
   timeEntries: TimeEntry[];
   business: BusinessDetails | null;
   employees: Employee[];
@@ -18,7 +18,7 @@ function formatTime(seconds: number): string {
 }
 
 function buildJobCardHtml(data: JobCardData): string {
-  const { job, parts, timeEntries, business, employees } = data;
+  const { job, inventoryItems, timeEntries, business, employees } = data;
   const client = job.client;
 
   const defaultRate = business?.default_hourly_rate ?? 0;
@@ -64,8 +64,8 @@ function buildJobCardHtml(data: JobCardData): string {
   const empLabourCost = empRows.reduce((sum, r) => sum + (r.seconds / 3600) * r.rate, 0);
   const totalLabourCost = ownerCost + empLabourCost;
 
-  const totalPartsCost = parts.reduce((sum, p) => sum + p.cost * p.quantity, 0);
-  const totalCost = totalLabourCost + totalPartsCost;
+  const totalInventoryCost = inventoryItems.reduce((sum, p) => sum + p.unit_price * p.quantity, 0);
+  const totalCost = totalLabourCost + totalInventoryCost;
 
   const labourRowsHtml = `
     <tr>
@@ -91,28 +91,30 @@ function buildJobCardHtml(data: JobCardData): string {
       <td style="padding:3px 0 6px;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalLabourCost.toFixed(2)}</td>
     </tr>`;
 
-  const partsHtml = parts.length > 0
+  const inventoryHtml = inventoryItems.length > 0
     ? `
       <table style="width:100%;border-collapse:collapse;margin-top:8px;">
         <thead>
           <tr style="background:#f3f4f6;">
-            <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Part</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Unit Cost</th>
+            <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Description</th>
+            <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Type</th>
+            <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Unit Price</th>
             <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Qty</th>
             <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Total</th>
           </tr>
         </thead>
         <tbody>
-          ${parts.map(p => `
+          ${inventoryItems.map(p => `
             <tr>
               <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.name}</td>
-              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.cost.toFixed(2)}</td>
+              <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;text-transform:capitalize;">${p.type}</td>
+              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.unit_price.toFixed(2)}</td>
               <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.quantity}</td>
-              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.cost * p.quantity).toFixed(2)}</td>
+              <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.unit_price * p.quantity).toFixed(2)}</td>
             </tr>`).join('')}
         </tbody>
       </table>`
-    : `<p style="color:#6b7280;font-size:14px;">No parts used.</p>`;
+    : `<p style="color:#6b7280;font-size:14px;">No items or services recorded.</p>`;
 
   return `
 <!DOCTYPE html>
@@ -143,8 +145,8 @@ function buildJobCardHtml(data: JobCardData): string {
       </div>` : ''}
 
       <div style="margin-bottom:24px;">
-        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Parts Used</p>
-        ${partsHtml}
+        <p style="margin:0 0 8px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Inventory</p>
+        ${inventoryHtml}
       </div>
 
       <div style="padding:16px;border:1px solid #000000;">
@@ -156,8 +158,8 @@ function buildJobCardHtml(data: JobCardData): string {
           </tr>
           ${labourRowsHtml}
           <tr>
-            <td style="padding:5px 0;font-size:15px;color:#000000;">Parts Cost</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalPartsCost.toFixed(2)}</td>
+            <td style="padding:5px 0;font-size:15px;color:#000000;">Inventory</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">$${totalInventoryCost.toFixed(2)}</td>
           </tr>
           <tr>
             <td colspan="2" style="padding:4px 0;"><hr style="border:none;border-top:1px solid #000000;margin:4px 0;" /></td>
