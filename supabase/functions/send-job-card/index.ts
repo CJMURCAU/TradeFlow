@@ -1,12 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
-// @deno-types="npm:pdfmake/build/pdfmake.d.ts"
-import pdfMake from "npm:pdfmake/build/pdfmake.js";
-// @deno-types="npm:pdfmake/build/vfs_fonts.d.ts"
-import pdfFonts from "npm:pdfmake/build/vfs_fonts.js";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
+import { PDFDocument, StandardFonts, rgb, PageSizes } from "npm:pdf-lib";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,23 +15,6 @@ function formatTime(seconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-async function fetchImageAsDataUrl(url: string): Promise<string | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const buffer = await res.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    const contentType = res.headers.get("content-type") || "image/jpeg";
-    return `data:${contentType};base64,${btoa(binary)}`;
-  } catch {
-    return null;
-  }
-}
-
 function uint8ToBase64(bytes: Uint8Array): string {
   let binary = "";
   for (let i = 0; i < bytes.length; i++) {
@@ -46,231 +23,365 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildPdfDefinition(params: {
-  job: any;
-  client: any;
-  inventoryItems: { name: string; unit_price: number; quantity: number; type: string }[];
-  timeEntries: { start_time: string; end_time: string | null; employee_id: string | null }[];
-  business: any;
-  employees: { id: string; name: string; hourly_rate: number | null }[];
-  jobPhotos: { public_url: string }[];
-  photoDataUrls: (string | null)[];
-  totalSeconds: number;
-  ownerSeconds: number;
-  ownerCost: number;
-  empRows: { name: string; seconds: number; rate: number }[];
-  totalLabourCost: number;
-  totalInventoryCost: number;
-  totalCost: number;
-  defaultRate: number;
-  tradesmanName: string;
-  companyName: string;
-}) {
+function wrapText(
+  text: string,
+  widthOfText: (t: string) => number,
+  maxWidth: number
+): string[] {
+  if (!text) return [];
+  const lines: string[] = [];
+  for (const paragraph of text.split("\n")) {
+    const words = paragraph.split(/\s+/);
+    let line = "";
+    for (const word of words) {
+      const candidate = line ? `${line} ${word}` : word;
+      if (widthOfText(candidate) > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
+// deno-lint-ignore no-explicit-any
+async function buildPdf(params: any): Promise<Uint8Array> {
   const {
-    job, client, inventoryItems, business,
-    photoDataUrls, ownerSeconds, ownerCost, empRows,
+    job, client, inventoryItems, jobPhotos, photoBuffers,
+    ownerSeconds, ownerCost, empRows,
     totalLabourCost, totalInventoryCost, totalCost,
-    defaultRate, tradesmanName, companyName,
+    totalSeconds, defaultRate, tradesmanName, companyName,
   } = params;
 
-  const timeFormatted = formatTime(params.totalSeconds);
+  const pdfDoc = await PDFDocument.create();
+  const fontRegular = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Inventory table body
-  const inventoryTableBody = [
-    [
-      { text: "Description", style: "tableHeader" },
-      { text: "Type", style: "tableHeader" },
-      { text: "Unit Price", style: "tableHeader", alignment: "right" },
-      { text: "Qty", style: "tableHeader", alignment: "right" },
-      { text: "Total", style: "tableHeader", alignment: "right" },
-    ],
-    ...inventoryItems.map(p => [
-      { text: p.name, style: "tableCell" },
-      { text: p.type, style: "tableCellMuted" },
-      { text: `$${p.unit_price.toFixed(2)}`, style: "tableCell", alignment: "right" },
-      { text: String(p.quantity), style: "tableCell", alignment: "right" },
-      { text: `$${(p.unit_price * p.quantity).toFixed(2)}`, style: "tableCell", alignment: "right" },
-    ]),
-  ];
+  const [PW, PH] = PageSizes.A4; // 595.28 x 841.89
+  const M = 50; // margin
+  const CW = PW - M * 2; // content width = 495.28
 
-  // Cost summary table rows
-  const costTableBody: unknown[] = [
-    [
-      { text: "Total Time", style: "summaryLabel" },
-      { text: timeFormatted, style: "summaryValue", alignment: "right" },
-    ],
-    [
-      { text: "LABOUR COST", style: "summarySubheading", colSpan: 2 },
-      {},
-    ],
-    [
-      {
-        text: `  ${tradesmanName}  \u2014  ${formatTime(ownerSeconds)}${defaultRate > 0 ? `  @  $${defaultRate.toFixed(2)}/hr` : ""}`,
-        style: "summaryDetail",
-      },
-      {
-        text: defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "\u2014",
-        style: "summaryValue",
-        alignment: "right",
-      },
-    ],
-    ...empRows.map(r => [
-      {
-        text: `  ${r.name}  \u2014  ${formatTime(r.seconds)}  @  $${r.rate.toFixed(2)}/hr`,
-        style: "summaryDetail",
-      },
-      {
-        text: `$${((r.seconds / 3600) * r.rate).toFixed(2)}`,
-        style: "summaryValue",
-        alignment: "right",
-      },
-    ]),
-    [
-      { text: "  Labour Total", style: "summaryLabel" },
-      { text: `$${totalLabourCost.toFixed(2)}`, style: "summaryValue", alignment: "right" },
-    ],
-    [
-      { text: "Inventory", style: "summaryLabel" },
-      { text: `$${totalInventoryCost.toFixed(2)}`, style: "summaryValue", alignment: "right" },
-    ],
-    [
-      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 435, y2: 0, lineWidth: 0.5, lineColor: "#000000" }], colSpan: 2, margin: [0, 4, 0, 4] },
-      {},
-    ],
-    [
-      { text: "TOTAL", style: "summaryTotal" },
-      { text: `$${totalCost.toFixed(2)}`, style: "summaryTotal", alignment: "right" },
-    ],
-  ];
+  const BLACK = rgb(0, 0, 0);
+  const GRAY = rgb(0.33, 0.33, 0.33);
+  const MUTED = rgb(0.42, 0.45, 0.49);
+  const RULE_GRAY = rgb(0.82, 0.84, 0.86);
+  const HEADER_FILL = rgb(0.95, 0.96, 0.97);
 
-  // Photos section
-  const photosContent: unknown[] = [];
-  const validPhotos = params.jobPhotos
-    .map((p, i) => ({ url: p.public_url, dataUrl: photoDataUrls[i] }))
-    .filter(p => p.dataUrl != null);
+  let page = pdfDoc.addPage([PW, PH]);
+  let y = M; // y from top (increases downward)
 
-  if (validPhotos.length > 0) {
-    photosContent.push({ text: "PHOTOS", style: "sectionLabel", margin: [0, 16, 0, 8] });
-    for (let i = 0; i < validPhotos.length; i += 2) {
-      const row: unknown[] = [
-        { image: validPhotos[i].dataUrl, width: 220, margin: [0, 0, 8, 8] },
-      ];
-      if (validPhotos[i + 1]) {
-        row.push({ image: validPhotos[i + 1].dataUrl, width: 220, margin: [0, 0, 0, 8] });
-      }
-      photosContent.push({ columns: row });
+  function pdfY(yFromTop: number) {
+    return PH - yFromTop;
+  }
+
+  function checkPage(needed: number) {
+    if (y + needed > PH - M) {
+      page = pdfDoc.addPage([PW, PH]);
+      y = M;
     }
   }
 
-  const content: unknown[] = [
-    // Header
-    { text: companyName, style: "companyName" },
-    { text: `JOB CARD #${job.job_card_number}`, style: "jobCardNumber" },
-    { canvas: [{ type: "line", x1: 0, y1: 4, x2: 515, y2: 4, lineWidth: 2.5, lineColor: "#000000" }], margin: [0, 8, 0, 16] },
+  function drawText(
+    text: string,
+    x: number,
+    yFromTop: number,
+    font: typeof fontRegular,
+    size: number,
+    color = BLACK
+  ) {
+    page.drawText(text, { x, y: pdfY(yFromTop) - size, font, size, color });
+  }
 
-    // Job title
-    { text: job.title, style: "jobTitle" },
-    ...(job.purchase_order_number ? [{ text: `PO: ${job.purchase_order_number}`, style: "poNumber" }] : []),
+  function hline(yFromTop: number, x1 = M, x2 = PW - M, thickness = 0.5, color = RULE_GRAY) {
+    page.drawLine({
+      start: { x: x1, y: pdfY(yFromTop) },
+      end: { x: x2, y: pdfY(yFromTop) },
+      thickness,
+      color,
+    });
+  }
 
-    // Client box
-    {
-      table: {
-        widths: ["*"],
-        body: [[{
-          stack: [
-            { text: "CLIENT", style: "sectionLabel", margin: [0, 0, 0, 6] },
-            ...(client.company_name ? [{ text: client.company_name, style: "clientCompany" }] : []),
-            { text: client.name, style: client.company_name ? "clientName" : "clientCompany" },
-            ...(client.phone ? [{ text: client.phone, style: "clientDetail" }] : []),
-            ...(client.address ? [{ text: client.address, style: "clientDetail" }] : []),
-          ],
-          margin: [12, 12, 12, 12],
-        }]],
-      },
-      layout: {
-        hLineWidth: () => 1,
-        vLineWidth: () => 1,
-        hLineColor: () => "#000000",
-        vLineColor: () => "#000000",
-      },
-      margin: [0, 12, 0, 16],
-    },
+  function rect(
+    x: number,
+    yFromTop: number,
+    w: number,
+    h: number,
+    options: { fill?: ReturnType<typeof rgb>; border?: ReturnType<typeof rgb>; borderWidth?: number } = {}
+  ) {
+    page.drawRectangle({
+      x,
+      y: pdfY(yFromTop) - h,
+      width: w,
+      height: h,
+      color: options.fill,
+      borderColor: options.border,
+      borderWidth: options.borderWidth,
+    });
+  }
 
-    // Description
-    ...(job.description
-      ? [
-          { text: "DESCRIPTION", style: "sectionLabel" },
-          { text: job.description, style: "bodyText", margin: [0, 4, 0, 16] },
-        ]
-      : []),
+  function textWidth(text: string, font: typeof fontRegular, size: number) {
+    return font.widthOfTextAtSize(text, size);
+  }
 
-    // Inventory
-    { text: "INVENTORY", style: "sectionLabel" },
-    inventoryItems.length > 0
-      ? {
-          table: {
-            headerRows: 1,
-            widths: ["*", "auto", "auto", "auto", "auto"],
-            body: inventoryTableBody,
-          },
-          layout: {
-            hLineWidth: () => 0.5,
-            vLineWidth: () => 0.5,
-            hLineColor: () => "#d1d5db",
-            vLineColor: () => "#d1d5db",
-            fillColor: (rowIndex: number) => rowIndex === 0 ? "#f3f4f6" : null,
-          },
-          margin: [0, 6, 0, 16],
-        }
-      : { text: "No items or services recorded.", style: "noData", margin: [0, 4, 0, 16] },
+  // ── HEADER ────────────────────────────────────────────────────────────────
+  // Company name
+  drawText(companyName, M, y + 22, fontBold, 22);
+  y += 28;
+  // Job card number
+  drawText(`JOB CARD  #${job.job_card_number}`, M, y + 11, fontRegular, 11, GRAY);
+  y += 16;
+  // Bold rule
+  page.drawLine({ start: { x: M, y: pdfY(y) }, end: { x: PW - M, y: pdfY(y) }, thickness: 2.5, color: BLACK });
+  y += 18;
 
-    // Photos
-    ...photosContent,
+  // ── JOB TITLE ─────────────────────────────────────────────────────────────
+  checkPage(30);
+  drawText(job.title, M, y + 18, fontBold, 18);
+  y += 24;
+  if (job.purchase_order_number) {
+    drawText(`PO: ${job.purchase_order_number}`, M, y + 11, fontRegular, 11, MUTED);
+    y += 16;
+  }
 
-    // Cost Summary
-    { text: "COST SUMMARY", style: "sectionLabel", margin: [0, 4, 0, 8] },
-    {
-      table: {
-        widths: ["*", "auto"],
-        body: costTableBody,
-      },
-      layout: "noBorders",
-    },
-
-    // Footer
-    ...(tradesmanName ? [{ text: `Completed by ${tradesmanName}`, style: "footerText", margin: [0, 20, 0, 0] }] : []),
+  // ── CLIENT BOX ────────────────────────────────────────────────────────────
+  const clientLines: { text: string; bold: boolean; size: number }[] = [
+    { text: "CLIENT", bold: true, size: 9 },
   ];
+  if (client.company_name) clientLines.push({ text: client.company_name, bold: true, size: 14 });
+  clientLines.push({ text: client.name, bold: false, size: 12 });
+  if (client.phone) clientLines.push({ text: client.phone, bold: false, size: 12 });
+  if (client.address) clientLines.push({ text: client.address, bold: false, size: 12 });
 
-  return {
-    pageSize: "A4",
-    pageMargins: [40, 50, 40, 50],
-    content,
-    styles: {
-      companyName: { fontSize: 22, bold: true, color: "#000000" },
-      jobCardNumber: { fontSize: 12, color: "#000000", margin: [0, 4, 0, 0] },
-      jobTitle: { fontSize: 18, bold: true, color: "#000000", margin: [0, 0, 0, 4] },
-      poNumber: { fontSize: 12, color: "#555555", margin: [0, 0, 0, 4] },
-      sectionLabel: { fontSize: 9, bold: true, color: "#000000" },
-      clientCompany: { fontSize: 14, bold: true, color: "#000000" },
-      clientName: { fontSize: 13, color: "#000000", margin: [0, 2, 0, 0] },
-      clientDetail: { fontSize: 12, color: "#000000", margin: [0, 2, 0, 0] },
-      bodyText: { fontSize: 13, color: "#000000", lineHeight: 1.5 },
-      tableHeader: { fontSize: 11, bold: true, color: "#000000", margin: [4, 4, 4, 4] },
-      tableCell: { fontSize: 12, color: "#000000", margin: [4, 4, 4, 4] },
-      tableCellMuted: { fontSize: 11, color: "#6b7280", margin: [4, 4, 4, 4] },
-      noData: { fontSize: 12, color: "#6b7280" },
-      summarySubheading: { fontSize: 9, color: "#555555", margin: [0, 8, 0, 2] },
-      summaryLabel: { fontSize: 13, color: "#000000", margin: [0, 2, 0, 2] },
-      summaryDetail: { fontSize: 12, color: "#000000", margin: [0, 2, 0, 2] },
-      summaryValue: { fontSize: 13, bold: true, color: "#000000", margin: [0, 2, 0, 2] },
-      summaryTotal: { fontSize: 15, bold: true, color: "#000000", margin: [0, 4, 0, 0] },
-      footerText: { fontSize: 12, color: "#555555" },
-    },
-    defaultStyle: {
-      font: "Roboto",
-    },
-  };
+  const BOX_PAD = 12;
+  let clientBoxH = BOX_PAD * 2;
+  for (let i = 0; i < clientLines.length; i++) {
+    clientBoxH += clientLines[i].size + (i < clientLines.length - 1 ? 5 : 0);
+  }
+
+  checkPage(clientBoxH + 16);
+  y += 8;
+  rect(M, y, CW, clientBoxH, { border: BLACK, borderWidth: 1 });
+  let cy = y + BOX_PAD;
+  for (let i = 0; i < clientLines.length; i++) {
+    const cl = clientLines[i];
+    drawText(cl.text, M + BOX_PAD, cy + cl.size, cl.bold ? fontBold : fontRegular, cl.size, i === 0 ? GRAY : BLACK);
+    cy += cl.size + (i < clientLines.length - 1 ? 5 : 0);
+  }
+  y += clientBoxH + 14;
+
+  // ── DESCRIPTION ───────────────────────────────────────────────────────────
+  if (job.description) {
+    const descLines = wrapText(job.description, (t) => textWidth(t, fontRegular, 12), CW);
+    const descH = 9 + 6 + descLines.length * 18 + 14;
+    checkPage(descH);
+    drawText("DESCRIPTION", M, y + 9, fontBold, 9, GRAY);
+    y += 14;
+    for (const line of descLines) {
+      drawText(line, M, y + 12, fontRegular, 12);
+      y += 17;
+    }
+    y += 8;
+  }
+
+  // ── INVENTORY TABLE ───────────────────────────────────────────────────────
+  checkPage(40);
+  drawText("INVENTORY", M, y + 9, fontBold, 9, GRAY);
+  y += 14;
+
+  if (inventoryItems.length === 0) {
+    drawText("No items or services recorded.", M, y + 12, fontRegular, 12, MUTED);
+    y += 20;
+  } else {
+    const COL_W = [210, 75, 75, 50, CW - 210 - 75 - 75 - 50]; // desc, type, unit, qty, total
+    const COL_X = [M, M + COL_W[0], M + COL_W[0] + COL_W[1], M + COL_W[0] + COL_W[1] + COL_W[2], M + COL_W[0] + COL_W[1] + COL_W[2] + COL_W[3]];
+    const ROW_H = 20;
+    const CELL_PAD = 4;
+
+    // Header row
+    rect(M, y, CW, ROW_H, { fill: HEADER_FILL, border: RULE_GRAY, borderWidth: 0.5 });
+    const headers = ["Description", "Type", "Unit Price", "Qty", "Total"];
+    const alignRight = [false, false, true, true, true];
+    for (let c = 0; c < 5; c++) {
+      const tx = alignRight[c]
+        ? COL_X[c] + COL_W[c] - CELL_PAD - textWidth(headers[c], fontBold, 10)
+        : COL_X[c] + CELL_PAD;
+      drawText(headers[c], tx, y + 13, fontBold, 10);
+    }
+    y += ROW_H;
+
+    for (const item of inventoryItems) {
+      const descWrapped = wrapText(item.name, (t) => textWidth(t, fontRegular, 11), COL_W[0] - CELL_PAD * 2);
+      const rowH = Math.max(ROW_H, descWrapped.length * 14 + CELL_PAD * 2);
+      checkPage(rowH + 4);
+
+      rect(M, y, CW, rowH, { border: RULE_GRAY, borderWidth: 0.5 });
+
+      // Draw description lines
+      for (let li = 0; li < descWrapped.length; li++) {
+        drawText(descWrapped[li], COL_X[0] + CELL_PAD, y + CELL_PAD + 11 + li * 14, fontRegular, 11);
+      }
+
+      // Type
+      drawText(item.type, COL_X[1] + CELL_PAD, y + 13, fontRegular, 11, MUTED);
+
+      // Unit price (right-aligned)
+      const upStr = `$${item.unit_price.toFixed(2)}`;
+      drawText(upStr, COL_X[2] + COL_W[2] - CELL_PAD - textWidth(upStr, fontRegular, 11), y + 13, fontRegular, 11);
+
+      // Qty (right-aligned)
+      const qtyStr = String(item.quantity);
+      drawText(qtyStr, COL_X[3] + COL_W[3] - CELL_PAD - textWidth(qtyStr, fontRegular, 11), y + 13, fontRegular, 11);
+
+      // Total (right-aligned)
+      const totalStr = `$${(item.unit_price * item.quantity).toFixed(2)}`;
+      drawText(totalStr, COL_X[4] + COL_W[4] - CELL_PAD - textWidth(totalStr, fontRegular, 11), y + 13, fontRegular, 11);
+
+      y += rowH;
+    }
+    y += 14;
+  }
+
+  // ── PHOTOS ────────────────────────────────────────────────────────────────
+  const validPhotos: { dataUrl: Uint8Array; mimeType: string }[] = [];
+  for (let i = 0; i < jobPhotos.length; i++) {
+    if (photoBuffers[i]) validPhotos.push(photoBuffers[i]);
+  }
+
+  if (validPhotos.length > 0) {
+    checkPage(30);
+    drawText("PHOTOS", M, y + 9, fontBold, 9, GRAY);
+    y += 14;
+
+    const IMG_GAP = 8;
+    const IMG_W = (CW - IMG_GAP) / 2;
+
+    for (let i = 0; i < validPhotos.length; i += 2) {
+      try {
+        const left = validPhotos[i];
+        const embedLeft = left.mimeType.includes("png")
+          ? await pdfDoc.embedPng(left.dataUrl)
+          : await pdfDoc.embedJpg(left.dataUrl);
+        const scaleLeft = IMG_W / embedLeft.width;
+        const leftH = embedLeft.height * scaleLeft;
+
+        let rightH = 0;
+        let embedRight = null;
+        if (validPhotos[i + 1]) {
+          const right = validPhotos[i + 1];
+          embedRight = right.mimeType.includes("png")
+            ? await pdfDoc.embedPng(right.dataUrl)
+            : await pdfDoc.embedJpg(right.dataUrl);
+          const scaleRight = IMG_W / embedRight.width;
+          rightH = embedRight.height * scaleRight;
+        }
+
+        const rowH = Math.max(leftH, rightH);
+        checkPage(rowH + 8);
+
+        page.drawImage(embedLeft, {
+          x: M,
+          y: pdfY(y) - leftH,
+          width: IMG_W,
+          height: leftH,
+        });
+        if (embedRight) {
+          page.drawImage(embedRight, {
+            x: M + IMG_W + IMG_GAP,
+            y: pdfY(y) - rightH,
+            width: IMG_W,
+            height: rightH,
+          });
+        }
+
+        y += rowH + IMG_GAP;
+      } catch {
+        // skip photos that fail to embed
+      }
+    }
+    y += 6;
+  }
+
+  // ── COST SUMMARY ──────────────────────────────────────────────────────────
+  checkPage(40);
+  drawText("COST SUMMARY", M, y + 9, fontBold, 9, GRAY);
+  y += 14;
+
+  const LW = 380; // label column width
+  const VX = M + LW; // value column x
+
+  function summaryRow(label: string, value: string, bold = false, yPos: number) {
+    const font = bold ? fontBold : fontRegular;
+    const size = bold ? 14 : 13;
+    drawText(label, M, yPos + size, font, size);
+    drawText(value, VX + (CW - LW) - textWidth(value, font, size), yPos + size, font, size);
+    return yPos + size + 6;
+  }
+
+  y = summaryRow("Total Time", formatTime(totalSeconds), false, y);
+
+  // Labour subheading
+  checkPage(12);
+  drawText("LABOUR COST", M, y + 9, fontRegular, 9, MUTED);
+  y += 14;
+
+  // Owner row
+  const ownerLabel = defaultRate > 0
+    ? `  ${tradesmanName}  \u2014  ${formatTime(ownerSeconds)}  @  $${defaultRate.toFixed(2)}/hr`
+    : `  ${tradesmanName}  \u2014  ${formatTime(ownerSeconds)}`;
+  checkPage(20);
+  drawText(ownerLabel, M, y + 12, fontRegular, 12);
+  const ownerValue = defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "\u2014";
+  drawText(ownerValue, VX + (CW - LW) - textWidth(ownerValue, fontBold, 12), y + 12, fontBold, 12);
+  y += 18;
+
+  // Employee rows
+  for (const r of empRows) {
+    const empLabel = `  ${r.name}  \u2014  ${formatTime(r.seconds)}  @  $${r.rate.toFixed(2)}/hr`;
+    const empValue = `$${((r.seconds / 3600) * r.rate).toFixed(2)}`;
+    checkPage(18);
+    drawText(empLabel, M, y + 12, fontRegular, 12);
+    drawText(empValue, VX + (CW - LW) - textWidth(empValue, fontBold, 12), y + 12, fontBold, 12);
+    y += 18;
+  }
+
+  // Labour total
+  checkPage(20);
+  drawText("  Labour Total", M, y + 13, fontRegular, 13);
+  const ltv = `$${totalLabourCost.toFixed(2)}`;
+  drawText(ltv, VX + (CW - LW) - textWidth(ltv, fontBold, 13), y + 13, fontBold, 13);
+  y += 20;
+
+  // Inventory
+  checkPage(20);
+  drawText("Inventory", M, y + 13, fontRegular, 13);
+  const inv = `$${totalInventoryCost.toFixed(2)}`;
+  drawText(inv, VX + (CW - LW) - textWidth(inv, fontBold, 13), y + 13, fontBold, 13);
+  y += 20;
+
+  // Divider
+  checkPage(10);
+  hline(y + 4, M, PW - M, 0.75, BLACK);
+  y += 10;
+
+  // Total
+  checkPage(24);
+  drawText("TOTAL", M, y + 15, fontBold, 15);
+  const tot = `$${totalCost.toFixed(2)}`;
+  drawText(tot, VX + (CW - LW) - textWidth(tot, fontBold, 15), y + 15, fontBold, 15);
+  y += 22;
+
+  // Footer note
+  if (tradesmanName) {
+    checkPage(18);
+    y += 6;
+    drawText(`Completed by ${tradesmanName}`, M, y + 12, fontRegular, 12, MUTED);
+    y += 16;
+  }
+
+  return pdfDoc.save();
 }
 
 Deno.serve(async (req: Request) => {
@@ -333,7 +444,6 @@ Deno.serve(async (req: Request) => {
       const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
       return sum + Math.floor((end - start) / 1000);
     }, 0);
-    const timeFormatted = formatTime(totalSeconds);
 
     const ownerSeconds = timeEntries
       .filter(e => e.employee_id == null)
@@ -368,33 +478,33 @@ Deno.serve(async (req: Request) => {
     const totalInventoryCost = inventoryItems.reduce((sum, p) => sum + p.unit_price * p.quantity, 0);
     const totalCost = totalLabourCost + totalInventoryCost;
 
-    // Fetch photos as data URLs for embedding in the PDF
-    const photoDataUrls: (string | null)[] = includePhotos && jobPhotos.length > 0
-      ? await Promise.all(jobPhotos.map(p => fetchImageAsDataUrl(p.public_url)))
-      : [];
+    // Fetch photos as raw buffers for embedding in the PDF
+    const photoBuffers: ({ dataUrl: Uint8Array; mimeType: string } | null)[] = [];
+    if (includePhotos && jobPhotos.length > 0) {
+      for (const photo of jobPhotos) {
+        try {
+          const res = await fetch(photo.public_url);
+          if (!res.ok) { photoBuffers.push(null); continue; }
+          const buf = await res.arrayBuffer();
+          const mimeType = res.headers.get("content-type") || "image/jpeg";
+          photoBuffers.push({ dataUrl: new Uint8Array(buf), mimeType });
+        } catch {
+          photoBuffers.push(null);
+        }
+      }
+    }
 
     // Generate PDF
-    const docDefinition = buildPdfDefinition({
-      job, client, inventoryItems, timeEntries, business, employees,
-      jobPhotos, photoDataUrls,
+    const pdfBytes = await buildPdf({
+      job, client, inventoryItems, jobPhotos, photoBuffers,
       totalSeconds, ownerSeconds, ownerCost, empRows,
       totalLabourCost, totalInventoryCost, totalCost,
       defaultRate, tradesmanName, companyName,
     });
 
-    const pdfBuffer: Uint8Array = await new Promise((resolve, reject) => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const generator = (pdfMake as any).createPdf(docDefinition);
-        generator.getBuffer((buf: Uint8Array) => resolve(buf));
-      } catch (e) {
-        reject(e);
-      }
-    });
+    const pdfBase64 = uint8ToBase64(pdfBytes);
 
-    const pdfBase64 = uint8ToBase64(pdfBuffer);
-
-    // Build email HTML
+    // Build email HTML (unchanged)
     const labourRowsHtml = `
       <tr>
         <td style="padding:5px 0 2px;font-size:11px;color:#555555;text-transform:uppercase;letter-spacing:0.06em;" colspan="2">Labour Cost</td>
@@ -501,7 +611,7 @@ Deno.serve(async (req: Request) => {
         <table style="width:100%;border-collapse:collapse;">
           <tr>
             <td style="padding:5px 0;font-size:15px;color:#000000;">Total Time</td>
-            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${timeFormatted}</td>
+            <td style="padding:5px 0;font-size:15px;font-weight:700;color:#000000;text-align:right;">${formatTime(totalSeconds)}</td>
           </tr>
           ${labourRowsHtml}
           <tr>
