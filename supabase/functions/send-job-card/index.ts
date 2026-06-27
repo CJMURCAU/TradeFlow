@@ -1,5 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+// @deno-types="npm:pdfmake/build/pdfmake.d.ts"
+import pdfMake from "npm:pdfmake/build/pdfmake.js";
+// @deno-types="npm:pdfmake/build/vfs_fonts.d.ts"
+import pdfFonts from "npm:pdfmake/build/vfs_fonts.js";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(pdfMake as any).vfs = (pdfFonts as any).pdfMake.vfs;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,6 +19,258 @@ function formatTime(seconds: number): string {
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}
+
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buffer = await res.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const contentType = res.headers.get("content-type") || "image/jpeg";
+    return `data:${contentType};base64,${btoa(binary)}`;
+  } catch {
+    return null;
+  }
+}
+
+function uint8ToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function buildPdfDefinition(params: {
+  job: any;
+  client: any;
+  inventoryItems: { name: string; unit_price: number; quantity: number; type: string }[];
+  timeEntries: { start_time: string; end_time: string | null; employee_id: string | null }[];
+  business: any;
+  employees: { id: string; name: string; hourly_rate: number | null }[];
+  jobPhotos: { public_url: string }[];
+  photoDataUrls: (string | null)[];
+  totalSeconds: number;
+  ownerSeconds: number;
+  ownerCost: number;
+  empRows: { name: string; seconds: number; rate: number }[];
+  totalLabourCost: number;
+  totalInventoryCost: number;
+  totalCost: number;
+  defaultRate: number;
+  tradesmanName: string;
+  companyName: string;
+}) {
+  const {
+    job, client, inventoryItems, business,
+    photoDataUrls, ownerSeconds, ownerCost, empRows,
+    totalLabourCost, totalInventoryCost, totalCost,
+    defaultRate, tradesmanName, companyName,
+  } = params;
+
+  const timeFormatted = formatTime(params.totalSeconds);
+
+  // Inventory table body
+  const inventoryTableBody = [
+    [
+      { text: "Description", style: "tableHeader" },
+      { text: "Type", style: "tableHeader" },
+      { text: "Unit Price", style: "tableHeader", alignment: "right" },
+      { text: "Qty", style: "tableHeader", alignment: "right" },
+      { text: "Total", style: "tableHeader", alignment: "right" },
+    ],
+    ...inventoryItems.map(p => [
+      { text: p.name, style: "tableCell" },
+      { text: p.type, style: "tableCellMuted" },
+      { text: `$${p.unit_price.toFixed(2)}`, style: "tableCell", alignment: "right" },
+      { text: String(p.quantity), style: "tableCell", alignment: "right" },
+      { text: `$${(p.unit_price * p.quantity).toFixed(2)}`, style: "tableCell", alignment: "right" },
+    ]),
+  ];
+
+  // Cost summary table rows
+  const costTableBody: unknown[] = [
+    [
+      { text: "Total Time", style: "summaryLabel" },
+      { text: timeFormatted, style: "summaryValue", alignment: "right" },
+    ],
+    [
+      { text: "LABOUR COST", style: "summarySubheading", colSpan: 2 },
+      {},
+    ],
+    [
+      {
+        text: `  ${tradesmanName}  \u2014  ${formatTime(ownerSeconds)}${defaultRate > 0 ? `  @  $${defaultRate.toFixed(2)}/hr` : ""}`,
+        style: "summaryDetail",
+      },
+      {
+        text: defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "\u2014",
+        style: "summaryValue",
+        alignment: "right",
+      },
+    ],
+    ...empRows.map(r => [
+      {
+        text: `  ${r.name}  \u2014  ${formatTime(r.seconds)}  @  $${r.rate.toFixed(2)}/hr`,
+        style: "summaryDetail",
+      },
+      {
+        text: `$${((r.seconds / 3600) * r.rate).toFixed(2)}`,
+        style: "summaryValue",
+        alignment: "right",
+      },
+    ]),
+    [
+      { text: "  Labour Total", style: "summaryLabel" },
+      { text: `$${totalLabourCost.toFixed(2)}`, style: "summaryValue", alignment: "right" },
+    ],
+    [
+      { text: "Inventory", style: "summaryLabel" },
+      { text: `$${totalInventoryCost.toFixed(2)}`, style: "summaryValue", alignment: "right" },
+    ],
+    [
+      { canvas: [{ type: "line", x1: 0, y1: 0, x2: 435, y2: 0, lineWidth: 0.5, lineColor: "#000000" }], colSpan: 2, margin: [0, 4, 0, 4] },
+      {},
+    ],
+    [
+      { text: "TOTAL", style: "summaryTotal" },
+      { text: `$${totalCost.toFixed(2)}`, style: "summaryTotal", alignment: "right" },
+    ],
+  ];
+
+  // Photos section
+  const photosContent: unknown[] = [];
+  const validPhotos = params.jobPhotos
+    .map((p, i) => ({ url: p.public_url, dataUrl: photoDataUrls[i] }))
+    .filter(p => p.dataUrl != null);
+
+  if (validPhotos.length > 0) {
+    photosContent.push({ text: "PHOTOS", style: "sectionLabel", margin: [0, 16, 0, 8] });
+    for (let i = 0; i < validPhotos.length; i += 2) {
+      const row: unknown[] = [
+        { image: validPhotos[i].dataUrl, width: 220, margin: [0, 0, 8, 8] },
+      ];
+      if (validPhotos[i + 1]) {
+        row.push({ image: validPhotos[i + 1].dataUrl, width: 220, margin: [0, 0, 0, 8] });
+      }
+      photosContent.push({ columns: row });
+    }
+  }
+
+  const content: unknown[] = [
+    // Header
+    { text: companyName, style: "companyName" },
+    { text: `JOB CARD #${job.job_card_number}`, style: "jobCardNumber" },
+    { canvas: [{ type: "line", x1: 0, y1: 4, x2: 515, y2: 4, lineWidth: 2.5, lineColor: "#000000" }], margin: [0, 8, 0, 16] },
+
+    // Job title
+    { text: job.title, style: "jobTitle" },
+    ...(job.purchase_order_number ? [{ text: `PO: ${job.purchase_order_number}`, style: "poNumber" }] : []),
+
+    // Client box
+    {
+      table: {
+        widths: ["*"],
+        body: [[{
+          stack: [
+            { text: "CLIENT", style: "sectionLabel", margin: [0, 0, 0, 6] },
+            ...(client.company_name ? [{ text: client.company_name, style: "clientCompany" }] : []),
+            { text: client.name, style: client.company_name ? "clientName" : "clientCompany" },
+            ...(client.phone ? [{ text: client.phone, style: "clientDetail" }] : []),
+            ...(client.address ? [{ text: client.address, style: "clientDetail" }] : []),
+          ],
+          margin: [12, 12, 12, 12],
+        }]],
+      },
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => "#000000",
+        vLineColor: () => "#000000",
+      },
+      margin: [0, 12, 0, 16],
+    },
+
+    // Description
+    ...(job.description
+      ? [
+          { text: "DESCRIPTION", style: "sectionLabel" },
+          { text: job.description, style: "bodyText", margin: [0, 4, 0, 16] },
+        ]
+      : []),
+
+    // Inventory
+    { text: "INVENTORY", style: "sectionLabel" },
+    inventoryItems.length > 0
+      ? {
+          table: {
+            headerRows: 1,
+            widths: ["*", "auto", "auto", "auto", "auto"],
+            body: inventoryTableBody,
+          },
+          layout: {
+            hLineWidth: () => 0.5,
+            vLineWidth: () => 0.5,
+            hLineColor: () => "#d1d5db",
+            vLineColor: () => "#d1d5db",
+            fillColor: (rowIndex: number) => rowIndex === 0 ? "#f3f4f6" : null,
+          },
+          margin: [0, 6, 0, 16],
+        }
+      : { text: "No items or services recorded.", style: "noData", margin: [0, 4, 0, 16] },
+
+    // Photos
+    ...photosContent,
+
+    // Cost Summary
+    { text: "COST SUMMARY", style: "sectionLabel", margin: [0, 4, 0, 8] },
+    {
+      table: {
+        widths: ["*", "auto"],
+        body: costTableBody,
+      },
+      layout: "noBorders",
+    },
+
+    // Footer
+    ...(tradesmanName ? [{ text: `Completed by ${tradesmanName}`, style: "footerText", margin: [0, 20, 0, 0] }] : []),
+  ];
+
+  return {
+    pageSize: "A4",
+    pageMargins: [40, 50, 40, 50],
+    content,
+    styles: {
+      companyName: { fontSize: 22, bold: true, color: "#000000" },
+      jobCardNumber: { fontSize: 12, color: "#000000", margin: [0, 4, 0, 0] },
+      jobTitle: { fontSize: 18, bold: true, color: "#000000", margin: [0, 0, 0, 4] },
+      poNumber: { fontSize: 12, color: "#555555", margin: [0, 0, 0, 4] },
+      sectionLabel: { fontSize: 9, bold: true, color: "#000000" },
+      clientCompany: { fontSize: 14, bold: true, color: "#000000" },
+      clientName: { fontSize: 13, color: "#000000", margin: [0, 2, 0, 0] },
+      clientDetail: { fontSize: 12, color: "#000000", margin: [0, 2, 0, 0] },
+      bodyText: { fontSize: 13, color: "#000000", lineHeight: 1.5 },
+      tableHeader: { fontSize: 11, bold: true, color: "#000000", margin: [4, 4, 4, 4] },
+      tableCell: { fontSize: 12, color: "#000000", margin: [4, 4, 4, 4] },
+      tableCellMuted: { fontSize: 11, color: "#6b7280", margin: [4, 4, 4, 4] },
+      noData: { fontSize: 12, color: "#6b7280" },
+      summarySubheading: { fontSize: 9, color: "#555555", margin: [0, 8, 0, 2] },
+      summaryLabel: { fontSize: 13, color: "#000000", margin: [0, 2, 0, 2] },
+      summaryDetail: { fontSize: 12, color: "#000000", margin: [0, 2, 0, 2] },
+      summaryValue: { fontSize: 13, bold: true, color: "#000000", margin: [0, 2, 0, 2] },
+      summaryTotal: { fontSize: 15, bold: true, color: "#000000", margin: [0, 4, 0, 0] },
+      footerText: { fontSize: 12, color: "#555555" },
+    },
+    defaultStyle: {
+      font: "Roboto",
+    },
+  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -69,7 +328,6 @@ Deno.serve(async (req: Request) => {
     const tradesmanName: string = business?.tradesman_name || "Owner";
     const companyName: string = business?.company_name || "Your Service Provider";
 
-    // Total time across all entries
     const totalSeconds = timeEntries.reduce((sum, entry) => {
       const start = new Date(entry.start_time).getTime();
       const end = entry.end_time ? new Date(entry.end_time).getTime() : Date.now();
@@ -77,7 +335,6 @@ Deno.serve(async (req: Request) => {
     }, 0);
     const timeFormatted = formatTime(totalSeconds);
 
-    // Owner labour: entries with no employee_id
     const ownerSeconds = timeEntries
       .filter(e => e.employee_id == null)
       .reduce((sum, entry) => {
@@ -87,7 +344,6 @@ Deno.serve(async (req: Request) => {
       }, 0);
     const ownerCost = (ownerSeconds / 3600) * defaultRate;
 
-    // Employee labour: grouped by employee_id
     const empRateMap = new Map(employees.map(e => [e.id, { name: e.name, rate: e.hourly_rate ?? defaultRate }]));
     const empRowMap = new Map<string, { name: string; seconds: number; rate: number }>();
     timeEntries
@@ -112,6 +368,33 @@ Deno.serve(async (req: Request) => {
     const totalInventoryCost = inventoryItems.reduce((sum, p) => sum + p.unit_price * p.quantity, 0);
     const totalCost = totalLabourCost + totalInventoryCost;
 
+    // Fetch photos as data URLs for embedding in the PDF
+    const photoDataUrls: (string | null)[] = includePhotos && jobPhotos.length > 0
+      ? await Promise.all(jobPhotos.map(p => fetchImageAsDataUrl(p.public_url)))
+      : [];
+
+    // Generate PDF
+    const docDefinition = buildPdfDefinition({
+      job, client, inventoryItems, timeEntries, business, employees,
+      jobPhotos, photoDataUrls,
+      totalSeconds, ownerSeconds, ownerCost, empRows,
+      totalLabourCost, totalInventoryCost, totalCost,
+      defaultRate, tradesmanName, companyName,
+    });
+
+    const pdfBuffer: Uint8Array = await new Promise((resolve, reject) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const generator = (pdfMake as any).createPdf(docDefinition);
+        generator.getBuffer((buf: Uint8Array) => resolve(buf));
+      } catch (e) {
+        reject(e);
+      }
+    });
+
+    const pdfBase64 = uint8ToBase64(pdfBuffer);
+
+    // Build email HTML
     const labourRowsHtml = `
       <tr>
         <td style="padding:5px 0 2px;font-size:11px;color:#555555;text-transform:uppercase;letter-spacing:0.06em;" colspan="2">Labour Cost</td>
@@ -119,7 +402,7 @@ Deno.serve(async (req: Request) => {
       <tr>
         <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
           ${tradesmanName}
-          <span style="font-size:12px;color:#555555;"> — ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ""}</span>
+          <span style="font-size:12px;color:#555555;"> &mdash; ${formatTime(ownerSeconds)}${defaultRate > 0 ? ` @ $${defaultRate.toFixed(2)}/hr` : ""}</span>
         </td>
         <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">${defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "&mdash;"}</td>
       </tr>
@@ -127,7 +410,7 @@ Deno.serve(async (req: Request) => {
       <tr>
         <td style="padding:3px 0 3px 12px;font-size:14px;color:#000000;">
           ${r.name}
-          <span style="font-size:12px;color:#555555;"> — ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
+          <span style="font-size:12px;color:#555555;"> &mdash; ${formatTime(r.seconds)} @ $${r.rate.toFixed(2)}/hr</span>
         </td>
         <td style="padding:3px 0;font-size:14px;font-weight:700;color:#000000;text-align:right;">$${((r.seconds / 3600) * r.rate).toFixed(2)}</td>
       </tr>`).join("")}
@@ -149,23 +432,19 @@ Deno.serve(async (req: Request) => {
             </tr>
           </thead>
           <tbody>
-            ${inventoryItems
-              .map(
-                (p) => `
+            ${inventoryItems.map(p => `
               <tr>
                 <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.name}</td>
                 <td style="padding:8px 12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;text-transform:capitalize;">${p.type}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${p.unit_price.toFixed(2)}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">${p.quantity}</td>
                 <td style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">$${(p.unit_price * p.quantity).toFixed(2)}</td>
-              </tr>`
-              )
-              .join("")}
+              </tr>`).join("")}
           </tbody>
         </table>`
       : `<p style="color:#6b7280;font-size:14px;">No items or services recorded.</p>`;
 
-    let photosHtml = '';
+    let photosHtml = "";
     if (includePhotos && jobPhotos.length > 0) {
       const photoRows: string[] = [];
       for (let i = 0; i < jobPhotos.length; i += 2) {
@@ -178,7 +457,7 @@ Deno.serve(async (req: Request) => {
       photosHtml = `
       <div style="margin-bottom:24px;">
         <p style="margin:0 0 12px;font-size:11px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Photos</p>
-        <table style="width:100%;border-collapse:collapse;">${photoRows.join('')}</table>
+        <table style="width:100%;border-collapse:collapse;">${photoRows.join("")}</table>
       </div>`;
     }
 
@@ -240,6 +519,7 @@ Deno.serve(async (req: Request) => {
       </div>
 
       ${tradesmanName ? `<p style="margin:24px 0 0;font-size:14px;color:#000000;">Completed by ${tradesmanName}</p>` : ""}
+      <p style="margin:16px 0 0;font-size:13px;color:#555555;">A print-ready PDF is attached to this email.</p>
     </div>
     <div style="padding:16px 40px;border-top:1px solid #000000;">
       <p style="margin:0;font-size:12px;color:#555555;text-align:center;">${companyName} &mdash; Job Card #${job.job_card_number}</p>
@@ -277,6 +557,14 @@ Deno.serve(async (req: Request) => {
         reply_to: { email: recipientEmail },
         subject: `Job Card #${job.job_card_number} - ${job.title}`,
         html: emailHtml,
+        attachments: [
+          {
+            content: pdfBase64,
+            filename: `JobCard-${job.job_card_number}.pdf`,
+            type: "application/pdf",
+            disposition: "attachment",
+          },
+        ],
       }),
     });
 
