@@ -31,6 +31,15 @@ export type Client = {
   created_at: string;
 };
 
+export type ClientContact = {
+  id: string;
+  client_id: string;
+  name: string;
+  phone: string;
+  email: string;
+  created_at: string;
+};
+
 export type Job = {
   id: string;
   client_id: string;

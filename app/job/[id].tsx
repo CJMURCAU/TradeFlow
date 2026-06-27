@@ -405,7 +405,7 @@ export default function JobDetailPage() {
         uploadData = await resp.arrayBuffer();
       } else {
         const base64 = await FileSystem.readAsStringAsync(manipulated.uri, {
-          encoding: FileSystem.EncodingType.Base64,
+          encoding: 'base64',
         });
         const byteChars = atob(base64);
         const byteArray = new Uint8Array(byteChars.length);
@@ -458,7 +458,7 @@ export default function JobDetailPage() {
   const downloadPhotoToCache = async (photo: JobPhoto): Promise<string> => {
     const { data: { session } } = await supabase.auth.getSession();
     const filename = photo.storage_path.split('/').pop() ?? `photo_${Date.now()}.jpg`;
-    const localUri = (FileSystem.cacheDirectory ?? '') + `${photo.id}_${filename}`;
+    const localUri = ((FileSystem as unknown as { cacheDirectory?: string | null }).cacheDirectory ?? '') + `${photo.id}_${filename}`;
     const existing = await FileSystem.getInfoAsync(localUri);
     if (existing.exists) await FileSystem.deleteAsync(localUri, { idempotent: true });
     const headers: Record<string, string> = {};
