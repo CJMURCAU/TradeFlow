@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb, PageSizes } from "npm:pdf-lib";
+import { encodeBase64 } from "jsr:@std/encoding/base64";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,13 +16,6 @@ function formatTime(seconds: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 function wrapText(
   text: string,
@@ -502,7 +496,7 @@ Deno.serve(async (req: Request) => {
       defaultRate, tradesmanName, companyName,
     });
 
-    const pdfBase64 = uint8ToBase64(pdfBytes);
+    const pdfBase64 = encodeBase64(pdfBytes);
 
     // Build email HTML (unchanged)
     const labourRowsHtml = `
