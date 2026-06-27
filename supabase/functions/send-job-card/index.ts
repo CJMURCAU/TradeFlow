@@ -169,9 +169,9 @@ Deno.serve(async (req: Request) => {
     if (includePhotos && jobPhotos.length > 0) {
       const photoRows: string[] = [];
       for (let i = 0; i < jobPhotos.length; i += 2) {
-        const left = `<td style="padding:4px;width:50%;vertical-align:top;"><img src="${jobPhotos[i].public_url}" style="width:100%;border-radius:4px;display:block;" alt="Job photo" /></td>`;
+        const left = `<td style="padding:4px;width:50%;vertical-align:top;"><img src="${jobPhotos[i].public_url}" style="width:60%;border-radius:4px;display:block;margin:0 auto;" alt="Job photo" /></td>`;
         const right = jobPhotos[i + 1]
-          ? `<td style="padding:4px;width:50%;vertical-align:top;"><img src="${jobPhotos[i + 1].public_url}" style="width:100%;border-radius:4px;display:block;" alt="Job photo" /></td>`
+          ? `<td style="padding:4px;width:50%;vertical-align:top;"><img src="${jobPhotos[i + 1].public_url}" style="width:60%;border-radius:4px;display:block;margin:0 auto;" alt="Job photo" /></td>`
           : `<td style="width:50%;"></td>`;
         photoRows.push(`<tr>${left}${right}</tr>`);
       }
