@@ -102,10 +102,6 @@ function AppRoot() {
     }
   }, [sessionState, segments]);
 
-  if (sessionState === 'loading') {
-    return null;
-  }
-
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
