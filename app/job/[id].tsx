@@ -72,6 +72,7 @@ export default function JobDetailPage() {
   const [inventoryFormError, setInventoryFormError] = useState('');
   const [catalogueSearch, setCatalogueSearch] = useState('');
   const [isAddingInventory, setIsAddingInventory] = useState(false);
+  const [lastAddedCatalogueId, setLastAddedCatalogueId] = useState<string | null>(null);
   // Catalogue management modal
   const [showCatalogueModal, setShowCatalogueModal] = useState(false);
   const [catalogueForm, setCatalogueForm] = useState({ name: '', default_price: '', unit: '', type: 'item' as 'item' | 'service' });
@@ -226,13 +227,14 @@ export default function JobDetailPage() {
     };
     const localItem: JobInventoryItem = { id: tempId, ...payload, created_at: now };
     setInventoryItems(prev => [...prev, localItem]);
-    setShowInventoryModal(false);
+    setLastAddedCatalogueId(item.id);
+    setTimeout(() => setLastAddedCatalogueId(null), 1500);
     const { data } = await supabase.from('job_inventory').insert(payload).select().single();
     if (data) setInventoryItems(prev => prev.map(p => p.id === tempId ? data : p));
     setIsAddingInventory(false);
   };
 
-  const addInventoryCustom = async () => {
+  const addInventoryCustom = async (closeAfter = false) => {
     setInventoryFormError('');
     if (!inventoryForm.name.trim()) { setInventoryFormError('Please enter a name.'); return; }
     setIsAddingInventory(true);
@@ -251,7 +253,7 @@ export default function JobDetailPage() {
     const localItem: JobInventoryItem = { id: tempId, ...payload, created_at: now };
     setInventoryItems(prev => [...prev, localItem]);
     setInventoryForm({ name: '', unit_price: '', quantity: '1', type: 'item' });
-    setShowInventoryModal(false);
+    if (closeAfter) setShowInventoryModal(false);
     const { data } = await supabase.from('job_inventory').insert(payload).select().single();
     if (data) setInventoryItems(prev => prev.map(p => p.id === tempId ? data : p));
     setIsAddingInventory(false);
@@ -2528,7 +2530,7 @@ export default function JobDetailPage() {
                           {filtered.map(item => (
                             <TouchableOpacity
                               key={item.id}
-                              style={styles.invCatalogueRow}
+                              style={[styles.invCatalogueRow, lastAddedCatalogueId === item.id && styles.invCatalogueRowAdded]}
                               onPress={() => addInventoryFromCatalogue(item)}
                               disabled={isAddingInventory}>
                               <View style={[styles.inventoryTypeBadge, item.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
@@ -2540,7 +2542,9 @@ export default function JobDetailPage() {
                                 <Text style={styles.invCatalogueRowName}>{item.name}</Text>
                                 {item.unit ? <Text style={styles.invCatalogueRowUnit}>{item.unit}</Text> : null}
                               </View>
-                              <Text style={styles.invCatalogueRowPrice}>${item.default_price.toFixed(2)}</Text>
+                              {lastAddedCatalogueId === item.id
+                                ? <Text style={styles.invCatalogueRowAddedText}>Added!</Text>
+                                : <Text style={styles.invCatalogueRowPrice}>${item.default_price.toFixed(2)}</Text>}
                             </TouchableOpacity>
                           ))}
                         </ScrollView>
@@ -2593,14 +2597,22 @@ export default function JobDetailPage() {
                   </View>
                 )}
                 {inventoryFormError ? <Text style={styles.errorText}>{inventoryFormError}</Text> : null}
-                <TouchableOpacity
-                  style={[styles.addButton, isAddingInventory && styles.buttonDisabled]}
-                  onPress={addInventoryCustom}
-                  disabled={isAddingInventory}>
-                  {isAddingInventory
-                    ? <ActivityIndicator size="small" color="#FFFFFF" />
-                    : <Text style={styles.addButtonText}>Add</Text>}
-                </TouchableOpacity>
+                <View style={styles.invCustomButtons}>
+                  <TouchableOpacity
+                    style={[styles.invCustomBtnContinue, isAddingInventory && styles.buttonDisabled]}
+                    onPress={() => addInventoryCustom(false)}
+                    disabled={isAddingInventory}>
+                    {isAddingInventory
+                      ? <ActivityIndicator size="small" color="#111827" />
+                      : <Text style={styles.invCustomBtnContinueText}>Add & Continue</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.invCustomBtnClose, isAddingInventory && styles.buttonDisabled]}
+                    onPress={() => addInventoryCustom(true)}
+                    disabled={isAddingInventory}>
+                    <Text style={styles.invCustomBtnCloseText}>Add & Close</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -3427,6 +3439,20 @@ const styles = StyleSheet.create({
   invCatalogueRowName: { fontSize: 14, fontWeight: '600', color: '#111827' },
   invCatalogueRowUnit: { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
   invCatalogueRowPrice: { fontSize: 14, fontWeight: '700', color: '#374151' },
+  invCatalogueRowAdded: { backgroundColor: '#F0FDF4' },
+  invCatalogueRowAddedText: { fontSize: 13, fontWeight: '700', color: '#10B981' },
+  invCustomButtons: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  invCustomBtnContinue: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#F3F4F6', alignItems: 'center',
+    borderWidth: 1, borderColor: '#D1D5DB',
+  },
+  invCustomBtnContinueText: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  invCustomBtnClose: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: '#F59E0B', alignItems: 'center',
+  },
+  invCustomBtnCloseText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   invCustomForm: { gap: 0 },
   invTypeToggleRow: { flexDirection: 'row', gap: 8, marginBottom: 12, marginTop: 4 },
   invTypeToggleBtn: {
