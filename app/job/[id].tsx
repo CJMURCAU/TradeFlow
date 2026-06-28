@@ -46,7 +46,7 @@ const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { role, employeeRecord } = useRole();
+  const { role, employeeRecord, ownerUserId } = useRole();
   const { isOnline } = useNetworkStatus();
 
   const [job, setJob] = useState<(Job & { client?: Client }) | null>(null);
@@ -152,8 +152,11 @@ export default function JobDetailPage() {
     }
     fetchBusinessDetails();
     fetchEditClients();
-    fetchCatalogue();
   }, [id]);
+
+  useEffect(() => {
+    if (ownerUserId) fetchCatalogue();
+  }, [ownerUserId]);
 
   useEffect(() => {
     if (role === 'owner' && id) fetchAssignments();
@@ -192,12 +195,11 @@ export default function JobDetailPage() {
   };
 
   const fetchCatalogue = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!ownerUserId) return;
     const { data } = await supabase
       .from('inventory_catalogue')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', ownerUserId)
       .order('type', { ascending: true })
       .order('name', { ascending: true });
     if (data) setCatalogue(data);
