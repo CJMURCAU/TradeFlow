@@ -48,7 +48,10 @@ function AppRoot() {
         if (session) {
           setSessionState('authenticated');
           if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
-            router.replace('/(tabs)');
+            const onAuthScreen = segments[0] === 'login' || segments[0] === 'auth' || segments[0] === 'invite';
+            if (onAuthScreen) {
+              router.replace('/(tabs)');
+            }
           }
         } else {
           setSessionState('unauthenticated');
