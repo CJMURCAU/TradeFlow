@@ -4,7 +4,7 @@
     "slug": "tradeflow",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/tradepro_emblem.png",
+    "icon": "./assets/images/tradepro_emblem copy.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
@@ -26,7 +26,7 @@
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/images/tradepro_emblem.png"
+      "favicon": "./assets/images/tradepro_emblem copy.png"
     },
     "plugins": ["expo-router", "expo-font", "expo-web-browser", "expo-camera", "expo-media-library"],
     "experiments": {
