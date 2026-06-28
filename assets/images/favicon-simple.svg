@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Navy blue circle background -->
+  <circle cx="256" cy="256" r="256" fill="#1B2B4B"/>
+  <!-- Subtle silver ring -->
+  <circle cx="256" cy="256" r="240" fill="none" stroke="#8A9BB5" stroke-width="12"/>
+  <!-- TF initials -->
+  <text
+    x="256"
+    y="320"
+    font-family="Arial Black, Arial, sans-serif"
+    font-weight="900"
+    font-size="240"
+    text-anchor="middle"
+    fill="#D0D8E8"
+    letter-spacing="-8"
+  >TF</text>
+</svg>
