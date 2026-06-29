@@ -29,7 +29,10 @@ import {
   Pencil,
   X,
   LogOut,
+  Download,
 } from 'lucide-react-native';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import TabBar from '@/components/TabBar';
 
 export default function BusinessPage() {
@@ -55,6 +58,8 @@ export default function BusinessPage() {
 
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportStatus, setExportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [removeTarget, setRemoveTarget] = useState<Employee | null>(null);
   const [deleteAccountStep, setDeleteAccountStep] = useState<0 | 1 | 2>(0);
@@ -349,6 +354,95 @@ export default function BusinessPage() {
       setPasswordForm({ newPassword: '', confirmPassword: '' });
       setShowChangePassword(false);
       setPasswordSuccess('Password updated successfully.');
+    }
+  };
+
+  const escCsv = (val: unknown): string => {
+    if (val == null) return '';
+    const str = String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+
+  const handleExportData = async () => {
+    setExportLoading(true);
+    setExportStatus(null);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const [clientsRes, jobsRes, partsRes, timeRes] = await Promise.all([
+        supabase.from('clients').select('*').order('created_at'),
+        supabase.from('jobs').select('*').order('job_card_number'),
+        supabase.from('parts').select('*'),
+        supabase.from('time_entries').select('*'),
+      ]);
+
+      const jobs = jobsRes.data || [];
+      const jobMap = new Map(jobs.map(j => [j.id, j]));
+
+      const lines: string[] = [];
+
+      lines.push('=== CLIENTS ===');
+      lines.push('Company Name,Contact Name,Phone,Email,Address,Date Added');
+      for (const c of clientsRes.data || []) {
+        lines.push([c.company_name, c.name, c.phone, c.email, c.address, c.created_at].map(escCsv).join(','));
+      }
+      lines.push('');
+
+      lines.push('=== JOBS ===');
+      lines.push('Job Card #,Title,Status,PO Number,Scheduled Time,Date Created');
+      for (const j of jobs) {
+        lines.push([j.job_card_number, j.title, j.status, j.purchase_order_number, j.scheduled_time, j.created_at].map(escCsv).join(','));
+      }
+      lines.push('');
+
+      lines.push('=== MATERIALS ===');
+      lines.push('Job Card #,Item Name,Quantity,Unit Cost,Date Added');
+      for (const p of partsRes.data || []) {
+        const job = jobMap.get(p.job_id);
+        lines.push([job?.job_card_number, p.name, p.quantity, p.cost, p.created_at].map(escCsv).join(','));
+      }
+      lines.push('');
+
+      lines.push('=== TIME ENTRIES ===');
+      lines.push('Job Card #,Start Time,End Time,Hours');
+      for (const t of timeRes.data || []) {
+        const job = jobMap.get(t.job_id);
+        let hours = '';
+        if (t.start_time && t.end_time) {
+          const diff = (new Date(t.end_time).getTime() - new Date(t.start_time).getTime()) / 3600000;
+          hours = diff.toFixed(2);
+        }
+        lines.push([job?.job_card_number, t.start_time, t.end_time, hours].map(escCsv).join(','));
+      }
+
+      const csv = lines.join('\n');
+      const filename = `tradepro-export-${new Date().toISOString().slice(0, 10)}.csv`;
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setExportStatus({ type: 'success', message: 'Data exported successfully.' });
+      } else {
+        const path = (FileSystem.documentDirectory ?? '') + filename;
+        await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
+        await Sharing.shareAsync(path, { mimeType: 'text/csv', dialogTitle: 'Export Data' });
+        setExportStatus({ type: 'success', message: 'Data ready to share.' });
+      }
+    } catch {
+      setExportStatus({ type: 'error', message: 'Export failed. Please try again.' });
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -779,6 +873,31 @@ export default function BusinessPage() {
           </View>
         )}
 
+        {exportStatus && (
+          <View style={[styles.statusBanner, exportStatus.type === 'success' ? styles.statusBannerSuccess : styles.statusBannerError]}>
+            <Text style={[styles.statusBannerText, exportStatus.type === 'success' ? styles.statusBannerTextSuccess : styles.statusBannerTextError]}>
+              {exportStatus.message}
+            </Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.settingsRow, styles.exportRow, exportLoading && styles.buttonDisabled]}
+          onPress={handleExportData}
+          disabled={exportLoading}>
+          <View style={styles.settingsRowLeft}>
+            <View style={[styles.settingsIconWrap, styles.exportIconWrap]}>
+              {exportLoading
+                ? <ActivityIndicator size="small" color="#2563EB" />
+                : <Download size={18} color="#2563EB" />}
+            </View>
+            <View>
+              <Text style={styles.exportRowText}>{exportLoading ? 'Exporting...' : 'Export My Data'}</Text>
+              <Text style={styles.exportRowHint}>Download all clients, jobs & time entries</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.settingsRow, styles.logoutRow]}
           onPress={handleLogout}>
@@ -1040,6 +1159,10 @@ const styles = StyleSheet.create({
   },
   confirmPasswordButtonText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
   buttonDisabled: { opacity: 0.6 },
+  exportRow: { borderColor: '#DBEAFE', backgroundColor: '#EFF6FF' },
+  exportIconWrap: { backgroundColor: '#DBEAFE' },
+  exportRowText: { fontSize: 16, fontWeight: '500', color: '#1D4ED8' },
+  exportRowHint: { fontSize: 12, color: '#3B82F6', marginTop: 1 },
   logoutRow: { borderColor: '#FEF3C7', backgroundColor: '#FFFBEB' },
   logoutIconWrap: { backgroundColor: '#FEF3C7' },
   logoutRowText: { fontSize: 16, fontWeight: '500', color: '#D97706' },
