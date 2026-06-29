@@ -39,7 +39,7 @@ import {
   deleteLocalPart,
   enqueue,
 } from '@/lib/localDb';
-import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Camera, Share2, Image as ImageIcon, Download, Package, Wrench, BookOpen, Tag } from 'lucide-react-native';
+import { ArrowLeft, Play, Pause, Square, Mail, Plus, Trash2, MapPin, Navigation, UserCheck, Users, CircleCheck as CheckCircle, ChevronDown, Pencil, X, Check, ChevronLeft, ChevronRight, Calendar as CalendarIcon, Camera, Share2, Image as ImageIcon, Images, Download, Package, Wrench, BookOpen, Tag } from 'lucide-react-native';
 
 const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
 
@@ -110,7 +110,6 @@ export default function JobDetailPage() {
   const [photoUploadError, setPhotoUploadError] = useState('');
   const [selectedPhoto, setSelectedPhoto] = useState<JobPhoto | null>(null);
   const [includePhotosInEmail, setIncludePhotosInEmail] = useState(false);
-  const [showPhotoSourceModal, setShowPhotoSourceModal] = useState(false);
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -345,36 +344,59 @@ export default function JobDetailPage() {
     await supabase.from('inventory_catalogue').delete().eq('id', itemId);
   };
 
-  const openPhotoSource = () => {
+  const handleTakePhoto = async () => {
     if (photos.length >= 6) {
       setPhotoUploadError('Maximum of 6 photos per job reached.');
       return;
     }
     setPhotoUploadError('');
     if (Platform.OS === 'web') {
-      triggerWebFileInput();
-    } else {
-      setShowPhotoSourceModal(true);
+      if (typeof document === 'undefined') return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment';
+      input.onchange = async (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        const uri = URL.createObjectURL(file);
+        await processAndUploadPhoto(uri);
+        URL.revokeObjectURL(uri);
+      };
+      input.click();
+      return;
     }
+    if (!cameraPermission?.granted) {
+      const { granted } = await requestCameraPermission();
+      if (!granted) {
+        setPhotoUploadError('Camera permission is required.');
+        return;
+      }
+    }
+    setShowCameraModal(true);
   };
 
-  const triggerWebFileInput = () => {
-    if (typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const uri = URL.createObjectURL(file);
-      await processAndUploadPhoto(uri);
-      URL.revokeObjectURL(uri);
-    };
-    input.click();
-  };
-
-  const pickFromLibrary = async () => {
-    setShowPhotoSourceModal(false);
+  const handlePickFromGallery = async () => {
+    if (photos.length >= 6) {
+      setPhotoUploadError('Maximum of 6 photos per job reached.');
+      return;
+    }
+    setPhotoUploadError('');
+    if (Platform.OS === 'web') {
+      if (typeof document === 'undefined') return;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        const uri = URL.createObjectURL(file);
+        await processAndUploadPhoto(uri);
+        URL.revokeObjectURL(uri);
+      };
+      input.click();
+      return;
+    }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       setPhotoUploadError('Photo library permission is required.');
@@ -388,18 +410,6 @@ export default function JobDetailPage() {
     if (!result.canceled && result.assets[0]) {
       await processAndUploadPhoto(result.assets[0].uri);
     }
-  };
-
-  const openInAppCamera = async () => {
-    setShowPhotoSourceModal(false);
-    if (!cameraPermission?.granted) {
-      const { granted } = await requestCameraPermission();
-      if (!granted) {
-        setPhotoUploadError('Camera permission is required.');
-        return;
-      }
-    }
-    setShowCameraModal(true);
   };
 
   const capturePhoto = async () => {
@@ -1735,11 +1745,20 @@ export default function JobDetailPage() {
               <Text style={styles.photoCountBadge}>{photos.length} / 6</Text>
             </View>
             {photos.length < 6 && !isSelectMode && (
-              <TouchableOpacity onPress={openPhotoSource} disabled={isUploadingPhoto}>
-                {isUploadingPhoto
-                  ? <ActivityIndicator size="small" color="#F59E0B" />
-                  : <Camera size={22} color="#F59E0B" />}
-              </TouchableOpacity>
+              <View style={styles.photoActionButtons}>
+                {isUploadingPhoto ? (
+                  <ActivityIndicator size="small" color="#F59E0B" />
+                ) : (
+                  <>
+                    <TouchableOpacity onPress={handleTakePhoto} hitSlop={8}>
+                      <Camera size={22} color="#F59E0B" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handlePickFromGallery} hitSlop={8}>
+                      <Images size={22} color="#F59E0B" />
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
             )}
           </View>
 
@@ -1756,9 +1775,16 @@ export default function JobDetailPage() {
               <Camera size={32} color="#D1D5DB" />
               <Text style={styles.photoEmptyText}>No photos added yet</Text>
               {photos.length < 6 && (
-                <TouchableOpacity style={styles.photoAddButton} onPress={openPhotoSource} disabled={isUploadingPhoto}>
-                  <Text style={styles.photoAddButtonText}>Add Photo</Text>
-                </TouchableOpacity>
+                <View style={styles.photoEmptyActions}>
+                  <TouchableOpacity style={styles.photoAddButton} onPress={handleTakePhoto} disabled={isUploadingPhoto}>
+                    <Camera size={16} color="#F59E0B" />
+                    <Text style={styles.photoAddButtonText}>Camera</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.photoAddButton} onPress={handlePickFromGallery} disabled={isUploadingPhoto}>
+                    <Images size={16} color="#F59E0B" />
+                    <Text style={styles.photoAddButtonText}>Gallery</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           ) : (
@@ -2306,37 +2332,6 @@ export default function JobDetailPage() {
                 <Text style={styles.modalConfirmText}>Confirm</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Photo Source Picker Modal */}
-      <Modal
-        visible={showPhotoSourceModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowPhotoSourceModal(false)}>
-        <View style={styles.sourceModalOverlay}>
-          {/* Backdrop — dismiss on tap */}
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={() => setShowPhotoSourceModal(false)}
-          />
-          <View style={styles.sourceModalSheet}>
-            <View style={styles.sourceModalHandle} />
-            <Text style={styles.sourceModalTitle}>Add Photo</Text>
-            <TouchableOpacity style={styles.sourceModalOption} onPress={openInAppCamera}>
-              <Camera size={22} color="#F59E0B" />
-              <Text style={styles.sourceModalOptionText}>Take Photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sourceModalOption} onPress={pickFromLibrary}>
-              <ImageIcon size={22} color="#F59E0B" />
-              <Text style={styles.sourceModalOptionText}>Choose from Library</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sourceModalCancel} onPress={() => setShowPhotoSourceModal(false)}>
-              <Text style={styles.sourceModalCancelText}>Cancel</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -3345,8 +3340,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   photoEmptyText: { fontSize: 14, color: '#9CA3AF' },
+  photoEmptyActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  photoActionButtons: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   photoAddButton: {
-    marginTop: 4, backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingVertical: 9,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F59E0B', paddingHorizontal: 16, paddingVertical: 9,
     borderRadius: 8,
   },
   photoAddButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 14 },
@@ -3506,31 +3504,6 @@ const styles = StyleSheet.create({
     borderRadius: 12, alignItems: 'center',
   },
   multiShareDoneBtnText: { fontSize: 16, fontWeight: '700', color: '#374151' },
-  // Photo source picker
-  sourceModalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
-  },
-  sourceModalSheet: {
-    backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    paddingBottom: 36, paddingHorizontal: 20, paddingTop: 12,
-  },
-  sourceModalHandle: {
-    width: 40, height: 4, borderRadius: 2, backgroundColor: '#D1D5DB',
-    alignSelf: 'center', marginBottom: 16,
-  },
-  sourceModalTitle: {
-    fontSize: 16, fontWeight: '700', color: '#111827', textAlign: 'center', marginBottom: 16,
-  },
-  sourceModalOption: {
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-  },
-  sourceModalOptionText: { fontSize: 16, color: '#111827', fontWeight: '500' },
-  sourceModalCancel: {
-    marginTop: 12, paddingVertical: 14, alignItems: 'center',
-    backgroundColor: '#F3F4F6', borderRadius: 12,
-  },
-  sourceModalCancelText: { fontSize: 16, fontWeight: '600', color: '#6B7280' },
   // In-app camera
   cameraModalContainer: { flex: 1, backgroundColor: '#000000' },
   cameraView: { flex: 1 },
