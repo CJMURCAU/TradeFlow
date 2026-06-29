@@ -2317,10 +2317,13 @@ export default function JobDetailPage() {
         transparent
         animationType="slide"
         onRequestClose={() => setShowPhotoSourceModal(false)}>
-        <TouchableOpacity
-          style={styles.sourceModalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPhotoSourceModal(false)}>
+        <View style={styles.sourceModalOverlay}>
+          {/* Backdrop — dismiss on tap */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setShowPhotoSourceModal(false)}
+          />
           <View style={styles.sourceModalSheet}>
             <View style={styles.sourceModalHandle} />
             <Text style={styles.sourceModalTitle}>Add Photo</Text>
@@ -2336,7 +2339,7 @@ export default function JobDetailPage() {
               <Text style={styles.sourceModalCancelText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* In-App Camera Modal */}
