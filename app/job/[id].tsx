@@ -73,6 +73,11 @@ export default function JobDetailPage() {
   const [catalogueSearch, setCatalogueSearch] = useState('');
   const [isAddingInventory, setIsAddingInventory] = useState(false);
   const [lastAddedCatalogueId, setLastAddedCatalogueId] = useState<string | null>(null);
+  const [pendingCatalogueItem, setPendingCatalogueItem] = useState<InventoryCatalogueItem | null>(null);
+  const [pendingQuantity, setPendingQuantity] = useState('1');
+  // inline quantity editing on existing items
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+  const [editingQtyValue, setEditingQtyValue] = useState('');
   // Catalogue management modal
   const [showCatalogueModal, setShowCatalogueModal] = useState(false);
   const [catalogueForm, setCatalogueForm] = useState({ name: '', default_price: '', unit: '', type: 'item' as 'item' | 'service' });
@@ -210,30 +215,56 @@ export default function JobDetailPage() {
     setInventoryFormError('');
     setCatalogueSearch('');
     setInventoryModalTab('catalogue');
+    setPendingCatalogueItem(null);
+    setPendingQuantity('1');
     setShowInventoryModal(true);
   };
 
-  const addInventoryFromCatalogue = async (item: InventoryCatalogueItem) => {
+  const selectCatalogueItem = (item: InventoryCatalogueItem) => {
+    setPendingCatalogueItem(item);
+    setPendingQuantity('1');
+  };
+
+  const confirmCatalogueItem = async () => {
+    if (!pendingCatalogueItem) return;
+    const qty = parseInt(pendingQuantity) || 1;
     setIsAddingInventory(true);
     const now = new Date().toISOString();
     const tempId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     const employeeId = (role === 'employee' && employeeRecord) ? employeeRecord.id : null;
     const payload = {
       job_id: id as string,
-      catalogue_id: item.id,
-      name: item.name,
-      unit_price: item.default_price,
-      quantity: 1,
-      type: item.type,
+      catalogue_id: pendingCatalogueItem.id,
+      name: pendingCatalogueItem.name,
+      unit_price: pendingCatalogueItem.default_price,
+      quantity: qty,
+      type: pendingCatalogueItem.type,
       employee_id: employeeId,
     };
     const localItem: JobInventoryItem = { id: tempId, ...payload, created_at: now };
     setInventoryItems(prev => [...prev, localItem]);
-    setLastAddedCatalogueId(item.id);
+    setLastAddedCatalogueId(pendingCatalogueItem.id);
     setTimeout(() => setLastAddedCatalogueId(null), 1500);
     const { data } = await supabase.from('job_inventory').insert(payload).select().single();
     if (data) setInventoryItems(prev => prev.map(p => p.id === tempId ? data : p));
+    setPendingCatalogueItem(null);
+    setPendingQuantity('1');
     setIsAddingInventory(false);
+  };
+
+  const updateInventoryQuantity = async (itemId: string, newQty: number) => {
+    if (newQty < 1) return;
+    setInventoryItems(prev => prev.map(p => p.id === itemId ? { ...p, quantity: newQty } : p));
+    await supabase.from('job_inventory').update({ quantity: newQty }).eq('id', itemId);
+  };
+
+  const commitQtyEdit = (item: JobInventoryItem) => {
+    const parsed = parseInt(editingQtyValue);
+    if (!isNaN(parsed) && parsed >= 1) {
+      updateInventoryQuantity(item.id, parsed);
+    }
+    setEditingQtyId(null);
+    setEditingQtyValue('');
   };
 
   const addInventoryCustom = async (closeAfter = false) => {
@@ -1832,8 +1863,36 @@ export default function JobDetailPage() {
                     ${item.unit_price.toFixed(2)} x {item.quantity} = ${(item.unit_price * item.quantity).toFixed(2)}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={() => deleteInventoryItem(item.id)}>
-                  <Trash2 size={20} color="#EF4444" />
+                <View style={styles.qtyControls}>
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => updateInventoryQuantity(item.id, item.quantity - 1)}>
+                    <Text style={styles.qtyBtnText}>−</Text>
+                  </TouchableOpacity>
+                  {editingQtyId === item.id ? (
+                    <TextInput
+                      style={styles.qtyInput}
+                      value={editingQtyValue}
+                      onChangeText={t => setEditingQtyValue(t.replace(/[^0-9]/g, ''))}
+                      keyboardType="number-pad"
+                      onBlur={() => commitQtyEdit(item)}
+                      onSubmitEditing={() => commitQtyEdit(item)}
+                      autoFocus
+                      selectTextOnFocus
+                    />
+                  ) : (
+                    <TouchableOpacity onPress={() => { setEditingQtyId(item.id); setEditingQtyValue(String(item.quantity)); }}>
+                      <Text style={styles.qtyValue}>{item.quantity}</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.qtyBtn}
+                    onPress={() => updateInventoryQuantity(item.id, item.quantity + 1)}>
+                    <Text style={styles.qtyBtnText}>+</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity onPress={() => deleteInventoryItem(item.id)} style={styles.qtyDeleteBtn}>
+                  <Trash2 size={18} color="#EF4444" />
                 </TouchableOpacity>
               </View>
             ))}
@@ -1853,8 +1912,8 @@ export default function JobDetailPage() {
                         ${item.unit_price.toFixed(2)} x {item.quantity} = ${(item.unit_price * item.quantity).toFixed(2)}
                       </Text>
                     </View>
-                    <TouchableOpacity onPress={() => deleteInventoryItem(item.id)}>
-                      <Trash2 size={20} color="#EF4444" />
+                    <TouchableOpacity onPress={() => deleteInventoryItem(item.id)} style={styles.qtyDeleteBtn}>
+                      <Trash2 size={18} color="#EF4444" />
                     </TouchableOpacity>
                   </View>
                 ))}
@@ -1966,8 +2025,36 @@ export default function JobDetailPage() {
                             {`$${item.unit_price.toFixed(2)} x ${item.quantity} = $${(item.unit_price * item.quantity).toFixed(2)}`}
                           </Text>
                         </View>
-                        <TouchableOpacity onPress={() => deleteInventoryItem(item.id)}>
-                          <Trash2 size={20} color="#EF4444" />
+                        <View style={styles.qtyControls}>
+                          <TouchableOpacity
+                            style={styles.qtyBtn}
+                            onPress={() => updateInventoryQuantity(item.id, item.quantity - 1)}>
+                            <Text style={styles.qtyBtnText}>−</Text>
+                          </TouchableOpacity>
+                          {editingQtyId === item.id ? (
+                            <TextInput
+                              style={styles.qtyInput}
+                              value={editingQtyValue}
+                              onChangeText={t => setEditingQtyValue(t.replace(/[^0-9]/g, ''))}
+                              keyboardType="number-pad"
+                              onBlur={() => commitQtyEdit(item)}
+                              onSubmitEditing={() => commitQtyEdit(item)}
+                              autoFocus
+                              selectTextOnFocus
+                            />
+                          ) : (
+                            <TouchableOpacity onPress={() => { setEditingQtyId(item.id); setEditingQtyValue(String(item.quantity)); }}>
+                              <Text style={styles.qtyValue}>{item.quantity}</Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity
+                            style={styles.qtyBtn}
+                            onPress={() => updateInventoryQuantity(item.id, item.quantity + 1)}>
+                            <Text style={styles.qtyBtnText}>+</Text>
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity onPress={() => deleteInventoryItem(item.id)} style={styles.qtyDeleteBtn}>
+                          <Trash2 size={18} color="#EF4444" />
                         </TouchableOpacity>
                       </View>
                     ))
@@ -2503,57 +2590,120 @@ export default function JobDetailPage() {
 
             {inventoryModalTab === 'catalogue' ? (
               <>
-                {(() => {
-                  const catalogueForRole = isEmployee
-                    ? catalogue.filter(c => c.type === 'item')
-                    : catalogue;
-                  const filtered = catalogueForRole.filter(c =>
-                    c.name.toLowerCase().includes(catalogueSearch.toLowerCase())
-                  );
-                  return (
-                    <>
-                      <TextInput
-                        style={styles.invSearchInput}
-                        placeholder="Search catalogue..."
-                        placeholderTextColor="#9CA3AF"
-                        value={catalogueSearch}
-                        onChangeText={setCatalogueSearch}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                      />
-                      {filtered.length === 0 ? (
-                        <Text style={styles.emptyText}>
-                          {catalogue.length === 0
-                            ? 'Your catalogue is empty. Use the Catalogue button in the Inventory section to add items.'
-                            : 'No results found.'}
+                {pendingCatalogueItem ? (
+                  /* Quantity prompt — shown after selecting a catalogue item */
+                  <View style={styles.invQtyPrompt}>
+                    <TouchableOpacity
+                      style={styles.invQtyBack}
+                      onPress={() => { setPendingCatalogueItem(null); setPendingQuantity('1'); }}>
+                      <ChevronLeft size={16} color="#6B7280" />
+                      <Text style={styles.invQtyBackText}>Back</Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.invQtyItemCard}>
+                      <View style={[styles.inventoryTypeBadge, pendingCatalogueItem.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
+                        {pendingCatalogueItem.type === 'service'
+                          ? <Wrench size={10} color="#FFFFFF" />
+                          : <Package size={10} color="#FFFFFF" />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.invQtyItemName}>{pendingCatalogueItem.name}</Text>
+                        <Text style={styles.invQtyItemPrice}>
+                          ${pendingCatalogueItem.default_price.toFixed(2)}{pendingCatalogueItem.unit ? ` / ${pendingCatalogueItem.unit}` : ''}
                         </Text>
-                      ) : (
-                        <ScrollView style={styles.invCatalogueList} showsVerticalScrollIndicator={false}>
-                          {filtered.map(item => (
-                            <TouchableOpacity
-                              key={item.id}
-                              style={[styles.invCatalogueRow, lastAddedCatalogueId === item.id && styles.invCatalogueRowAdded]}
-                              onPress={() => addInventoryFromCatalogue(item)}
-                              disabled={isAddingInventory}>
-                              <View style={[styles.inventoryTypeBadge, item.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
-                                {item.type === 'service'
-                                  ? <Wrench size={10} color="#FFFFFF" />
-                                  : <Package size={10} color="#FFFFFF" />}
-                              </View>
-                              <View style={styles.invCatalogueRowInfo}>
-                                <Text style={styles.invCatalogueRowName}>{item.name}</Text>
-                                {item.unit ? <Text style={styles.invCatalogueRowUnit}>{item.unit}</Text> : null}
-                              </View>
-                              {lastAddedCatalogueId === item.id
-                                ? <Text style={styles.invCatalogueRowAddedText}>Added!</Text>
-                                : <Text style={styles.invCatalogueRowPrice}>${item.default_price.toFixed(2)}</Text>}
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      )}
-                    </>
-                  );
-                })()}
+                      </View>
+                    </View>
+
+                    <Text style={styles.invQtyLabel}>How many?</Text>
+                    <View style={styles.invQtyRow}>
+                      <TouchableOpacity
+                        style={styles.invQtyBtn}
+                        onPress={() => setPendingQuantity(q => String(Math.max(1, parseInt(q) - 1)))}>
+                        <Text style={styles.invQtyBtnText}>−</Text>
+                      </TouchableOpacity>
+                      <TextInput
+                        style={styles.invQtyInput}
+                        value={pendingQuantity}
+                        onChangeText={t => setPendingQuantity(t.replace(/[^0-9]/g, ''))}
+                        keyboardType="number-pad"
+                        selectTextOnFocus
+                      />
+                      <TouchableOpacity
+                        style={styles.invQtyBtn}
+                        onPress={() => setPendingQuantity(q => String((parseInt(q) || 0) + 1))}>
+                        <Text style={styles.invQtyBtnText}>+</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <Text style={styles.invQtyTotal}>
+                      Total: ${(pendingCatalogueItem.default_price * (parseInt(pendingQuantity) || 1)).toFixed(2)}
+                    </Text>
+
+                    <TouchableOpacity
+                      style={[styles.invQtyConfirmBtn, isAddingInventory && styles.buttonDisabled]}
+                      onPress={confirmCatalogueItem}
+                      disabled={isAddingInventory}>
+                      {isAddingInventory
+                        ? <ActivityIndicator size="small" color="#FFFFFF" />
+                        : <Text style={styles.invQtyConfirmBtnText}>Add to Job</Text>}
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  /* Catalogue list */
+                  <>
+                    {(() => {
+                      const catalogueForRole = isEmployee
+                        ? catalogue.filter(c => c.type === 'item')
+                        : catalogue;
+                      const filtered = catalogueForRole.filter(c =>
+                        c.name.toLowerCase().includes(catalogueSearch.toLowerCase())
+                      );
+                      return (
+                        <>
+                          <TextInput
+                            style={styles.invSearchInput}
+                            placeholder="Search catalogue..."
+                            placeholderTextColor="#9CA3AF"
+                            value={catalogueSearch}
+                            onChangeText={setCatalogueSearch}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                          />
+                          {filtered.length === 0 ? (
+                            <Text style={styles.emptyText}>
+                              {catalogue.length === 0
+                                ? 'Your catalogue is empty. Use the Catalogue button in the Inventory section to add items.'
+                                : 'No results found.'}
+                            </Text>
+                          ) : (
+                            <ScrollView style={styles.invCatalogueList} showsVerticalScrollIndicator={false}>
+                              {filtered.map(item => (
+                                <TouchableOpacity
+                                  key={item.id}
+                                  style={[styles.invCatalogueRow, lastAddedCatalogueId === item.id && styles.invCatalogueRowAdded]}
+                                  onPress={() => selectCatalogueItem(item)}
+                                  disabled={isAddingInventory}>
+                                  <View style={[styles.inventoryTypeBadge, item.type === 'service' ? styles.inventoryTypeBadgeService : styles.inventoryTypeBadgeItem]}>
+                                    {item.type === 'service'
+                                      ? <Wrench size={10} color="#FFFFFF" />
+                                      : <Package size={10} color="#FFFFFF" />}
+                                  </View>
+                                  <View style={styles.invCatalogueRowInfo}>
+                                    <Text style={styles.invCatalogueRowName}>{item.name}</Text>
+                                    {item.unit ? <Text style={styles.invCatalogueRowUnit}>{item.unit}</Text> : null}
+                                  </View>
+                                  {lastAddedCatalogueId === item.id
+                                    ? <Text style={styles.invCatalogueRowAddedText}>Added!</Text>
+                                    : <Text style={styles.invCatalogueRowPrice}>${item.default_price.toFixed(2)}</Text>}
+                                </TouchableOpacity>
+                              ))}
+                            </ScrollView>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
               </>
             ) : (
               <View style={styles.invCustomForm}>
@@ -3443,6 +3593,62 @@ const styles = StyleSheet.create({
   invCatalogueRowPrice: { fontSize: 14, fontWeight: '700', color: '#374151' },
   invCatalogueRowAdded: { backgroundColor: '#F0FDF4' },
   invCatalogueRowAddedText: { fontSize: 13, fontWeight: '700', color: '#10B981' },
+
+  // Quantity prompt (two-step catalogue selection)
+  invQtyPrompt: { paddingHorizontal: 4, paddingBottom: 8 },
+  invQtyBack: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16 },
+  invQtyBackText: { fontSize: 14, color: '#6B7280' },
+  invQtyItemCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#F9FAFB', borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: '#E5E7EB', marginBottom: 20,
+  },
+  invQtyItemName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  invQtyItemPrice: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  invQtyLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 10 },
+  invQtyRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 0,
+    alignSelf: 'center', marginBottom: 14,
+  },
+  invQtyBtn: {
+    width: 48, height: 48, borderRadius: 12,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  invQtyBtnText: { fontSize: 22, fontWeight: '300', color: '#111827' },
+  invQtyInput: {
+    width: 72, height: 48, textAlign: 'center',
+    fontSize: 20, fontWeight: '700', color: '#111827',
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  invQtyTotal: { textAlign: 'center', fontSize: 14, color: '#6B7280', marginBottom: 20 },
+  invQtyConfirmBtn: {
+    backgroundColor: '#F59E0B', borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center',
+  },
+  invQtyConfirmBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+
+  // Inline quantity controls on item cards
+  qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 0, marginRight: 8 },
+  qtyBtn: {
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  qtyBtnText: { fontSize: 18, fontWeight: '300', color: '#374151', lineHeight: 20 },
+  qtyValue: {
+    width: 32, textAlign: 'center',
+    fontSize: 15, fontWeight: '700', color: '#111827',
+  },
+  qtyInput: {
+    width: 36, height: 30, textAlign: 'center',
+    fontSize: 14, fontWeight: '700', color: '#111827',
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#D1D5DB',
+    backgroundColor: '#FFFFFF',
+  },
+  qtyDeleteBtn: { paddingLeft: 4 },
+
   invCustomButtons: { flexDirection: 'row', gap: 8, marginTop: 14 },
   invCustomBtnContinue: {
     flex: 1, paddingVertical: 12, borderRadius: 10,
