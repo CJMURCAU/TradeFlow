@@ -8,6 +8,7 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -30,7 +31,14 @@ export default function LoginPage() {
     }
     setForgotLoading(true);
     setError(null);
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim());
+    const redirectTo =
+      Platform.OS === 'web'
+        ? `${window.location.origin}/auth/callback`
+        : undefined;
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      forgotEmail.trim(),
+      redirectTo ? { redirectTo } : undefined,
+    );
     setForgotLoading(false);
     if (resetError) {
       setError(resetError.message);

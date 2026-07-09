@@ -45,6 +45,12 @@ function AppRoot() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
+        if (event === 'PASSWORD_RECOVERY') {
+          // Keep the session so the reset-password page can call updateUser,
+          // but do NOT redirect to the app — auth/callback handles the navigation.
+          setSessionState('authenticated');
+          return;
+        }
         if (session) {
           setSessionState('authenticated');
           if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
@@ -111,6 +117,7 @@ function AppRoot() {
       <Stack.Screen name="login" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="auth/callback" />
+      <Stack.Screen name="auth/reset-password" />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
