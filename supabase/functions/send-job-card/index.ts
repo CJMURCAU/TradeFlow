@@ -133,8 +133,13 @@ async function buildPdf(params: any): Promise<Uint8Array> {
   // ── HEADER ────────────────────────────────────────────────────────────────
   // Company name
   drawText(companyName, M, y + 22, fontBold, 22);
-  y += 28;
-  // Job card number + date on the same line
+  y += 34; // clear company name baseline (size 22 + 12 gap)
+
+  // Bold rule sits cleanly below company name
+  page.drawLine({ start: { x: M, y: pdfY(y) }, end: { x: PW - M, y: pdfY(y) }, thickness: 2.5, color: BLACK });
+  y += 16; // gap after rule
+
+  // Job card number + date on same line, below the rule
   const jobCardLabel = `JOB CARD  #${job.job_card_number}`;
   const scheduledDateStr = formatDate(job.scheduled_time);
   drawText(jobCardLabel, M, y + 11, fontRegular, 11, GRAY);
@@ -142,18 +147,15 @@ async function buildPdf(params: any): Promise<Uint8Array> {
     const dateLabel = `Date: ${scheduledDateStr}`;
     drawText(dateLabel, PW - M - textWidth(dateLabel, fontRegular, 11), y + 11, fontRegular, 11, GRAY);
   }
-  y += 16;
-  // Bold rule
-  page.drawLine({ start: { x: M, y: pdfY(y) }, end: { x: PW - M, y: pdfY(y) }, thickness: 2.5, color: BLACK });
-  y += 18;
+  y += 26; // clear label baseline (size 11 + 15 gap)
 
   // ── JOB TITLE ─────────────────────────────────────────────────────────────
-  checkPage(30);
+  checkPage(36);
   drawText(job.title, M, y + 18, fontBold, 18);
-  y += 24;
+  y += 30; // clear title baseline (size 18 + 12 gap)
   if (job.purchase_order_number) {
     drawText(`PO: ${job.purchase_order_number}`, M, y + 11, fontRegular, 11, MUTED);
-    y += 16;
+    y += 22; // clear label + gap
   }
 
   // ── CLIENT BOX ────────────────────────────────────────────────────────────
@@ -171,35 +173,35 @@ async function buildPdf(params: any): Promise<Uint8Array> {
     clientBoxH += clientLines[i].size + (i < clientLines.length - 1 ? 5 : 0);
   }
 
-  checkPage(clientBoxH + 16);
-  y += 8;
+  checkPage(clientBoxH + 24);
+  y += 4;
   rect(M, y, CW, clientBoxH, { border: BLACK, borderWidth: 1 });
   let cy = y + BOX_PAD;
   for (let i = 0; i < clientLines.length; i++) {
     const cl = clientLines[i];
     drawText(cl.text, M + BOX_PAD, cy + cl.size, cl.bold ? fontBold : fontRegular, cl.size, i === 0 ? GRAY : BLACK);
-    cy += cl.size + (i < clientLines.length - 1 ? 5 : 0);
+    cy += cl.size + (i < clientLines.length - 1 ? 6 : 0);
   }
-  y += clientBoxH + 14;
+  y += clientBoxH + 22;
 
   // ── DESCRIPTION ───────────────────────────────────────────────────────────
   if (job.description) {
     const descLines = wrapText(job.description, (t) => textWidth(t, fontRegular, 12), CW);
-    const descH = 9 + 6 + descLines.length * 18 + 14;
+    const descH = 16 + descLines.length * 20 + 16;
     checkPage(descH);
     drawText("DESCRIPTION", M, y + 9, fontBold, 9, GRAY);
-    y += 14;
+    y += 20; // clear label + gap before body text
     for (const line of descLines) {
       drawText(line, M, y + 12, fontRegular, 12);
-      y += 17;
+      y += 20; // line height: size 12 + 8 leading
     }
-    y += 8;
+    y += 12;
   }
 
   // ── INVENTORY TABLE ───────────────────────────────────────────────────────
-  checkPage(40);
+  checkPage(44);
   drawText("INVENTORY", M, y + 9, fontBold, 9, GRAY);
-  y += 14;
+  y += 20; // clear label + gap before table
 
   if (inventoryItems.length === 0) {
     drawText("No items or services recorded.", M, y + 12, fontRegular, 12, MUTED);
@@ -315,80 +317,81 @@ async function buildPdf(params: any): Promise<Uint8Array> {
   }
 
   // ── COST SUMMARY ──────────────────────────────────────────────────────────
-  checkPage(40);
+  checkPage(44);
   drawText("COST SUMMARY", M, y + 9, fontBold, 9, GRAY);
-  y += 14;
+  y += 20;
 
-  const LW = 380; // label column width
+  const LW = 300; // label column width — values right-align to page margin
   const VX = M + LW; // value column x
 
   function summaryRow(label: string, value: string, bold = false, yPos: number) {
     const font = bold ? fontBold : fontRegular;
     const size = bold ? 14 : 13;
     drawText(label, M, yPos + size, font, size);
-    drawText(value, VX + (CW - LW) - textWidth(value, font, size), yPos + size, font, size);
-    return yPos + size + 6;
+    drawText(value, PW - M - textWidth(value, font, size), yPos + size, font, size);
+    return yPos + size + 10; // size + 10 leading for breathing room
   }
 
   y = summaryRow("Total Time", formatTime(totalSeconds), false, y);
 
   // Labour subheading
-  checkPage(12);
+  checkPage(16);
+  y += 4;
   drawText("LABOUR COST", M, y + 9, fontRegular, 9, MUTED);
-  y += 14;
+  y += 18;
 
   // Owner row
   const ownerLabel = defaultRate > 0
     ? `  ${tradesmanName}  \u2014  ${formatTime(ownerSeconds)}  @  $${defaultRate.toFixed(2)}/hr`
     : `  ${tradesmanName}  \u2014  ${formatTime(ownerSeconds)}`;
-  checkPage(20);
+  checkPage(22);
   drawText(ownerLabel, M, y + 12, fontRegular, 12);
   const ownerValue = defaultRate > 0 ? `$${ownerCost.toFixed(2)}` : "\u2014";
-  drawText(ownerValue, VX + (CW - LW) - textWidth(ownerValue, fontBold, 12), y + 12, fontBold, 12);
-  y += 18;
+  drawText(ownerValue, PW - M - textWidth(ownerValue, fontBold, 12), y + 12, fontBold, 12);
+  y += 22;
 
   // Employee rows
   for (const r of empRows) {
     const empLabel = `  ${r.name}  \u2014  ${formatTime(r.seconds)}  @  $${r.rate.toFixed(2)}/hr`;
     const empValue = `$${((r.seconds / 3600) * r.rate).toFixed(2)}`;
-    checkPage(18);
+    checkPage(22);
     drawText(empLabel, M, y + 12, fontRegular, 12);
-    drawText(empValue, VX + (CW - LW) - textWidth(empValue, fontBold, 12), y + 12, fontBold, 12);
-    y += 18;
+    drawText(empValue, PW - M - textWidth(empValue, fontBold, 12), y + 12, fontBold, 12);
+    y += 22;
   }
 
   // Labour total
-  checkPage(20);
+  checkPage(22);
   drawText("  Labour Total", M, y + 13, fontRegular, 13);
   const ltv = `$${totalLabourCost.toFixed(2)}`;
-  drawText(ltv, VX + (CW - LW) - textWidth(ltv, fontBold, 13), y + 13, fontBold, 13);
-  y += 20;
+  drawText(ltv, PW - M - textWidth(ltv, fontBold, 13), y + 13, fontBold, 13);
+  y += 24;
 
   // Inventory
-  checkPage(20);
+  checkPage(22);
   drawText("Inventory", M, y + 13, fontRegular, 13);
   const inv = `$${totalInventoryCost.toFixed(2)}`;
-  drawText(inv, VX + (CW - LW) - textWidth(inv, fontBold, 13), y + 13, fontBold, 13);
-  y += 20;
+  drawText(inv, PW - M - textWidth(inv, fontBold, 13), y + 13, fontBold, 13);
+  y += 24;
 
   // Divider
-  checkPage(10);
-  hline(y + 4, M, PW - M, 0.75, BLACK);
-  y += 10;
+  checkPage(14);
+  hline(y + 6, M, PW - M, 0.75, BLACK);
+  y += 14;
 
   // Total
-  checkPage(24);
+  checkPage(28);
   drawText("TOTAL", M, y + 15, fontBold, 15);
   const tot = `$${totalCost.toFixed(2)}`;
-  drawText(tot, VX + (CW - LW) - textWidth(tot, fontBold, 15), y + 15, fontBold, 15);
-  y += 22;
+  drawText(tot, PW - M - textWidth(tot, fontBold, 15), y + 15, fontBold, 15);
+  y += 26;
 
   // Footer note
   if (tradesmanName) {
-    checkPage(18);
-    y += 6;
+    checkPage(22);
+    y += 8;
     drawText(`Completed by ${tradesmanName}`, M, y + 12, fontRegular, 12, MUTED);
-    y += 16;
+    y += 20;
   }
 
   return pdfDoc.save();
