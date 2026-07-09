@@ -17,6 +17,16 @@ function formatTime(seconds: number): string {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 }
 
+function formatDate(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return '';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+}
+
 function buildJobCardHtml(data: JobCardData): string {
   const { job, inventoryItems, timeEntries, business, employees } = data;
   const client = job.client;
@@ -124,7 +134,7 @@ function buildJobCardHtml(data: JobCardData): string {
   <div style="max-width:600px;margin:40px auto;background:#ffffff;">
     <div style="padding:40px 40px 24px;border-bottom:3px solid #000000;">
       <h1 style="margin:0 0 6px;color:#000000;font-size:28px;font-weight:700;letter-spacing:-0.5px;">${companyName}</h1>
-      <p style="margin:0;color:#000000;font-size:15px;font-weight:400;letter-spacing:0.03em;">JOB CARD #${job.job_card_number}</p>
+      <p style="margin:0;color:#000000;font-size:15px;font-weight:400;letter-spacing:0.03em;">JOB CARD #${job.job_card_number}${formatDate(job.scheduled_time) ? `&nbsp;&nbsp;&mdash;&nbsp;&nbsp;${formatDate(job.scheduled_time)}` : ''}</p>
     </div>
     <div style="padding:32px 40px;">
       <h2 style="margin:0 0 4px;color:#000000;font-size:20px;font-weight:700;">${job.title}</h2>
