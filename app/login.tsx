@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { readAndClearSignOutReason } from '@/lib/roleContext';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,9 +21,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  useEffect(() => {
+    const reason = readAndClearSignOutReason();
+    if (reason === 'removed') {
+      setInfo('Your access has been removed. Please contact your employer.');
+    }
+  }, []);
 
   const handleForgotPassword = async () => {
     if (!forgotEmail.trim()) {
@@ -103,6 +112,12 @@ export default function LoginPage() {
           <Text style={styles.appTitle}>TradeFlow</Text>
           <Text style={styles.tagline}>Job management for tradespeople</Text>
         </View>
+
+        {info && (
+          <View style={styles.infoBanner}>
+            <Text style={styles.infoBannerText}>{info}</Text>
+          </View>
+        )}
 
         <View style={styles.card}>
           {mode !== 'forgot' && (
@@ -246,7 +261,22 @@ const styles = StyleSheet.create({
   },
   logoSection: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 24,
+  },
+  infoBanner: {
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+  },
+  infoBannerText: {
+    color: '#92400E',
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 20,
   },
   logo: {
     width: 72,

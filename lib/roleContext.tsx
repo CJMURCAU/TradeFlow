@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import { supabase, UserRole, Employee } from './supabase';
 
 type RoleContextValue = {
@@ -16,6 +17,24 @@ const RoleContext = createContext<RoleContextValue>({
   loading: true,
   refetch: () => {},
 });
+
+// Store a reason so the login page can show a helpful message after sign-out.
+function storeSignOutReason(reason: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try { window.localStorage.setItem('signout_reason', reason); } catch {}
+  }
+}
+
+export function readAndClearSignOutReason(): string | null {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      const val = window.localStorage.getItem('signout_reason');
+      if (val) window.localStorage.removeItem('signout_reason');
+      return val;
+    } catch {}
+  }
+  return null;
+}
 
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -45,13 +64,21 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       setRole(roleRow.role as UserRole);
       if (roleRow.role === 'employee') {
         setOwnerUserId(roleRow.owner_id);
-        // Fetch the employee record so the app knows who this employee is
         const { data: emp } = await supabase
           .from('employees')
           .select('*')
           .eq('employee_user_id', user.id)
           .maybeSingle();
-        setEmployeeRecord(emp ?? null);
+
+        if (!emp) {
+          // Employee record was deleted — access has been revoked. Sign out immediately.
+          storeSignOutReason('removed');
+          setLoading(false);
+          await supabase.auth.signOut();
+          return;
+        }
+
+        setEmployeeRecord(emp);
       } else {
         setOwnerUserId(user.id);
         setEmployeeRecord(null);
@@ -86,7 +113,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     return () => listener.subscription.unsubscribe();
   }, []);
 
-  // Keep employee record in sync when employer changes settings (e.g. calendar_access toggle)
+  // Keep employee record in sync and detect deletion in real time.
   useEffect(() => {
     if (!employeeRecord?.id) return;
 
@@ -102,6 +129,20 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         },
         (payload) => {
           setEmployeeRecord(payload.new as Employee);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'employees',
+          filter: `id=eq.${employeeRecord.id}`,
+        },
+        () => {
+          // Owner has removed this employee — eject them immediately.
+          storeSignOutReason('removed');
+          supabase.auth.signOut();
         }
       )
       .subscribe();
