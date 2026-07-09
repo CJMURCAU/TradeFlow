@@ -46,12 +46,12 @@ export default function BusinessPage() {
   });
 
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [passwordForm, setPasswordForm] = useState({ newPassword: '', confirmPassword: '' });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   const [showChangeEmail, setShowChangeEmail] = useState(false);
-  const [emailForm, setEmailForm] = useState({ newEmail: '', confirmEmail: '' });
+  const [emailForm, setEmailForm] = useState({ newEmail: '', confirmEmail: '', currentPassword: '' });
   const [emailError, setEmailError] = useState('');
   const [emailSuccess, setEmailSuccess] = useState('');
   const [emailLoading, setEmailLoading] = useState(false);
@@ -303,7 +303,7 @@ export default function BusinessPage() {
     setEmailSuccess('');
 
     if (!emailForm.newEmail.trim() || !emailForm.confirmEmail.trim()) {
-      setEmailError('Please fill in both fields.');
+      setEmailError('Please fill in all fields.');
       return;
     }
     if (emailForm.newEmail.trim() !== emailForm.confirmEmail.trim()) {
@@ -315,15 +315,33 @@ export default function BusinessPage() {
       setEmailError('Please enter a valid email address.');
       return;
     }
+    if (!emailForm.currentPassword) {
+      setEmailError('Please enter your current password to confirm this change.');
+      return;
+    }
 
     setEmailLoading(true);
+
+    // Re-authenticate with current credentials before changing email.
+    const { data: { user } } = await supabase.auth.getUser();
+    const currentEmail = user?.email ?? '';
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: currentEmail,
+      password: emailForm.currentPassword,
+    });
+    if (authError) {
+      setEmailLoading(false);
+      setEmailError('Current password is incorrect.');
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ email: emailForm.newEmail.trim() });
     setEmailLoading(false);
 
     if (error) {
       setEmailError(error.message);
     } else {
-      setEmailForm({ newEmail: '', confirmEmail: '' });
+      setEmailForm({ newEmail: '', confirmEmail: '', currentPassword: '' });
       setEmailSuccess('A confirmation link has been sent to your new email address. Click the link to complete the change.');
     }
   };
@@ -331,27 +349,45 @@ export default function BusinessPage() {
   const handleChangePassword = async () => {
     setPasswordError('');
 
+    if (!passwordForm.currentPassword) {
+      setPasswordError('Please enter your current password.');
+      return;
+    }
     if (!passwordForm.newPassword || !passwordForm.confirmPassword) {
-      setPasswordError('Please fill in both fields.');
+      setPasswordError('Please fill in all fields.');
       return;
     }
     if (passwordForm.newPassword.length < 6) {
-      setPasswordError('Password must be at least 6 characters.');
+      setPasswordError('New password must be at least 6 characters.');
       return;
     }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('Passwords do not match.');
+      setPasswordError('New passwords do not match.');
       return;
     }
 
     setPasswordLoading(true);
+
+    // Re-authenticate with current credentials before changing password.
+    const { data: { user } } = await supabase.auth.getUser();
+    const currentEmail = user?.email ?? '';
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: currentEmail,
+      password: passwordForm.currentPassword,
+    });
+    if (authError) {
+      setPasswordLoading(false);
+      setPasswordError('Current password is incorrect.');
+      return;
+    }
+
     const { error } = await supabase.auth.updateUser({ password: passwordForm.newPassword });
     setPasswordLoading(false);
 
     if (error) {
       setPasswordError(error.message);
     } else {
-      setPasswordForm({ newPassword: '', confirmPassword: '' });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setShowChangePassword(false);
       setPasswordSuccess('Password updated successfully.');
     }
@@ -777,7 +813,7 @@ export default function BusinessPage() {
             setShowChangeEmail(!showChangeEmail);
             setEmailError('');
             setEmailSuccess('');
-            setEmailForm({ newEmail: '', confirmEmail: '' });
+            setEmailForm({ newEmail: '', confirmEmail: '', currentPassword: '' });
           }}>
           <View style={styles.settingsRowLeft}>
             <View style={styles.settingsIconWrap}>
@@ -811,6 +847,16 @@ export default function BusinessPage() {
               autoCapitalize="none"
               autoCorrect={false}
             />
+            <View style={styles.passwordFieldGap} />
+            <TextInput
+              style={styles.input}
+              placeholder="Current password"
+              placeholderTextColor="#9CA3AF"
+              value={emailForm.currentPassword}
+              onChangeText={text => setEmailForm(prev => ({ ...prev, currentPassword: text }))}
+              secureTextEntry
+              autoCapitalize="none"
+            />
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
             {emailSuccess ? <Text style={styles.successText}>{emailSuccess}</Text> : null}
             <TouchableOpacity
@@ -829,7 +875,7 @@ export default function BusinessPage() {
           onPress={() => {
             setShowChangePassword(!showChangePassword);
             setPasswordError('');
-            setPasswordForm({ newPassword: '', confirmPassword: '' });
+            setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
           }}>
           <View style={styles.settingsRowLeft}>
             <View style={styles.settingsIconWrap}>
@@ -842,6 +888,16 @@ export default function BusinessPage() {
 
         {showChangePassword && (
           <View style={styles.passwordForm}>
+            <TextInput
+              style={styles.input}
+              placeholder="Current password"
+              placeholderTextColor="#9CA3AF"
+              value={passwordForm.currentPassword}
+              onChangeText={text => setPasswordForm(prev => ({ ...prev, currentPassword: text }))}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <View style={styles.passwordFieldGap} />
             <TextInput
               style={styles.input}
               placeholder="New password"
