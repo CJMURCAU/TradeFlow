@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
         .eq("id", employeeId);
     }
 
-    const appUrl = clientAppUrl || "https://tradeflow.app";
+    const appUrl = clientAppUrl || "https://innovativetradetracker.com";
     const inviteLink = `${appUrl}/invite?token=${token}`;
 
     const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");
@@ -110,14 +110,14 @@ Deno.serve(async (req: Request) => {
 <body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;">
   <div style="max-width:560px;margin:40px auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
     <div style="padding:32px 40px 24px;border-bottom:2px solid #F59E0B;">
-      <h1 style="margin:0;color:#111827;font-size:22px;font-weight:700;">You've been invited to TradeFlow</h1>
+      <h1 style="margin:0;color:#111827;font-size:22px;font-weight:700;">You've been invited to Innovative Trade Tracker</h1>
     </div>
     <div style="padding:32px 40px;">
       <p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.6;">
         Hi ${employee.name},
       </p>
       <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;">
-        <strong>${companyName}</strong> has invited you to join TradeFlow as an employee. You'll be able to view and manage jobs assigned to you.
+        <strong>${companyName}</strong> has invited you to join Innovative Trade Tracker as an employee. You'll be able to view and manage jobs assigned to you.
       </p>
       <a href="${inviteLink}" style="display:inline-block;background:#F59E0B;color:#ffffff;font-size:15px;font-weight:700;padding:14px 28px;border-radius:8px;text-decoration:none;">Accept Invitation</a>
       <p style="margin:24px 0 0;font-size:13px;color:#6b7280;line-height:1.6;">
@@ -139,9 +139,9 @@ Deno.serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: { name: companyName, email: "hello@tradeflowmanager.com" },
+        from: { name: companyName, email: "hello@innovativetradetracker.com" },
         to: [{ email: employee.email }],
-        subject: `${companyName} has invited you to TradeFlow`,
+        subject: `${companyName} has invited you to Innovative Trade Tracker`,
         html: emailHtml,
       }),
     });

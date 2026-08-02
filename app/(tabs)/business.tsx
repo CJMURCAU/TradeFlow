@@ -456,7 +456,7 @@ export default function BusinessPage() {
       }
 
       const csv = lines.join('\n');
-      const filename = `tradepro-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      const filename = `innovative-trade-tracker-export-${new Date().toISOString().slice(0, 10)}.csv`;
 
       if (Platform.OS === 'web') {
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });

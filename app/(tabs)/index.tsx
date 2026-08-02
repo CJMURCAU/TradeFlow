@@ -341,7 +341,7 @@ export default function CalendarPage() {
       <View
         onLayout={(e) => setTopContentHeight(e.nativeEvent.layout.y + e.nativeEvent.layout.height)}>
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-          <Text style={styles.appName}>TradeFlow</Text>
+          <Text style={styles.appName}>Innovative Trade Tracker</Text>
           <Image
             source={require('@/assets/images/tradepro_emblem.png')}
             style={styles.logoImage}

@@ -8,7 +8,7 @@ let db: SQLite.SQLiteDatabase | null = null;
 export function getDb(): SQLite.SQLiteDatabase {
   if (Platform.OS === 'web') throw new Error('SQLite not supported on web');
   if (!db) {
-    db = SQLite.openDatabaseSync('tradepro_offline.db');
+    db = SQLite.openDatabaseSync('innovative_trade_tracker.db');
   }
   return db;
 }

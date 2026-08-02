@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.appTitle}>TradeFlow</Text>
+          <Text style={styles.appTitle}>Innovative Trade Tracker</Text>
           <Text style={styles.tagline}>Job management for tradespeople</Text>
         </View>
 

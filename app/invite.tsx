@@ -136,7 +136,7 @@ export default function InvitePage() {
             style={styles.logo}
             resizeMode="contain"
           />
-          <Text style={styles.appTitle}>TradeFlow</Text>
+          <Text style={styles.appTitle}>Innovative Trade Tracker</Text>
         </View>
 
         {stage === 'loading' && (
