@@ -284,10 +284,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   appTitle: {
-    fontSize: 32,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#111827',
     marginBottom: 6,
+    textAlign: 'center',
   },
   tagline: {
     fontSize: 15,
