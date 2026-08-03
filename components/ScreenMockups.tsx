@@ -118,6 +118,94 @@ export function DashboardMock() {
   );
 }
 
+export function MainCalendarMock() {
+  const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  const dates = Array.from({ length: 35 }, (_, i) => i - 2);
+  const dotsByDay: Record<number, string[]> = {
+    3: [AMBER],
+    7: [BLUE, AMBER],
+    12: [GREEN],
+    15: [BLUE],
+    18: [AMBER, GREEN, BLUE],
+    22: [GREEN],
+    25: [AMBER],
+    28: [BLUE],
+  };
+
+  return (
+    <View style={mockStyles.screen}>
+      <StatusBar />
+      <HeaderMock title="Innovative Trade Tracker" />
+      <View style={mockStyles.body}>
+        <View style={mockStyles.calNav}>
+          <ChevronLeft size={16} color={AMBER} />
+          <Text style={mockStyles.calMonth}>August 2026</Text>
+          <ChevronRight size={16} color={AMBER} />
+        </View>
+        <View style={mockStyles.calGrid}>
+          {days.map((d, i) => (
+            <Text key={i} style={mockStyles.calDayHeader}>{d}</Text>
+          ))}
+          {dates.map((dayNum, i) => {
+            const isToday = dayNum === 3;
+            const dots = dotsByDay[dayNum] || [];
+            return (
+              <View
+                key={i}
+                style={[
+                  mockStyles.calCell,
+                  isToday && mockStyles.calCellToday,
+                ]}>
+                <Text style={[mockStyles.calCellNum, isToday && mockStyles.calCellNumToday]}>
+                  {dayNum > 0 ? dayNum : ''}
+                </Text>
+                <View style={mockStyles.calDots}>
+                  {dots.map((c, di) => (
+                    <View key={di} style={[mockStyles.calDot, { backgroundColor: c }]} />
+                  ))}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+        <View style={mockStyles.statusKey}>
+          <View style={mockStyles.statusKeyItem}>
+            <View style={[mockStyles.statusKeyDot, { backgroundColor: AMBER }]} />
+            <Text style={mockStyles.statusKeyLabel}>Pending</Text>
+          </View>
+          <View style={mockStyles.statusKeyItem}>
+            <View style={[mockStyles.statusKeyDot, { backgroundColor: BLUE }]} />
+            <Text style={mockStyles.statusKeyLabel}>Active</Text>
+          </View>
+          <View style={mockStyles.statusKeyItem}>
+            <View style={[mockStyles.statusKeyDot, { backgroundColor: GREEN }]} />
+            <Text style={mockStyles.statusKeyLabel}>Completed</Text>
+          </View>
+        </View>
+
+        <Text style={mockStyles.todayJobsTitle}>Today's Jobs</Text>
+        <View style={mockStyles.todayJobCard}>
+          <View style={mockStyles.todayJobTopRow}>
+            <View style={mockStyles.todayJobLeft}>
+              <View style={[mockStyles.todayJobDot, { backgroundColor: AMBER }]} />
+              <View>
+                <Text style={mockStyles.todayJobName}>Kitchen Renovation</Text>
+                <Text style={mockStyles.todayJobClient}>Smith Residence Ltd</Text>
+              </View>
+            </View>
+            <Text style={mockStyles.todayJobTime}>9:00 AM</Text>
+          </View>
+          <View style={mockStyles.todayJobAddrRow}>
+            <MapPin size={10} color={GRAY} />
+            <Text style={mockStyles.todayJobAddr}>123 Oak Street, Springfield</Text>
+          </View>
+        </View>
+      </View>
+      <TabBarMock active="Calendar" />
+    </View>
+  );
+}
+
 export function CalendarMock() {
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const dates = Array.from({ length: 35 }, (_, i) => i - 2);
@@ -471,6 +559,17 @@ const mockStyles = StyleSheet.create({
   statusKeyItem: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   statusKeyDot: { width: 6, height: 6, borderRadius: 3 },
   statusKeyLabel: { fontSize: 8, color: '#4B5563', fontWeight: '500' },
+
+  todayJobsTitle: { fontSize: 11, fontWeight: '700', color: '#111827', marginTop: 8, marginBottom: 4 },
+  todayJobCard: { backgroundColor: LIGHT_GRAY, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: BORDER },
+  todayJobTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  todayJobLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  todayJobDot: { width: 8, height: 8, borderRadius: 4 },
+  todayJobName: { fontSize: 10, fontWeight: '700', color: '#111827' },
+  todayJobClient: { fontSize: 8, color: GRAY, marginTop: 1 },
+  todayJobTime: { fontSize: 9, fontWeight: '600', color: AMBER },
+  todayJobAddrRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
+  todayJobAddr: { fontSize: 8, color: GRAY },
 
   jobTitle: { fontSize: 13, fontWeight: 'bold', color: '#111827', marginBottom: 2 },
   jobClient: { fontSize: 11, color: GRAY, marginBottom: 4 },

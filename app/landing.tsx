@@ -16,8 +16,8 @@ import { Calendar, Clock, Briefcase, Users, Mail, MapPin, Camera, Play, Package,
 import { supabase } from '@/lib/supabase';
 import PhoneFrame from '@/components/PhoneFrame';
 import {
+  MainCalendarMock,
   DashboardMock,
-  CalendarMock,
   JobDetailMock,
   ClientsMock,
   TeamMock,
@@ -60,18 +60,18 @@ export default function LandingPage() {
 
   const features = [
     {
+      title: 'Your Schedule, Front and Centre',
+      description:
+        'The main screen shows a month-by-month calendar with colour-coded dots so you can see what is pending, active, and done at a look. Today\'s jobs appear right below the calendar — tap any day to see every job scheduled.',
+      mock: <MainCalendarMock />,
+      icon: Calendar,
+    },
+    {
       title: 'See Your Week at a Glance',
       description:
         'The dashboard shows hours worked this week, active jobs, completed jobs, and pending jobs — all on one screen. No digging through menus to know where things stand.',
       mock: <DashboardMock />,
       icon: Clock,
-    },
-    {
-      title: 'Your Jobs, Laid Out Clearly',
-      description:
-        'A month-by-month calendar with colour-coded dots so you know what is pending, active, and done at a look. Tap any day to see every job scheduled that day.',
-      mock: <CalendarMock />,
-      icon: Calendar,
     },
     {
       title: 'One Job, Everything Tracked',
