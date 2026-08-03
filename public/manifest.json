@@ -1,6 +1,6 @@
 {
   "name": "Innovative Trade Tracker",
-  "short_name": "Innovative Trade Tracker",
+  "short_name": "ITT",
   "description": "Manage. Job. Time.",
   "start_url": "/",
   "display": "standalone",
