@@ -119,55 +119,77 @@ export function DashboardMock() {
 }
 
 export function MainCalendarMock() {
-  const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const dates = Array.from({ length: 35 }, (_, i) => i - 2);
-  const dotsByDay: Record<number, string[]> = {
-    3: [AMBER],
-    7: [BLUE, AMBER],
-    12: [GREEN],
-    15: [BLUE],
-    18: [AMBER, GREEN, BLUE],
-    22: [GREEN],
-    25: [AMBER],
-    28: [BLUE],
-  };
+  const dayHeaders = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  // August 2026 starts on Saturday (col index 6)
+  const aug2026: (number | null)[] = [
+    null, null, null, null, null, null, 1,
+    2, 3, 4, 5, 6, 7, 8,
+    9, 10, 11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20, 21, 22,
+    23, 24, 25, 26, 27, 28, 29,
+    30, 31, null, null, null, null, null,
+  ];
+  const topTabs = [
+    { name: 'Calendar', icon: Calendar },
+    { name: 'Dashboard', icon: Building2 },
+    { name: 'Clients', icon: Users },
+    { name: 'Jobs', icon: Briefcase },
+    { name: 'Team', icon: Users },
+    { name: 'Biz', icon: Building2 },
+  ];
 
   return (
     <View style={mockStyles.screen}>
-      <StatusBar />
-      <HeaderMock title="Innovative Trade Tracker" />
-      <View style={mockStyles.body}>
+      {/* Header */}
+      <View style={mockStyles.mainHeader}>
+        <Text style={mockStyles.mainHeaderTitle}>Innovative Trade Tracker</Text>
+        <View style={mockStyles.mainHeaderLogo} />
+      </View>
+
+      {/* Top tab bar matching real app */}
+      <View style={mockStyles.topTabBar}>
+        {topTabs.map((tab) => {
+          const Icon = tab.icon;
+          const active = tab.name === 'Calendar';
+          return (
+            <View key={tab.name} style={mockStyles.topTabItem}>
+              <Icon size={10} color={active ? AMBER : GRAY} strokeWidth={2} />
+              <Text style={[mockStyles.topTabLabel, active && mockStyles.topTabLabelActive]}>
+                {tab.name}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {/* Calendar */}
+      <View style={mockStyles.calBody}>
         <View style={mockStyles.calNav}>
-          <ChevronLeft size={16} color={AMBER} />
+          <ChevronLeft size={11} color={AMBER} />
           <Text style={mockStyles.calMonth}>August 2026</Text>
-          <ChevronRight size={16} color={AMBER} />
+          <ChevronRight size={11} color={AMBER} />
         </View>
         <View style={mockStyles.calGrid}>
-          {days.map((d, i) => (
+          {dayHeaders.map((d, i) => (
             <Text key={i} style={mockStyles.calDayHeader}>{d}</Text>
           ))}
-          {dates.map((dayNum, i) => {
+          {aug2026.map((dayNum, i) => {
             const isToday = dayNum === 3;
-            const dots = dotsByDay[dayNum] || [];
             return (
-              <View
-                key={i}
-                style={[
-                  mockStyles.calCell,
-                  isToday && mockStyles.calCellToday,
+              <View key={i} style={[mockStyles.calCell, isToday && mockStyles.calCellToday]}>
+                <Text style={[
+                  mockStyles.calCellNum,
+                  isToday && mockStyles.calCellNumToday,
+                  !dayNum && mockStyles.calCellFaded,
                 ]}>
-                <Text style={[mockStyles.calCellNum, isToday && mockStyles.calCellNumToday]}>
-                  {dayNum > 0 ? dayNum : ''}
+                  {dayNum ?? ''}
                 </Text>
-                <View style={mockStyles.calDots}>
-                  {dots.map((c, di) => (
-                    <View key={di} style={[mockStyles.calDot, { backgroundColor: c }]} />
-                  ))}
-                </View>
               </View>
             );
           })}
         </View>
+
+        {/* Legend */}
         <View style={mockStyles.statusKey}>
           <View style={mockStyles.statusKeyItem}>
             <View style={[mockStyles.statusKeyDot, { backgroundColor: AMBER }]} />
@@ -183,25 +205,23 @@ export function MainCalendarMock() {
           </View>
         </View>
 
-        <Text style={mockStyles.todayJobsTitle}>Today's Jobs</Text>
-        <View style={mockStyles.todayJobCard}>
-          <View style={mockStyles.todayJobTopRow}>
-            <View style={mockStyles.todayJobLeft}>
-              <View style={[mockStyles.todayJobDot, { backgroundColor: AMBER }]} />
-              <View>
-                <Text style={mockStyles.todayJobName}>Kitchen Renovation</Text>
-                <Text style={mockStyles.todayJobClient}>Smith Residence Ltd</Text>
-              </View>
-            </View>
-            <Text style={mockStyles.todayJobTime}>9:00 AM</Text>
+        {/* Day panel */}
+        <View style={mockStyles.dayPanel}>
+          <View style={mockStyles.dayPanelHeader}>
+            <Text style={mockStyles.dayPanelTitle}>Monday, August 3</Text>
+            <ChevronRight size={12} color={GRAY} style={{ transform: [{ rotate: '-90deg' }] }} />
           </View>
-          <View style={mockStyles.todayJobAddrRow}>
-            <MapPin size={10} color={GRAY} />
-            <Text style={mockStyles.todayJobAddr}>123 Oak Street, Springfield</Text>
+          <Text style={mockStyles.noJobsText}>No jobs scheduled</Text>
+          <View style={mockStyles.scheduleBtn}>
+            <Text style={mockStyles.scheduleBtnText}>+ Schedule a Job</Text>
           </View>
         </View>
       </View>
-      <TabBarMock active="Calendar" />
+
+      {/* Floating + button */}
+      <View style={mockStyles.mainFab}>
+        <Plus size={14} color="#FFF" />
+      </View>
     </View>
   );
 }
@@ -649,4 +669,32 @@ const mockStyles = StyleSheet.create({
   backArrow: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   statusBadge: { backgroundColor: BLUE + '20', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   statusBadgeText: { fontSize: 8, fontWeight: '700', color: BLUE },
+
+  // MainCalendarMock – matches real app screenshot
+  mainHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  mainHeaderTitle: { fontSize: 11, fontWeight: '700', color: '#111827' },
+  mainHeaderLogo: { width: 20, height: 20, borderRadius: 4, backgroundColor: NAVY },
+  topTabBar: {
+    flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center',
+    paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: BORDER, backgroundColor: '#FFF',
+  },
+  topTabItem: { alignItems: 'center', gap: 1 },
+  topTabLabel: { fontSize: 7, fontWeight: '500', color: GRAY },
+  topTabLabelActive: { color: AMBER, fontWeight: '700' },
+  calBody: { flex: 1, padding: 8, overflow: 'hidden' },
+  calCellFaded: { color: '#D1D5DB' },
+  dayPanel: { marginTop: 6, backgroundColor: LIGHT_GRAY, borderRadius: 8, padding: 8, borderWidth: 1, borderColor: BORDER },
+  dayPanelHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  dayPanelTitle: { fontSize: 10, fontWeight: '700', color: '#111827' },
+  noJobsText: { fontSize: 9, color: GRAY, marginTop: 4, marginBottom: 6 },
+  scheduleBtn: { alignSelf: 'flex-start', backgroundColor: AMBER, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5 },
+  scheduleBtnText: { fontSize: 9, fontWeight: '700', color: '#FFF' },
+  mainFab: {
+    position: 'absolute', right: 12, bottom: 12, width: 32, height: 32, borderRadius: 16,
+    backgroundColor: AMBER, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5,
+  },
 });
