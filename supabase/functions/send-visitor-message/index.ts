@@ -117,7 +117,7 @@ Deno.serve(async (req: Request) => {
 
     const mailtrapToken = Deno.env.get("MAILTRAP_API_TOKEN");
     if (mailtrapToken) {
-      const appUrl = Deno.env.get("APP_URL") || "https://innovativetradetracker.com";
+      const appUrl = "https://innovativetradetracker.com";
       const conversationLink = `${appUrl}/contact?conversation=${conversationSlug}`;
 
       const emailHtml = `
