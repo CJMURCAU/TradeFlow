@@ -26,7 +26,6 @@ function OfflineBanner() {
 }
 
 function AppRoot() {
-  useFrameworkReady();
   const router = useRouter();
   const segments = useSegments();
   const [sessionState, setSessionState] = useState<SessionState>('loading');

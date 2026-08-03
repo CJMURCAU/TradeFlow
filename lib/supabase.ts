@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import 'react-native-url-polyfill/auto';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+
+if (Platform.OS !== 'web') {
+  require('react-native-url-polyfill/auto');
+}
+
+const SecureStore = Platform.OS !== 'web' ? require('expo-secure-store') : null;
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
