@@ -10,13 +10,16 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useRouter, Stack } from 'expo-router';
+import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { readAndClearSignOutReason } from '@/lib/roleContext';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const searchParams = useLocalSearchParams<{ mode?: string }>();
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(
+    searchParams.mode === 'signup' ? 'signup' : 'signin',
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [authLoading, setAuthLoading] = useState(false);

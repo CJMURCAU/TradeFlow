@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useFrameworkReady } from '@/hooks/useFrameworkReady'import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, AppState, AppStateStatus } from 'react-native';
@@ -54,7 +54,7 @@ function AppRoot() {
         if (session) {
           setSessionState('authenticated');
           if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
-            const onAuthScreen = segments[0] === 'login' || segments[0] === 'auth' || segments[0] === 'invite';
+            const onAuthScreen = segments[0] === 'login' || segments[0] === 'auth' || segments[0] === 'invite' || segments[0] === 'landing';
             if (onAuthScreen) {
               router.replace('/(tabs)');
             }
@@ -103,10 +103,11 @@ function AppRoot() {
     const inAuthGroup = segments[0] === 'login';
     const inAuthCallback = segments[0] === 'auth';
     const inInvite = segments[0] === 'invite';
+    const onLanding = segments[0] === 'landing';
 
-    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback && !inInvite) {
-      router.replace('/login');
-    } else if (sessionState === 'authenticated' && inAuthGroup) {
+    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback && !inInvite && !onLanding) {
+      router.replace('/landing');
+    } else if (sessionState === 'authenticated' && (inAuthGroup || onLanding)) {
       router.replace('/(tabs)');
     }
   }, [sessionState, segments]);
@@ -114,6 +115,7 @@ function AppRoot() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="landing" />
       <Stack.Screen name="login" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="auth/callback" />
