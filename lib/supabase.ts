@@ -10,6 +10,8 @@ const SecureStore = Platform.OS !== 'web' ? require('expo-secure-store') : null;
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
+export { supabaseUrl, supabaseAnonKey };
+
 const ExpoSecureStoreAdapter = Platform.OS !== 'web' ? {
   getItem: (key: string) => SecureStore.getItemAsync(key),
   setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
@@ -160,3 +162,22 @@ export type JobInventoryItem = {
 };
 
 export type UserRole = 'owner' | 'employee';
+
+export type VisitorConversation = {
+  id: string;
+  visitor_name: string;
+  visitor_email: string | null;
+  slug: string;
+  owner_user_id: string;
+  created_at: string;
+  last_message_at: string;
+};
+
+export type VisitorMessage = {
+  id: string;
+  conversation_id: string;
+  sender: 'visitor' | 'owner';
+  body: string;
+  read_by_owner: boolean;
+  created_at: string;
+};

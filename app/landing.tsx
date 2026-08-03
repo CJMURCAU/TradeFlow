@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Clock, Briefcase, Users, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X } from 'lucide-react-native';
+import { Calendar, Clock, Briefcase, Users, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import PhoneFrame from '@/components/PhoneFrame';
 import {
@@ -127,6 +127,10 @@ export default function LandingPage() {
             </TouchableOpacity>
           ) : (
             <View style={styles.headerBtns}>
+              <TouchableOpacity style={styles.contactBtn} onPress={() => router.push('/contact')}>
+                <MessageCircle size={16} color={LIGHT_TEXT} />
+                <Text style={styles.contactBtnText}>Contact Us</Text>
+              </TouchableOpacity>
               <TouchableOpacity style={styles.signInBtn} onPress={() => goToLogin('signin')}>
                 <Text style={styles.signInBtnText}>Sign In</Text>
               </TouchableOpacity>
@@ -139,6 +143,10 @@ export default function LandingPage() {
 
         {IS_MOBILE_WEB && mobileMenuOpen && (
           <View style={styles.mobileMenu}>
+            <TouchableOpacity style={styles.mobileMenuContactBtn} onPress={() => router.push('/contact')}>
+              <MessageCircle size={18} color={AMBER} />
+              <Text style={styles.mobileMenuContactText}>Contact Us</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.mobileMenuBtn} onPress={() => goToLogin('signin')}>
               <Text style={styles.mobileMenuBtnText}>Sign In</Text>
             </TouchableOpacity>
@@ -171,6 +179,10 @@ export default function LandingPage() {
               <Text style={styles.heroSecondaryBtnText}>Sign In</Text>
             </TouchableOpacity>
           </View>
+          <TouchableOpacity style={styles.heroContactBtn} onPress={() => router.push('/contact')}>
+            <MessageCircle size={18} color={AMBER} />
+            <Text style={styles.heroContactBtnText}>Contact Us — ask a question</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Feature Intro */}
@@ -341,6 +353,17 @@ const styles = StyleSheet.create({
     borderColor: AMBER,
   },
   signInBtnText: { fontSize: 14, fontWeight: '600', color: AMBER },
+  contactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: NAVY_LIGHT,
+  },
+  contactBtnText: { fontSize: 14, fontWeight: '600', color: LIGHT_TEXT },
   signUpBtn: {
     paddingHorizontal: 18,
     paddingVertical: 10,
@@ -350,6 +373,18 @@ const styles = StyleSheet.create({
   signUpBtnText: { fontSize: 14, fontWeight: '700', color: NAVY },
   menuBtn: { padding: 6 },
   mobileMenu: { paddingTop: 12, gap: 8 },
+  mobileMenuContactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: AMBER,
+  },
+  mobileMenuContactText: { fontSize: 15, fontWeight: '600', color: AMBER },
   mobileMenuBtn: {
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -407,6 +442,18 @@ const styles = StyleSheet.create({
     borderColor: AMBER,
   },
   heroSecondaryBtnText: { fontSize: 16, fontWeight: '600', color: AMBER },
+  heroContactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: AMBER + '60',
+  },
+  heroContactBtnText: { fontSize: 15, fontWeight: '600', color: AMBER },
 
   featureIntro: {
     alignItems: 'center',
