@@ -170,15 +170,16 @@ export default function LandingPage() {
             track your time, manage clients, and email finished job cards —
             all from your phone.
           </Text>
-          <View style={styles.heroBtns}>
-            <TouchableOpacity style={styles.heroPrimaryBtn} onPress={() => goToLogin('signup')}>
-              <Text style={styles.heroPrimaryBtnText}>Get Started</Text>
-              <ArrowRight size={18} color={NAVY} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.heroSecondaryBtn} onPress={() => goToLogin('signin')}>
-              <Text style={styles.heroSecondaryBtnText}>Sign In</Text>
-            </TouchableOpacity>
+          {/* App preview video */}
+          <View style={styles.heroVideoWrap}>
+            <View style={styles.heroVideoInner}>
+              <View style={styles.heroVideoPlayBtn}>
+                <Play size={40} color={WHITE} fill={WHITE} />
+              </View>
+              <Text style={styles.heroVideoLabel}>App preview — coming soon</Text>
+            </View>
           </View>
+
           <TouchableOpacity style={styles.heroContactBtn} onPress={() => router.push('/contact')}>
             <MessageCircle size={18} color={AMBER} />
             <Text style={styles.heroContactBtnText}>Contact Us — ask a question</Text>
@@ -423,25 +424,35 @@ const styles = StyleSheet.create({
     maxWidth: 600,
     marginBottom: 32,
   },
-  heroBtns: { flexDirection: 'row', gap: 14, flexWrap: 'wrap', justifyContent: 'center' },
-  heroPrimaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: AMBER,
-    paddingHorizontal: 28,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  heroPrimaryBtnText: { fontSize: 16, fontWeight: '700', color: NAVY },
-  heroSecondaryBtn: {
-    paddingHorizontal: 28,
-    paddingVertical: 16,
-    borderRadius: 12,
+  heroVideoWrap: {
+    width: '100%',
+    maxWidth: 720,
+    borderRadius: 20,
+    overflow: 'hidden',
     borderWidth: 2,
-    borderColor: AMBER,
+    borderColor: NAVY_LIGHT,
+    marginBottom: 24,
   },
-  heroSecondaryBtnText: { fontSize: 16, fontWeight: '600', color: AMBER },
+  heroVideoInner: {
+    aspectRatio: 16 / 9,
+    backgroundColor: NAVY_DARK,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+  },
+  heroVideoPlayBtn: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: AMBER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroVideoLabel: {
+    fontSize: 14,
+    color: MUTED_TEXT,
+    fontWeight: '500',
+  },
   heroContactBtn: {
     flexDirection: 'row',
     alignItems: 'center',
