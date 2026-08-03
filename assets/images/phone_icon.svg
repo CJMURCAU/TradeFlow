@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+<defs>
+  <radialGradient id="bg" cx="40%" cy="34%" r="72%">
+    <stop offset="0%"   stop-color="#1e5a96"/>
+    <stop offset="30%"  stop-color="#0c3868"/>
+    <stop offset="65%"  stop-color="#062444"/>
+    <stop offset="100%" stop-color="#021428"/>
+  </radialGradient>
+  <radialGradient id="shine" cx="36%" cy="28%" r="48%">
+    <stop offset="0%"   stop-color="white" stop-opacity="0.22"/>
+    <stop offset="55%"  stop-color="white" stop-opacity="0.07"/>
+    <stop offset="100%" stop-color="white" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="silverRing" x1="12%" y1="5%" x2="88%" y2="95%">
+    <stop offset="0%"   stop-color="#f5f5f5"/>
+    <stop offset="12%"  stop-color="#b0b0b0"/>
+    <stop offset="28%"  stop-color="#e8e8e8"/>
+    <stop offset="48%"  stop-color="#686868"/>
+    <stop offset="62%"  stop-color="#d0d0d0"/>
+    <stop offset="78%"  stop-color="#909090"/>
+    <stop offset="92%"  stop-color="#d8d8d8"/>
+    <stop offset="100%" stop-color="#a8a8a8"/>
+  </linearGradient>
+  <linearGradient id="textMetal" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%"   stop-color="#e0ecf8"/>
+    <stop offset="22%"  stop-color="#ffffff"/>
+    <stop offset="45%"  stop-color="#ccdaec"/>
+    <stop offset="68%"  stop-color="#9db8d8"/>
+    <stop offset="100%" stop-color="#c8daea"/>
+  </linearGradient>
+  <filter id="textShadow" x="-5%" y="-5%" width="110%" height="120%">
+    <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000a1a" flood-opacity="0.7"/>
+  </filter>
+</defs>
+
+<!-- Drop shadow -->
+<ellipse cx="259" cy="268" rx="252" ry="252" fill="black" opacity="0.38"/>
+
+<!-- Outer dark edge -->
+<circle cx="256" cy="256" r="253" fill="#1a1a1a"/>
+
+<!-- Silver ring -->
+<circle cx="256" cy="256" r="249" fill="url(#silverRing)"/>
+<circle cx="256" cy="256" r="249" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
+
+<!-- Inner dark bevel -->
+<circle cx="256" cy="256" r="233" fill="#252525"/>
+<circle cx="256" cy="256" r="230" fill="#606878"/>
+
+<!-- Navy background -->
+<circle cx="256" cy="256" r="226" fill="url(#bg)"/>
+<circle cx="256" cy="256" r="226" fill="url(#shine)"/>
+
+<!-- ITT text -->
+<text x="256" y="350"
+      font-family="'Arial Black','Arial',sans-serif"
+      font-weight="900"
+      font-size="150"
+      text-anchor="middle"
+      letter-spacing="8"
+      fill="url(#textMetal)"
+      filter="url(#textShadow)">ITT</text>
+</svg>

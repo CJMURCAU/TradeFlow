@@ -1,17 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Navy blue circle background -->
-  <circle cx="256" cy="256" r="256" fill="#1B2B4B"/>
-  <!-- Subtle silver ring -->
-  <circle cx="256" cy="256" r="240" fill="none" stroke="#8A9BB5" stroke-width="12"/>
-  <!-- ITT initials -->
-  <text
-    x="256"
-    y="320"
-    font-family="Arial Black, Arial, sans-serif"
-    font-weight="900"
-    font-size="200"
-    text-anchor="middle"
-    fill="#FFFFFF"
-    letter-spacing="-8"
-  >ITT</text>
+  <defs>
+    <radialGradient id="bg" cx="40%" cy="34%" r="72%">
+      <stop offset="0%" stop-color="#1e5a96"/>
+      <stop offset="30%" stop-color="#0c3868"/>
+      <stop offset="65%" stop-color="#062444"/>
+      <stop offset="100%" stop-color="#021428"/>
+    </radialGradient>
+    <linearGradient id="silverRing" x1="12%" y1="5%" x2="88%" y2="95%">
+      <stop offset="0%" stop-color="#f5f5f5"/>
+      <stop offset="48%" stop-color="#686868"/>
+      <stop offset="100%" stop-color="#a8a8a8"/>
+    </linearGradient>
+  </defs>
+  <circle cx="256" cy="256" r="253" fill="#1a1a1a"/>
+  <circle cx="256" cy="256" r="249" fill="url(#silverRing)"/>
+  <circle cx="256" cy="256" r="230" fill="#606878"/>
+  <circle cx="256" cy="256" r="226" fill="url(#bg)"/>
+  <text x="256" y="350" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="150" text-anchor="middle" letter-spacing="8" fill="#e0ecf8">ITT</text>
 </svg>

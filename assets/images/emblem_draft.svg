@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1024 1024" width="1024" height="1024">
+<defs>
+  <!-- Main navy radial gradient -->
+  <radialGradient id="bg" cx="40%" cy="34%" r="72%" gradientUnits="objectBoundingBox">
+    <stop offset="0%"   stop-color="#1e5a96"/>
+    <stop offset="30%"  stop-color="#0c3868"/>
+    <stop offset="65%"  stop-color="#062444"/>
+    <stop offset="100%" stop-color="#021428"/>
+  </radialGradient>
+
+  <!-- Glossy highlight (top-left lens flare) -->
+  <radialGradient id="shine" cx="36%" cy="28%" r="48%" gradientUnits="objectBoundingBox">
+    <stop offset="0%"   stop-color="white" stop-opacity="0.22"/>
+    <stop offset="55%"  stop-color="white" stop-opacity="0.07"/>
+    <stop offset="100%" stop-color="white" stop-opacity="0"/>
+  </radialGradient>
+
+  <!-- Silver metallic ring gradient -->
+  <linearGradient id="silverRing" x1="12%" y1="5%" x2="88%" y2="95%">
+    <stop offset="0%"   stop-color="#f5f5f5"/>
+    <stop offset="12%"  stop-color="#b0b0b0"/>
+    <stop offset="28%"  stop-color="#e8e8e8"/>
+    <stop offset="48%"  stop-color="#686868"/>
+    <stop offset="62%"  stop-color="#d0d0d0"/>
+    <stop offset="78%"  stop-color="#909090"/>
+    <stop offset="92%"  stop-color="#d8d8d8"/>
+    <stop offset="100%" stop-color="#a8a8a8"/>
+  </linearGradient>
+
+  <!-- Second ring (thin inner silver) -->
+  <linearGradient id="innerRing" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%"   stop-color="#c0ccd8"/>
+    <stop offset="50%"  stop-color="#606878"/>
+    <stop offset="100%" stop-color="#9aa8b8"/>
+  </linearGradient>
+
+  <!-- Icon fill gradient (bright top → cool steel bottom) -->
+  <linearGradient id="iconFill" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%"   stop-color="#ffffff"/>
+    <stop offset="38%"  stop-color="#dce8f5"/>
+    <stop offset="72%"  stop-color="#b8cfe8"/>
+    <stop offset="100%" stop-color="#8aaed0"/>
+  </linearGradient>
+
+  <!-- "ITT" metallic text gradient -->
+  <linearGradient id="textMetal" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%"   stop-color="#e0ecf8"/>
+    <stop offset="22%"  stop-color="#ffffff"/>
+    <stop offset="45%"  stop-color="#ccdaec"/>
+    <stop offset="68%"  stop-color="#9db8d8"/>
+    <stop offset="100%" stop-color="#c8daea"/>
+  </linearGradient>
+
+  <!-- Subtle icon glow filter -->
+  <filter id="glow" x="-15%" y="-15%" width="130%" height="130%">
+    <feGaussianBlur stdDeviation="4" result="blur"/>
+    <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+  </filter>
+
+  <!-- Text drop-shadow -->
+  <filter id="textShadow" x="-5%" y="-5%" width="110%" height="120%">
+    <feDropShadow dx="0" dy="3" stdDeviation="4"
+                  flood-color="#000a1a" flood-opacity="0.7"/>
+  </filter>
+
+  <!-- Clip to main circle -->
+  <clipPath id="circleClip">
+    <circle cx="512" cy="512" r="449"/>
+  </clipPath>
+</defs>
+
+<!-- ── Drop shadow behind the whole badge ── -->
+<ellipse cx="518" cy="524" rx="496" ry="496" fill="black" opacity="0.38"/>
+
+<!-- ── Outer dark edge ── -->
+<circle cx="512" cy="512" r="500" fill="#1a1a1a"/>
+
+<!-- ── Silver metallic outer ring ── -->
+<circle cx="512" cy="512" r="493" fill="url(#silverRing)"/>
+
+<!-- ── Highlight stroke on top of ring ── -->
+<circle cx="512" cy="512" r="493" fill="none"
+        stroke="rgba(255,255,255,0.25)" stroke-width="2.5"/>
+
+<!-- ── Inner dark bevel of ring ── -->
+<circle cx="512" cy="512" r="462" fill="#252525"/>
+<circle cx="512" cy="512" r="457" fill="url(#innerRing)"/>
+
+<!-- ── Navy background ── -->
+<circle cx="512" cy="512" r="450" fill="url(#bg)"/>
+
+<!-- ── Glossy shine ── -->
+<circle cx="512" cy="512" r="450" fill="url(#shine)"/>
+
+<!-- ═══════════════════════════════════════════════════════════ ICONS -->
+<g clip-path="url(#circleClip)" filter="url(#glow)">
+
+  <!-- ─ WRENCH ─ rotated slightly left for visual interest -->
+  <g transform="rotate(-12, 462, 318)">
+    <path d="M 428.0 213.0 A 34.0 10.2 0 0 1 496.0 213.0 L 496.0 262.0 C 496.0 286.4 473.0 310.9 473.0 323.2 L 473.0 423.0 A 11.0 8.8 0 0 1 451.0 423.0 L 451.0 323.2 C 451.0 310.9 428.0 286.4 428.0 262.0 Z M 444.0 211.0 L 444.0 281.5 A 18.0 10.8 0 0 0 480.0 281.5 L 480.0 211.0 Z" fill="url(#iconFill)" stroke="rgba(150,190,230,0.4)" stroke-width="1.5"
+          fill-rule="evenodd"/>
+  </g>
+
+  <!-- ─ GEAR outline ─ -->
+  <path d="M 560.68 224.35 L 547.41 202.14 L 588.59 202.14 L 575.32 224.35 L 606.54 234.50 L 608.86 208.73 L 642.17 232.93 L 618.38 243.10 L 637.68 269.66 L 654.71 250.18 L 667.43 289.34 L 642.21 283.58 L 642.21 316.42 L 667.43 310.66 L 654.71 349.82 L 637.68 330.34 L 618.38 356.90 L 642.17 367.07 L 608.86 391.27 L 606.54 365.50 L 575.32 375.65 L 588.59 397.86 L 547.41 397.86 L 560.68 375.65 L 529.46 365.50 L 527.14 391.27 L 493.83 367.07 L 517.62 356.90 L 498.32 330.34 L 481.29 349.82 L 468.57 310.66 L 493.79 316.42 L 493.79 283.58 L 468.57 289.34 L 481.29 250.18 L 498.32 269.66 L 517.62 243.10 L 493.83 232.93 L 527.14 208.73 L 529.46 234.50 Z" fill="url(#iconFill)" stroke="rgba(150,190,230,0.3)" stroke-width="1"/>
+
+  <!-- ─ Clock face inside gear ─ -->
+  <circle cx="568" cy="300" r="46" fill="#0a2e52" stroke="rgba(200,220,240,0.5)" stroke-width="2"/>
+  <line x1="568.0" y1="264.0" x2="568.0" y2="257.0" stroke="white" stroke-width="3.5" opacity="0.9"/>
+<line x1="586.0" y1="268.8" x2="589.5" y2="262.8" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="599.2" y1="282.0" x2="605.2" y2="278.5" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="604.0" y1="300.0" x2="611.0" y2="300.0" stroke="white" stroke-width="3.5" opacity="0.9"/>
+<line x1="599.2" y1="318.0" x2="605.2" y2="321.5" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="586.0" y1="331.2" x2="589.5" y2="337.2" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="568.0" y1="336.0" x2="568.0" y2="343.0" stroke="white" stroke-width="3.5" opacity="0.9"/>
+<line x1="550.0" y1="331.2" x2="546.5" y2="337.2" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="536.8" y1="318.0" x2="530.8" y2="321.5" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="532.0" y1="300.0" x2="525.0" y2="300.0" stroke="white" stroke-width="3.5" opacity="0.9"/>
+<line x1="536.8" y1="282.0" x2="530.8" y2="278.5" stroke="white" stroke-width="1.8" opacity="0.9"/>
+<line x1="550.0" y1="268.8" x2="546.5" y2="262.8" stroke="white" stroke-width="1.8" opacity="0.9"/>
+  <!-- clock hands -->
+  <path d="M 570.5 297.5 L 551.1 281.1 L 549.1 283.1 L 565.5 302.5 Z" fill="white" opacity="0.95"/>
+  <path d="M 568.0 302.5 L 601.1 301.0 L 601.1 299.0 L 568.0 297.5 Z" fill="rgba(200,225,245,0.9)"/>
+  <circle cx="568" cy="300" r="5" fill="white"/>
+
+  <!-- ─ HANDSHAKE ─ -->
+  <path d="M 652.0 413.4 C 652.0 403.0 523.2 393.9 523.2 429.0 L 497.4 461.5 L 523.2 487.5 C 561.8 503.1 512.0 520.0 576.4 529.1 C 632.7 522.6 652.0 509.6 652.0 507.0 Z M 372.0 413.4 C 372.0 403.0 500.8 393.9 500.8 429.0 L 526.6 461.5 L 500.8 487.5 C 462.2 503.1 512.0 520.0 447.6 529.1 C 391.3 522.6 372.0 509.6 372.0 507.0 Z" fill="url(#iconFill)" stroke="rgba(150,190,230,0.3)" stroke-width="1.5"/>
+
+</g>
+
+<!-- ═══════════════════════════════════════════════════════════ TEXT -->
+
+<!-- Thin separator line -->
+<line x1="230" y1="580" x2="794" y2="580"
+      stroke="rgba(130,165,210,0.45)" stroke-width="1.5"/>
+
+<!-- "ITT" main text -->
+<text x="512" y="703"
+      font-family="'Arial Black','Arial','Helvetica Neue',sans-serif"
+      font-weight="900"
+      font-size="152"
+      text-anchor="middle"
+      letter-spacing="14"
+      fill="url(#textMetal)"
+      filter="url(#textShadow)">ITT</text>
+
+<!-- "MANAGE. JOB. TIME." subtitle -->
+<text x="512" y="787"
+      font-family="'Arial','Helvetica Neue',sans-serif"
+      font-weight="300"
+      font-size="36"
+      text-anchor="middle"
+      letter-spacing="6"
+      fill="#7aaace"
+      opacity="0.92">MANAGE. JOB. TIME.</text>
+
+</svg>
