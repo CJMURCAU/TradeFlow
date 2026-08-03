@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useFrameworkReady } from '@/hooks/useFrameworkReady'import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, AppState, AppStateStatus } from 'react-native';
@@ -33,6 +33,8 @@ function AppRoot() {
   const { wasJustReconnected, isOnline } = useNetworkStatus();
   const appState = useRef(AppState.currentState);
   const isSeedingRef = useRef(false);
+  const segmentsRef = useRef(segments);
+  useEffect(() => { segmentsRef.current = segments; }, [segments]);
 
   const seedCacheInBackground = () => {
     if (isSeedingRef.current) return;
@@ -45,16 +47,16 @@ function AppRoot() {
 
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
+        if (event === 'INITIAL_SESSION') return;
         if (event === 'PASSWORD_RECOVERY') {
-          // Keep the session so the reset-password page can call updateUser,
-          // but do NOT redirect to the app — auth/callback handles the navigation.
           setSessionState('authenticated');
           return;
         }
         if (session) {
           setSessionState('authenticated');
           if (event === 'USER_UPDATED' || event === 'SIGNED_IN') {
-            const onAuthScreen = segments[0] === 'login' || segments[0] === 'auth' || segments[0] === 'invite' || segments[0] === 'landing';
+            const seg = segmentsRef.current;
+            const onAuthScreen = seg[0] === 'login' || seg[0] === 'auth' || seg[0] === 'invite' || seg[0] === 'landing';
             if (onAuthScreen) {
               router.replace('/(tabs)');
             }
