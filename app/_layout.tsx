@@ -1,4 +1,4 @@
-import { useFrameworkReady } from '@/hooks/useFrameworkReady'import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, AppState, AppStateStatus } from 'react-native';
