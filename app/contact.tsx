@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase, supabaseUrl, supabaseAnonKey } from '@/lib/supabase';
-import { Send, ArrowLeft, Mail, MessageCircle, CircleCheck as CheckCircle2 } from 'lucide-react-native';
+import { Send, ArrowLeft, Mail, MessageCircle } from 'lucide-react-native';
 
 const NAVY = '#1B2B4B';
 const NAVY_DARK = '#0F1E38';

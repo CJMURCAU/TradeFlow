@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, supabaseUrl, supabaseAnonKey, VisitorConversation, VisitorMessage } from '@/lib/supabase';
-import { ArrowLeft, Send, Mail, MessageCircle, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, Send, Mail, MessageCircle } from 'lucide-react-native';
 import TabBar from '@/components/TabBar';
 import { useCallback } from 'react';
 
