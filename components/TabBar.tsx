@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   label: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   logoutLabel: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     color: '#EF4444',
   },
