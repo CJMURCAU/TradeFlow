@@ -343,7 +343,7 @@ export default function CalendarPage() {
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
           <Text style={styles.appName}>Innovative Trade Tracker</Text>
           <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
+            source={require('@/assets/images/itt_emblem.webp')}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -538,8 +538,8 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   logoImage: {
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
   },
   monthNavRow: {
     flexDirection: 'row',

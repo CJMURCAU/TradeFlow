@@ -151,7 +151,7 @@ export default function LandingPage() {
         <View style={styles.headerInner}>
           <View style={styles.logoRow}>
             <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
+              source={require('@/assets/images/itt_emblem.webp')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -446,7 +446,7 @@ export default function LandingPage() {
         <View style={styles.footer}>
           <View style={styles.footerTop}>
             <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
+              source={require('@/assets/images/itt_emblem.webp')}
               style={styles.footerLogo}
               resizeMode="contain"
             />
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerLogo: { width: 36, height: 36 },
+  headerLogo: { width: 48, height: 48 },
   headerLogoText: { fontSize: 16, fontWeight: 'bold', color: WHITE },
   headerBtns: { flexDirection: 'row', gap: 10 },
   signInBtn: {
@@ -972,7 +972,7 @@ const styles = StyleSheet.create({
     borderTopColor: NAVY_LIGHT,
   },
   footerTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  footerLogo: { width: 28, height: 28 },
+  footerLogo: { width: 40, height: 40 },
   footerName: { fontSize: 14, fontWeight: '600', color: WHITE },
   footerCopy: { fontSize: 12, color: MUTED_TEXT },
 });

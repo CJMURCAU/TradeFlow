@@ -67,7 +67,7 @@ export default function DashboardPage() {
       <View style={styles.header}>
         <Text style={styles.pageTitle}>Dashboard</Text>
         <Image
-          source={require('@/assets/images/tradepro_emblem.png')}
+          source={require('@/assets/images/itt_emblem.webp')}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -156,8 +156,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   logoImage: {
-    width: 44,
-    height: 44,
+    width: 56,
+    height: 56,
   },
   pageTitle: {
     fontSize: 22,

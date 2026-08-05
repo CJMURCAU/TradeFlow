@@ -174,7 +174,7 @@ export default function ContactPage() {
           </TouchableOpacity>
           <View style={styles.logoRow}>
             <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
+              source={require('@/assets/images/itt_emblem.webp')}
               style={styles.headerLogo}
               resizeMode="contain"
             />
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   backBtnText: { fontSize: 14, color: WHITE, fontWeight: '600' },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerLogo: { width: 28, height: 28 },
+  headerLogo: { width: 40, height: 40 },
   headerLogoText: { fontSize: 16, fontWeight: 'bold', color: WHITE },
   headerSpacer: { width: 60 },
 

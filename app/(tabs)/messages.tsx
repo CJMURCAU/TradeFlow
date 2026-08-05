@@ -194,7 +194,7 @@ export default function MessagesPage() {
               <Text style={styles.backBtnText}>Messages</Text>
             </TouchableOpacity>
             <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
+              source={require('@/assets/images/itt_emblem.webp')}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -279,7 +279,7 @@ export default function MessagesPage() {
         <View style={styles.headerTop}>
           <Text style={styles.title}>Messages</Text>
           <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
+            source={require('@/assets/images/itt_emblem.webp')}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
-  logoImage: { width: 100, height: 40 },
+  logoImage: { width: 120, height: 50 },
 
   conversationHeaderInfo: { marginTop: 8 },
   conversationName: { fontSize: 16, fontWeight: '600', color: '#111827' },

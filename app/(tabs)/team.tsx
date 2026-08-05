@@ -184,7 +184,7 @@ export default function TeamPage() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Text style={styles.title}>Team</Text>
-            <Image source={require('@/assets/images/tradepro_emblem.png')} style={styles.logoImage} resizeMode="contain" />
+            <Image source={require('@/assets/images/itt_emblem.webp')} style={styles.logoImage} resizeMode="contain" />
           </View>
         </View>
         <TabBar />
@@ -201,7 +201,7 @@ export default function TeamPage() {
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <Text style={styles.title}>Team</Text>
-            <Image source={require('@/assets/images/tradepro_emblem.png')} style={styles.logoImage} resizeMode="contain" />
+            <Image source={require('@/assets/images/itt_emblem.webp')} style={styles.logoImage} resizeMode="contain" />
           </View>
         </View>
         <TabBar />
@@ -223,7 +223,7 @@ export default function TeamPage() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Team</Text>
-          <Image source={require('@/assets/images/tradepro_emblem.png')} style={styles.logoImage} resizeMode="contain" />
+          <Image source={require('@/assets/images/itt_emblem.webp')} style={styles.logoImage} resizeMode="contain" />
         </View>
       </View>
 
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  logoImage: { width: 44, height: 44 },
+  logoImage: { width: 56, height: 56 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyContainer: {

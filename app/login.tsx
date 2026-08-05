@@ -108,7 +108,7 @@ export default function LoginPage() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.logoSection}>
           <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
+            source={require('@/assets/images/itt_emblem.webp')}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -282,8 +282,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   logo: {
-    width: 72,
-    height: 72,
+    width: 88,
+    height: 88,
     marginBottom: 12,
   },
   appTitle: {

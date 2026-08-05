@@ -132,7 +132,7 @@ export default function InvitePage() {
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.logoSection}>
           <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
+            source={require('@/assets/images/itt_emblem.webp')}
             style={styles.logo}
             resizeMode="contain"
           />
@@ -253,8 +253,8 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   logo: {
-    width: 64,
-    height: 64,
+    width: 80,
+    height: 80,
     marginBottom: 10,
   },
   appTitle: {

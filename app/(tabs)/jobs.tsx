@@ -233,7 +233,7 @@ export default function JobsPage() {
               </TouchableOpacity>
             )}
             <Image
-              source={require('@/assets/images/tradepro_emblem.png')}
+              source={require('@/assets/images/itt_emblem.webp')}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  logoImage: { width: 44, height: 44 },
+  logoImage: { width: 56, height: 56 },
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
   notifButton: { position: 'relative', padding: 4 },
   notifBadge: {

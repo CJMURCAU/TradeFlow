@@ -81,7 +81,7 @@ export default function ClientsPage() {
         <View style={styles.headerTop}>
           <Text style={styles.title}>Clients</Text>
           <Image
-            source={require('@/assets/images/tradepro_emblem.png')}
+            source={require('@/assets/images/itt_emblem.webp')}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -173,8 +173,8 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   logoImage: {
-    width: 100,
-    height: 40,
+    width: 120,
+    height: 50,
   },
   title: {
     fontSize: 22,
