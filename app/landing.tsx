@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Clock, Briefcase, Users, User, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle, Star, Quote } from 'lucide-react-native';
+import { Calendar, Clock, Briefcase, Users, User, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle, Star } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import PhoneFrame from '@/components/PhoneFrame';
 import {
@@ -393,9 +393,6 @@ export default function LandingPage() {
                   {[0, 1, 2, 3, 4].map((s) => (
                     <Star key={s} size={16} color={AMBER} fill={AMBER} />
                   ))}
-                </View>
-                <View style={styles.testimonialQuoteIcon}>
-                  <Quote size={20} color={AMBER + '60'} />
                 </View>
                 <Text style={styles.testimonialText}>"{t.quote}"</Text>
                 <View style={styles.testimonialAuthor}>
@@ -866,9 +863,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 4,
     marginBottom: 16,
-  },
-  testimonialQuoteIcon: {
-    marginBottom: 8,
   },
   testimonialText: {
     fontSize: 15,
