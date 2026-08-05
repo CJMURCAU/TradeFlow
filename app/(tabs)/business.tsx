@@ -174,8 +174,6 @@ export default function BusinessPage() {
       setAddEmployeeError('Please enter a valid hourly rate.');
       return;
     }
-    )
-    )
 
     setAddEmployeeLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -233,8 +231,6 @@ export default function BusinessPage() {
       setEditError('Please enter a valid hourly rate.');
       return;
     }
-    )
-    )
 
     setEditLoading(true);
     const { error } = await supabase
@@ -319,10 +315,7 @@ export default function BusinessPage() {
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(emailForm.newEmail.trim())) {
-      setEmail
-    }
-  }
-}Error('Please enter a valid email address.');
+      setEmailError('Please enter a valid email address.');
       return;
     }
     if (!emailForm.currentPassword) {
