@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Clock, Briefcase, Users, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle } from 'lucide-react-native';
+import { Calendar, Clock, Briefcase, Users, User, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import PhoneFrame from '@/components/PhoneFrame';
 import {
@@ -184,6 +184,73 @@ export default function LandingPage() {
             <MessageCircle size={18} color={AMBER} />
             <Text style={styles.heroContactBtnText}>Contact Us — ask a question</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* Who It's For */}
+        <View style={styles.whoSection}>
+          <Text style={styles.whoEyebrow}>Who It's For</Text>
+          <Text style={styles.whoTitle}>Built for Individuals and small companies</Text>
+          <Text style={styles.whoSubtext}>
+            TradeFlow keeps things simple whether you work alone or lead a small crew. No enterprise complexity — just the tools you actually need.
+          </Text>
+
+          <View style={styles.whoCards}>
+            {/* Individual card — white */}
+            <View style={[styles.whoCard, styles.whoCardLight]}>
+              <View style={styles.whoCardHeader}>
+                <View style={[styles.whoCardIcon, styles.whoCardIconLight]}>
+                  <User size={22} color={AMBER} />
+                </View>
+                <View>
+                  <Text style={[styles.whoCardEyebrow, { color: AMBER }]}>INDIVIDUAL</Text>
+                  <Text style={[styles.whoCardName, { color: '#111827' }]}>Just You</Text>
+                </View>
+              </View>
+              <Text style={[styles.whoCardDesc, { color: '#4B5563' }]}>
+                Working as an independent tradesperson? Innovative Trade Tracker handles the admin so you can spend more time on the tools. Simple to set up, simple to use every day.
+              </Text>
+              {[
+                'Manage jobs with an easy-to-use, intuitive calendar',
+                'Track time, parts, and billing against each job',
+                'Keep client history and contact details organised in one place',
+                'Capture job site photos and store them directly in the app',
+                'Work offline when out of reception — syncs automatically when back online',
+              ].map((item, i) => (
+                <View key={i} style={styles.whoCardItem}>
+                  <CheckCircle size={16} color={AMBER} />
+                  <Text style={[styles.whoCardItemText, { color: '#374151' }]}>{item}</Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Small Company card — dark */}
+            <View style={[styles.whoCard, styles.whoCardDark]}>
+              <View style={styles.whoCardHeader}>
+                <View style={[styles.whoCardIcon, styles.whoCardIconDark]}>
+                  <Users size={22} color={AMBER} />
+                </View>
+                <View>
+                  <Text style={[styles.whoCardEyebrow, { color: AMBER }]}>SMALL COMPANY</Text>
+                  <Text style={[styles.whoCardName, { color: WHITE }]}>Your Small Team</Text>
+                </View>
+              </View>
+              <Text style={[styles.whoCardDesc, { color: LIGHT_TEXT }]}>
+                Managing a small team? Assign jobs, track schedules, and keep your crew coordinated — all from one simple app that your team will actually want to use.
+              </Text>
+              {[
+                'Assign jobs to team members',
+                "Track everyone's schedule in one view",
+                'Oversee job progress across the crew',
+                'Manage shared inventory and parts',
+                'Simple enough for the whole team to use',
+              ].map((item, i) => (
+                <View key={i} style={styles.whoCardItem}>
+                  <CheckCircle size={16} color={AMBER} />
+                  <Text style={[styles.whoCardItemText, { color: LIGHT_TEXT }]}>{item}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
 
         {/* Feature Intro */}
@@ -465,6 +532,103 @@ const styles = StyleSheet.create({
     borderColor: AMBER + '60',
   },
   heroContactBtnText: { fontSize: 15, fontWeight: '600', color: AMBER },
+
+  whoSection: {
+    paddingHorizontal: 24,
+    paddingVertical: 64,
+    backgroundColor: NAVY,
+    alignItems: 'center',
+  },
+  whoEyebrow: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AMBER,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  whoTitle: {
+    fontSize: IS_MOBILE_WEB ? 24 : 32,
+    fontWeight: 'bold',
+    color: WHITE,
+    textAlign: 'center',
+    lineHeight: IS_MOBILE_WEB ? 32 : 42,
+    marginBottom: 14,
+    maxWidth: 620,
+  },
+  whoSubtext: {
+    fontSize: IS_MOBILE_WEB ? 14 : 16,
+    color: LIGHT_TEXT,
+    textAlign: 'center',
+    lineHeight: 26,
+    maxWidth: 580,
+    marginBottom: 40,
+  },
+  whoCards: {
+    flexDirection: IS_MOBILE_WEB ? 'column' : 'row',
+    gap: 20,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  whoCard: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 28,
+    gap: 0,
+  },
+  whoCardLight: {
+    backgroundColor: WHITE,
+  },
+  whoCardDark: {
+    backgroundColor: '#1C1C1E',
+  },
+  whoCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+  },
+  whoCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  whoCardIconLight: {
+    backgroundColor: '#FEF3C7',
+  },
+  whoCardIconDark: {
+    backgroundColor: '#3B2A00',
+  },
+  whoCardEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 2,
+  },
+  whoCardName: {
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  whoCardDesc: {
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
+  },
+  whoCardItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 12,
+  },
+  whoCardItemText: {
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
 
   featureIntro: {
     alignItems: 'center',
