@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, Text, StyleSheet, AppState, AppStateStatus } from 'react-native';
+import { View, Text, StyleSheet, AppState, AppStateStatus, useWindowDimensions } from 'react-native';
+import { MAX_APP_WIDTH } from '@/lib/constants';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider } from '@/lib/roleContext';
@@ -130,11 +131,14 @@ function AppRoot() {
 
 export default function RootLayout() {
   useFrameworkReady();
+  const { width } = useWindowDimensions();
+  const isDesktop = width > MAX_APP_WIDTH;
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={[styles.root, isDesktop && styles.rootDesktop]}>
       <SafeAreaProvider>
         <RoleProvider>
-          <View style={{ flex: 1 }}>
+          <View style={[styles.appShell, isDesktop && { maxWidth: MAX_APP_WIDTH }]}>
             <AppRoot />
             <OfflineBanner />
           </View>
@@ -146,6 +150,18 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  rootDesktop: {
+    alignItems: 'center',
+  },
+  appShell: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+  },
   offlineBanner: {
     position: 'absolute',
     bottom: 0,

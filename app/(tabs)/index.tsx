@@ -22,8 +22,9 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { getLocalJobs } from '@/lib/localDb';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
+import { MAX_APP_WIDTH } from '@/lib/constants';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, MAX_APP_WIDTH);
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
 const COMPACT_CELL_HEIGHT = 38;
@@ -178,7 +179,7 @@ export default function CalendarPage() {
   }, []);
 
   const onScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const itemWidth = winWidth || SCREEN_WIDTH;
+    const itemWidth = Math.min(winWidth || SCREEN_WIDTH, MAX_APP_WIDTH);
     const newIndex = Math.round(e.nativeEvent.contentOffset.x / itemWidth);
     if (newIndex !== currentIndex) {
       setCurrentIndex(newIndex);
@@ -372,8 +373,8 @@ export default function CalendarPage() {
               keyExtractor={(item) => item.toString()}
               renderItem={renderCompactMonth}
               getItemLayout={(_, index) => ({
-                length: winWidth,
-                offset: winWidth * index,
+                length: Math.min(winWidth, MAX_APP_WIDTH),
+                offset: Math.min(winWidth, MAX_APP_WIDTH) * index,
                 index,
               })}
               onMomentumScrollEnd={onScrollEnd}
