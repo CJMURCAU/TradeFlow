@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRouter, Stack } from 'expo-router';
@@ -20,6 +21,8 @@ type ContactDraft = {
 
 export default function NewClientPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [companyName, setCompanyName] = useState('');
   const [address, setAddress] = useState('');
   const [contacts, setContacts] = useState<ContactDraft[]>([{ name: '', phone: '', email: '' }]);
@@ -95,7 +98,8 @@ export default function NewClientPage() {
         <Text style={styles.title}>New Client</Text>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
+        <View style={[styles.formInner, isDesktop && styles.formInnerDesktop]}>
         <View style={styles.formGroup}>
           <Text style={styles.label}>Company Name *</Text>
           <TextInput
@@ -180,6 +184,7 @@ export default function NewClientPage() {
                 <Text style={styles.createButtonText}>Create Client</Text>
               </>}
         </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -200,6 +205,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: 'bold', color: '#111827' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },
+  contentContainerDesktop: { alignItems: 'center' },
+  formInner: { width: '100%' },
+  formInnerDesktop: { maxWidth: 640, width: '100%' },
   formGroup: { marginBottom: 24 },
   label: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 8 },
   input: {

@@ -11,6 +11,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { supabase, BusinessDetails, Employee } from '@/lib/supabase';
 import {
@@ -36,6 +37,8 @@ import * as Sharing from 'expo-sharing';
 import TabBar from '@/components/TabBar';
 
 export default function BusinessPage() {
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [businessDetails, setBusinessDetails] = useState<BusinessDetails | null>(null);
   const [formData, setFormData] = useState({
     company_name: '',
@@ -529,7 +532,8 @@ export default function BusinessPage() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
+        <View style={[styles.formInner, isDesktop && styles.formInnerDesktop]}>
         {/* Business Details Form */}
         <View style={styles.formGroup}>
           <Text style={styles.label}>Company Name</Text>
@@ -978,6 +982,7 @@ export default function BusinessPage() {
             </Text>
           </View>
         </TouchableOpacity>
+        </View>
       </ScrollView>
       </KeyboardAvoidingView>
 
@@ -1073,6 +1078,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: 'bold', color: '#111827' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },
+  contentContainerDesktop: { alignItems: 'center' },
+  formInner: { width: '100%' },
+  formInnerDesktop: { maxWidth: 640, width: '100%' },
   formGroup: { marginBottom: 24 },
   label: { fontSize: 16, fontWeight: '600', color: '#111827', marginBottom: 8 },
   input: {

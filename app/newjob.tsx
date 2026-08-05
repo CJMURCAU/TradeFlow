@@ -12,6 +12,7 @@ import {
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  useWindowDimensions,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
 import { useRole } from '@/lib/roleContext';
@@ -23,6 +24,8 @@ const CAL_WIDTH = SCREEN_WIDTH - 32;
 
 export default function NewJobPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { ownerUserId } = useRole();
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   const [clients, setClients] = useState<Client[]>([]);
@@ -274,7 +277,8 @@ export default function NewJobPage() {
         <Text style={styles.title}>New Job</Text>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
+        <View style={[styles.formInner, isDesktop && styles.formInnerDesktop]}>
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Client *</Text>
@@ -521,6 +525,7 @@ export default function NewJobPage() {
                 <Text style={styles.createButtonText}>Create Job</Text>
               </>}
         </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <Modal
@@ -600,6 +605,16 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 40,
+  },
+  contentContainerDesktop: {
+    alignItems: 'center',
+  },
+  formInner: {
+    width: '100%',
+  },
+  formInnerDesktop: {
+    maxWidth: 640,
+    width: '100%',
   },
   formGroup: {
     marginBottom: 24,

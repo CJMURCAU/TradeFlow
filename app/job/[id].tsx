@@ -16,6 +16,7 @@ import {
   Share,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  useWindowDimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -46,6 +47,8 @@ const EDIT_CAL_WIDTH = Dimensions.get('window').width - 32;
 export default function JobDetailPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const { role, employeeRecord, ownerUserId } = useRole();
   const { isOnline } = useNetworkStatus();
 
@@ -1471,7 +1474,8 @@ export default function JobDetailPage() {
         </View>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
+        <View style={[styles.formInner, isDesktop && styles.formInnerDesktop]}>
         {/* Edit bar — owner only */}
         {!isEmployee && (
           <View style={styles.editBar}>
@@ -2241,6 +2245,7 @@ export default function JobDetailPage() {
             </TouchableOpacity>
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Edit Date Picker Modal */}
@@ -2912,6 +2917,9 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, fontWeight: '700' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },
+  contentContainerDesktop: { alignItems: 'center' },
+  formInner: { width: '100%' },
+  formInnerDesktop: { maxWidth: 640, width: '100%' },
   loadingText: { color: '#111827', fontSize: 16, textAlign: 'center', marginTop: 100 },
   section: { marginBottom: 24 },
   jobTitle: { fontSize: 24, fontWeight: 'bold', color: '#111827', marginBottom: 8 },

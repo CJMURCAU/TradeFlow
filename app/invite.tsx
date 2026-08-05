@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   ScrollView,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -15,6 +16,8 @@ import { supabase } from '@/lib/supabase';
 export default function InvitePage() {
   const { token } = useLocalSearchParams<{ token: string }>();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const [stage, setStage] = useState<'loading' | 'invalid' | 'signup' | 'signin' | 'linking' | 'done'>('loading');
   const [employeeName, setEmployeeName] = useState('');
@@ -129,7 +132,7 @@ export default function InvitePage() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, isDesktop && styles.scrollDesktop]}>
         <View style={styles.logoSection}>
           <Image
             source={require('@/assets/images/itt_emblem.webp')}
@@ -147,7 +150,7 @@ export default function InvitePage() {
         )}
 
         {stage === 'invalid' && (
-          <View style={styles.card}>
+          <View style={[styles.card, isDesktop && styles.cardDesktop]}>
             <Text style={styles.cardTitle}>Invalid Invitation</Text>
             <Text style={styles.cardBody}>
               This invitation link is invalid or has already been used. Please ask your employer to resend the invite.
@@ -159,7 +162,7 @@ export default function InvitePage() {
         )}
 
         {(stage === 'signup' || stage === 'signin') && (
-          <View style={styles.card}>
+          <View style={[styles.card, isDesktop && styles.cardDesktop]}>
             <Text style={styles.cardTitle}>
               {stage === 'signup' ? 'Create Your Account' : 'Sign In to Accept'}
             </Text>
@@ -227,7 +230,7 @@ export default function InvitePage() {
         )}
 
         {stage === 'done' && (
-          <View style={styles.card}>
+          <View style={[styles.card, isDesktop && styles.cardDesktop]}>
             <Text style={styles.doneTitle}>All set!</Text>
             <Text style={styles.cardBody}>Your account has been linked. Redirecting you to the app...</Text>
           </View>
@@ -248,28 +251,8 @@ const styles = StyleSheet.create({
     paddingTop: 72,
     paddingBottom: 48,
   },
-  logoSection: {
+  scrollDesktop: {
     alignItems: 'center',
-    marginBottom: 36,
-  },
-  logo: {
-    width: 80,
-    height: 80,
-    marginBottom: 10,
-  },
-  appTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  centred: {
-    alignItems: 'center',
-    paddingVertical: 40,
-    gap: 16,
-  },
-  loadingText: {
-    fontSize: 15,
-    color: '#6B7280',
   },
   card: {
     backgroundColor: '#FFFFFF',
@@ -278,6 +261,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     gap: 16,
+  },
+  cardDesktop: {
+    maxWidth: 480,
+    width: '100%',
   },
   cardTitle: {
     fontSize: 20,

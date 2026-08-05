@@ -9,6 +9,7 @@ import {
   Image,
   ActivityIndicator,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -16,6 +17,8 @@ import { readAndClearSignOutReason } from '@/lib/roleContext';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const searchParams = useLocalSearchParams<{ mode?: string }>();
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(
     searchParams.mode === 'signup' ? 'signup' : 'signin',
@@ -105,7 +108,8 @@ export default function LoginPage() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]} keyboardShouldPersistTaps="handled">
+        <View style={[styles.formInner, isDesktop && styles.formInnerDesktop]}>
         <View style={styles.logoSection}>
           <Image
             source={require('@/assets/images/itt_emblem.webp')}
@@ -246,6 +250,7 @@ export default function LoginPage() {
             </View>
           )}
         </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -261,6 +266,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 72,
     paddingBottom: 48,
+  },
+  scrollContentDesktop: {
+    alignItems: 'center',
+  },
+  formInner: {
+    width: '100%',
+  },
+  formInnerDesktop: {
+    maxWidth: 480,
+    width: '100%',
   },
   logoSection: {
     alignItems: 'center',

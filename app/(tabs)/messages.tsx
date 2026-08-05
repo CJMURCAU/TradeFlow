@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, supabaseUrl, supabaseAnonKey, VisitorConversation, VisitorMessage } from '@/lib/supabase';
@@ -25,6 +26,8 @@ type ConversationWithPreview = VisitorConversation & {
 
 export default function MessagesPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [conversations, setConversations] = useState<ConversationWithPreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithPreview | null>(null);
@@ -288,7 +291,7 @@ export default function MessagesPage() {
 
       <TabBar />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
         {conversations.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconBox}>
@@ -381,6 +384,7 @@ const styles = StyleSheet.create({
 
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 120 },
+  contentContainerDesktop: { alignItems: 'center' },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 },
   emptyIconBox: {

@@ -9,6 +9,7 @@ import {
   Platform,
   Image,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
 import { supabase, Job, Client, EmployeeNotification } from '@/lib/supabase';
 import { Trash2, Calendar, Search, Bell, X, CircleCheck as CheckCircle } from 'lucide-react-native';
@@ -22,6 +23,8 @@ type JobStatus = 'all' | 'pending' | 'active' | 'completed';
 
 export default function JobsPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const params = useLocalSearchParams();
   const { role, employeeRecord } = useRole();
   const { isOnline } = useNetworkStatus();
@@ -310,7 +313,7 @@ export default function JobsPage() {
 
       <TabBar />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
         {filteredJobs.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
@@ -457,6 +460,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: '#FFFFFF' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },
+  contentContainerDesktop: { alignItems: 'center' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyStateText: { fontSize: 16, color: '#6B7280' },
   jobCard: {

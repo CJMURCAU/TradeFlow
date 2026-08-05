@@ -8,12 +8,15 @@ import {
   ScrollView,
   Image,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -64,7 +67,7 @@ export default function ResetPasswordPage() {
   return (
     <View style={styles.container}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]} keyboardShouldPersistTaps="handled">
         <View style={styles.logoSection}>
           <Image
             source={require('@/assets/images/itt_emblem.webp')}
@@ -75,7 +78,7 @@ export default function ResetPasswordPage() {
           <Text style={styles.tagline}>Job management for tradespeople</Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, isDesktop && styles.cardDesktop]}>
           {error && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
@@ -149,6 +152,9 @@ const styles = StyleSheet.create({
     paddingTop: 72,
     paddingBottom: 48,
   },
+  scrollContentDesktop: {
+    alignItems: 'center',
+  },
   logoSection: {
     alignItems: 'center',
     marginBottom: 36,
@@ -179,6 +185,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
+  },
+  cardDesktop: {
+    maxWidth: 480,
+    width: '100%',
   },
   form: {
     padding: 24,

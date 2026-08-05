@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Linking,
+  useWindowDimensions,
 } from 'react-native';
 import { supabase, Client, ClientContact, Job } from '@/lib/supabase';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -22,6 +23,8 @@ type ContactDraft = {
 export default function ClientDetailPage() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [client, setClient] = useState<Client | null>(null);
   const [extraContacts, setExtraContacts] = useState<ClientContact[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -174,7 +177,8 @@ export default function ClientDetailPage() {
         )}
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
+        <View style={[styles.formInner, isDesktop && styles.formInnerDesktop]}>
         {isEditing ? (
           <>
             <View style={styles.formGroup}>
@@ -323,6 +327,7 @@ export default function ClientDetailPage() {
             </View>
           </>
         )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -345,6 +350,9 @@ const styles = StyleSheet.create({
   editButton: { color: '#F59E0B', fontSize: 16, fontWeight: '600' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },
+  contentContainerDesktop: { alignItems: 'center' },
+  formInner: { width: '100%' },
+  formInnerDesktop: { maxWidth: 640, width: '100%' },
   loadingText: { color: '#6B7280', fontSize: 16, textAlign: 'center', marginTop: 100 },
   section: { marginBottom: 24 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', color: '#111827', marginBottom: 14 },

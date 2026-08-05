@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   KeyboardAvoidingView,
+  useWindowDimensions,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
 import { Plus, Search, Trash2, MapPin, Phone, Mail } from 'lucide-react-native';
@@ -18,6 +19,8 @@ import TabBar from '@/components/TabBar';
 
 export default function ClientsPage() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
   const [clients, setClients] = useState<Client[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredClients, setFilteredClients] = useState<Client[]>([]);
@@ -100,7 +103,7 @@ export default function ClientsPage() {
 
       <TabBar />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
+      <ScrollView style={styles.content} contentContainerStyle={[styles.contentContainer, isDesktop && styles.contentContainerDesktop]}>
         {filteredClients.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateText}>
@@ -203,6 +206,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 120,
+  },
+  contentContainerDesktop: {
+    alignItems: 'center',
   },
   emptyState: {
     alignItems: 'center',
