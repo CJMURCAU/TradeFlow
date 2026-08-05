@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Clock, Briefcase, Users, User, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle } from 'lucide-react-native';
+import { Calendar, Clock, Briefcase, Users, User, Mail, MapPin, Camera, Play, Package, CircleCheck as CheckCircle, ArrowRight, Menu, X, MessageCircle, Star, Quote } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import PhoneFrame from '@/components/PhoneFrame';
 import {
@@ -36,6 +36,45 @@ const MUTED_TEXT = '#94A3B8';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const IS_WEB = Platform.OS === 'web';
 const IS_MOBILE_WEB = IS_WEB && SCREEN_WIDTH < 768;
+
+const testimonials = [
+  {
+    quote:
+      "I used to lose hours every week chasing paperwork and job details. Innovative Trade Tracker put everything in one place — my calendar, client notes, and job cards are all there. It paid for itself in the first week.",
+    name: 'James Whitaker',
+    role: 'Solo Electrician',
+  },
+  {
+    quote:
+      "We've got a crew of five and keeping everyone coordinated used to be a nightmare. Now I assign jobs from my phone, track who's where, and the lads actually use it because it's so simple. Best decision we made this year.",
+    name: 'Sarah Connolly',
+    role: 'Owner, Connolly Plumbing & Heating',
+  },
+  {
+    quote:
+      "The offline mode is a lifesaver. I work in rural areas with no signal half the time and it just works — syncs everything when I'm back in range. No other app I tried could do that properly.",
+    name: 'Mike Donovan',
+    role: 'Independent Fencer',
+  },
+  {
+    quote:
+      "I'm not techy at all and I had my whole business set up in twenty minutes. The job cards look professional and my clients have noticed the difference. Wish I'd found it years ago.",
+    name: 'Priya Shah',
+    role: 'Owner, Shah Decorators',
+  },
+  {
+    quote:
+      "Being able to attach photos to each job means I've got a proper record of before and after. When a client queries something I can pull it up instantly. It's saved me from disputes more than once.",
+    name: 'Tom Reilly',
+    role: 'Solo Builder',
+  },
+  {
+    quote:
+      "We run a small roofing company with three vans on the road. Innovative Trade Tracker lets me see everyone's schedule at a glance and move jobs around when things change. It's like having an office manager in my pocket.",
+    name: 'Karen Mitchell',
+    role: 'Director, Mitchell Roofing',
+  },
+];
 
 export default function LandingPage() {
   const router = useRouter();
@@ -337,6 +376,41 @@ export default function LandingPage() {
                 team, and send finished job cards by email.
               </Text>
             </View>
+          </View>
+        </View>
+
+        {/* Testimonials */}
+        <View style={styles.testimonialsSection}>
+          <Text style={styles.testimonialsEyebrow}>Testimonials</Text>
+          <Text style={styles.testimonialsTitle}>
+            See what others are saying about Innovative Trade Tracker
+          </Text>
+
+          <View style={styles.testimonialsGrid}>
+            {testimonials.map((t, i) => (
+              <View key={i} style={styles.testimonialCard}>
+                <View style={styles.testimonialStars}>
+                  {[0, 1, 2, 3, 4].map((s) => (
+                    <Star key={s} size={16} color={AMBER} fill={AMBER} />
+                  ))}
+                </View>
+                <View style={styles.testimonialQuoteIcon}>
+                  <Quote size={20} color={AMBER + '60'} />
+                </View>
+                <Text style={styles.testimonialText}>"{t.quote}"</Text>
+                <View style={styles.testimonialAuthor}>
+                  <View style={styles.testimonialAvatar}>
+                    <Text style={styles.testimonialAvatarText}>
+                      {t.name.charAt(0)}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text style={styles.testimonialName}>{t.name}</Text>
+                    <Text style={styles.testimonialRole}>{t.role}</Text>
+                  </View>
+                </View>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -745,6 +819,94 @@ const styles = StyleSheet.create({
   videoComingSoon: { fontSize: 13, color: MUTED_TEXT, fontWeight: '500' },
   videoTitle: { fontSize: 18, fontWeight: 'bold', color: WHITE, marginBottom: 6 },
   videoDesc: { fontSize: 14, color: LIGHT_TEXT, lineHeight: 22 },
+
+  testimonialsSection: {
+    paddingHorizontal: 24,
+    paddingVertical: 64,
+    backgroundColor: NAVY_DARK,
+    alignItems: 'center',
+  },
+  testimonialsEyebrow: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: AMBER,
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  testimonialsTitle: {
+    fontSize: IS_MOBILE_WEB ? 22 : 30,
+    fontWeight: 'bold',
+    color: WHITE,
+    textAlign: 'center',
+    lineHeight: IS_MOBILE_WEB ? 30 : 40,
+    marginBottom: 40,
+    maxWidth: 680,
+  },
+  testimonialsGrid: {
+    flexDirection: IS_MOBILE_WEB ? 'column' : 'row',
+    flexWrap: 'wrap',
+    gap: 20,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  testimonialCard: {
+    flex: 1,
+    minWidth: IS_MOBILE_WEB ? '100%' : 300,
+    maxWidth: 460,
+    backgroundColor: NAVY,
+    borderRadius: 20,
+    padding: 28,
+    borderWidth: 1,
+    borderColor: NAVY_LIGHT,
+  },
+  testimonialStars: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 16,
+  },
+  testimonialQuoteIcon: {
+    marginBottom: 8,
+  },
+  testimonialText: {
+    fontSize: 15,
+    color: LIGHT_TEXT,
+    lineHeight: 24,
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
+  testimonialAuthor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  testimonialAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: NAVY_LIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: AMBER + '60',
+  },
+  testimonialAvatarText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: AMBER,
+  },
+  testimonialName: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: WHITE,
+    marginBottom: 2,
+  },
+  testimonialRole: {
+    fontSize: 13,
+    color: MUTED_TEXT,
+  },
 
   personalSection: {
     paddingHorizontal: 24,
