@@ -2,23 +2,29 @@ import { useEffect } from 'react';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import { Calendar, LayoutDashboard, Users, Briefcase, Building2, UsersRound, MessageCircle } from 'lucide-react-native';
 import { useRole } from '@/lib/roleContext';
+import { MESSAGES_OWNER_USER_ID } from '@/lib/constants';
 
 const EMPLOYEE_RESTRICTED = ['index', 'dashboard', 'clients', 'business', 'team'];
 
 export default function TabLayout() {
-  const { role, loading } = useRole();
+  const { role, loading, ownerUserId } = useRole();
   const router = useRouter();
   const segments = useSegments();
 
   const isEmployee = role === 'employee';
+  const isMessagesOwner = ownerUserId === MESSAGES_OWNER_USER_ID;
 
   useEffect(() => {
-    if (loading || !isEmployee) return;
+    if (loading || !role) return;
     const currentTab = segments[segments.length - 1];
-    if (EMPLOYEE_RESTRICTED.includes(currentTab)) {
+    if (isEmployee && EMPLOYEE_RESTRICTED.includes(currentTab)) {
       router.replace('/(tabs)/jobs');
+      return;
     }
-  }, [role, loading, segments]);
+    if (currentTab === 'messages' && !isMessagesOwner) {
+      router.replace('/(tabs)/');
+    }
+  }, [role, loading, segments, isMessagesOwner]);
 
   return (
     <Tabs
@@ -85,7 +91,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: 'Messages',
-          href: isEmployee ? null : undefined,
+          href: (isEmployee || !isMessagesOwner) ? null : undefined,
           tabBarIcon: ({ size, color }) => (
             <MessageCircle size={size} color={color} />
           ),

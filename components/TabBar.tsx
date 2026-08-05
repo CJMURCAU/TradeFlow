@@ -5,6 +5,7 @@ import { useRole } from '@/lib/roleContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useState, useEffect } from 'react';
+import { MESSAGES_OWNER_USER_ID } from '@/lib/constants';
 
 const OWNER_TABS = [
   { name: 'Calendar', path: '/(tabs)/', icon: Calendar },
@@ -23,14 +24,17 @@ const EMPLOYEE_TABS = [
 export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { role, loading } = useRole();
+  const { role, loading, ownerUserId } = useRole();
   const insets = useSafeAreaInsets();
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const TABS = role === 'employee' ? EMPLOYEE_TABS : OWNER_TABS;
+  const isMessagesOwner = ownerUserId === MESSAGES_OWNER_USER_ID;
+  const TABS = (role === 'employee' ? EMPLOYEE_TABS : OWNER_TABS).filter(
+    tab => tab.name !== 'Messages' || isMessagesOwner
+  );
 
   useEffect(() => {
-    if (role === 'employee') return;
+    if (role === 'employee' || !isMessagesOwner) return;
     const fetchUnread = async () => {
       const { data } = await supabase.rpc('get_unread_visitor_message_count');
       if (data !== null && data !== undefined) {
@@ -40,7 +44,7 @@ export default function TabBar() {
     fetchUnread();
     const interval = setInterval(fetchUnread, 15000);
     return () => clearInterval(interval);
-  }, [role]);
+  }, [role, isMessagesOwner]);
 
   if (loading) return null;
 
