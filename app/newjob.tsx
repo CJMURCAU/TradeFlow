@@ -42,6 +42,10 @@ export default function NewJobPage() {
     email: '',
     address: '',
   });
+  const todayStr = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+  })();
   const [formData, setFormData] = useState({
     client_id: '',
     title: '',
@@ -49,21 +53,18 @@ export default function NewJobPage() {
     description: '',
     hour: '09',
     minute: '00',
-    date: '',
+    date: dateParam ?? todayStr,
   });
 
   useEffect(() => {
     fetchClients();
+  }, []);
+
+  useEffect(() => {
     if (dateParam) {
       setFormData(prev => ({ ...prev, date: dateParam }));
-    } else {
-      const today = new Date();
-      const year = today.getFullYear();
-      const month = String(today.getMonth() + 1).padStart(2, '0');
-      const day = String(today.getDate()).padStart(2, '0');
-      setFormData(prev => ({ ...prev, date: `${year}-${month}-${day}` }));
     }
-  }, []);
+  }, [dateParam]);
 
   const fetchClients = async () => {
     const { data } = await supabase
