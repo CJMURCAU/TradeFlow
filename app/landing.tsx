@@ -647,6 +647,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 20,
     padding: 28,
+    paddingBottom: 36,
     gap: 0,
   },
   whoCardLight: {
