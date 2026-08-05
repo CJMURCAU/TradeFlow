@@ -105,8 +105,9 @@ function AppRoot() {
     const inAuthCallback = segments[0] === 'auth';
     const inInvite = segments[0] === 'invite';
     const onLanding = segments[0] === 'landing';
+    const onContact = segments[0] === 'contact';
 
-    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback && !inInvite && !onLanding) {
+    if (sessionState === 'unauthenticated' && !inAuthGroup && !inAuthCallback && !inInvite && !onLanding && !onContact) {
       router.replace('/landing');
     } else if (sessionState === 'authenticated' && (inAuthGroup || onLanding)) {
       router.replace('/(tabs)');
@@ -117,6 +118,7 @@ function AppRoot() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="landing" />
+      <Stack.Screen name="contact" />
       <Stack.Screen name="login" />
       <Stack.Screen name="invite" />
       <Stack.Screen name="auth/callback" />
