@@ -191,7 +191,7 @@ export default function LandingPage() {
           <Text style={styles.whoEyebrow}>Who It's For</Text>
           <Text style={styles.whoTitle}>Built for Individuals and small companies</Text>
           <Text style={styles.whoSubtext}>
-            TradeFlow keeps things simple whether you work alone or lead a small crew. No enterprise complexity — just the tools you actually need.
+            Innovative Trade Tracker keeps things simple whether you work alone or lead a small crew. No enterprise complexity — just the tools you actually need.
           </Text>
 
           <View style={styles.whoCards}>
