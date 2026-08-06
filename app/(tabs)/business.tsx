@@ -486,6 +486,17 @@ export default function BusinessPage() {
     }
   };
 
+  const handleFeedback = () => {
+    const subject = encodeURIComponent('Feedback - Innovative Trade Tracker');
+    const body = encodeURIComponent("Hi team,\n\nI'd like to share some feedback about the app:\n\n");
+    const url = `mailto:simplejobtrademanager@gmail.com?subject=${subject}&body=${body}`;
+    if (Platform.OS === 'web') {
+      window.location.href = url;
+    } else {
+      Linking.openURL(url);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };
@@ -960,6 +971,20 @@ export default function BusinessPage() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.settingsRow, styles.feedbackRow]}
+          onPress={handleFeedback}>
+          <View style={styles.settingsRowLeft}>
+            <View style={[styles.settingsIconWrap, styles.feedbackIconWrap]}>
+              <Mail size={18} color="#2563EB" />
+            </View>
+            <View>
+              <Text style={styles.feedbackRowText}>Report a Glitch / Request a Feature</Text>
+              <Text style={styles.feedbackRowHint}>Send us an email with your feedback</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.settingsRow, styles.logoutRow]}
           onPress={handleLogout}>
           <View style={styles.settingsRowLeft}>
@@ -1228,6 +1253,10 @@ const styles = StyleSheet.create({
   exportIconWrap: { backgroundColor: '#DBEAFE' },
   exportRowText: { fontSize: 16, fontWeight: '500', color: '#1D4ED8' },
   exportRowHint: { fontSize: 12, color: '#3B82F6', marginTop: 1 },
+  feedbackRow: { borderColor: '#DBEAFE', backgroundColor: '#EFF6FF' },
+  feedbackIconWrap: { backgroundColor: '#DBEAFE' },
+  feedbackRowText: { fontSize: 16, fontWeight: '500', color: '#1D4ED8' },
+  feedbackRowHint: { fontSize: 12, color: '#3B82F6', marginTop: 1 },
   logoutRow: { borderColor: '#FEF3C7', backgroundColor: '#FFFBEB' },
   logoutIconWrap: { backgroundColor: '#FEF3C7' },
   logoutRowText: { fontSize: 16, fontWeight: '500', color: '#D97706' },
