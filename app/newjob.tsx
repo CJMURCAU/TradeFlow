@@ -9,23 +9,22 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
-  Dimensions,
+  useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
-  useWindowDimensions,
 } from 'react-native';
 import { supabase, Client } from '@/lib/supabase';
 import { useRole } from '@/lib/roleContext';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const CAL_WIDTH = SCREEN_WIDTH - 32;
+
 
 export default function NewJobPage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isDesktop = width >= 768;
+  const calWidth = (isDesktop ? Math.min(width, 460) : width) - 32;
   const { ownerUserId } = useRole();
   const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
   const [clients, setClients] = useState<Client[]>([]);
@@ -183,7 +182,7 @@ export default function NewJobPage() {
   });
 
   const onCalendarScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const newIndex = Math.round(e.nativeEvent.contentOffset.x / CAL_WIDTH);
+    const newIndex = Math.round(e.nativeEvent.contentOffset.x / calWidth);
     if (newIndex !== calendarIndex) {
       setCalendarIndex(newIndex);
     }
@@ -220,7 +219,7 @@ export default function NewJobPage() {
     todayStart.setHours(0, 0, 0, 0);
 
     return (
-      <View style={{ width: CAL_WIDTH, padding: 8 }}>
+      <View style={{ width: calWidth, padding: 8 }}>
         <View style={styles.calGridHeader}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <Text key={d} style={styles.calGridHeaderDay}>{d}</Text>
@@ -562,8 +561,8 @@ export default function NewJobPage() {
               keyExtractor={(item) => item.toString()}
               renderItem={renderCalendarMonth}
               getItemLayout={(_, index) => ({
-                length: SCREEN_WIDTH - 32,
-                offset: (SCREEN_WIDTH - 32) * index,
+                length: calWidth,
+                offset: calWidth * index,
                 index,
               })}
               initialScrollIndex={0}

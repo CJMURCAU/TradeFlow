@@ -22,7 +22,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { getLocalJobs } from '@/lib/localDb';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
-import { MAX_APP_WIDTH } from '@/lib/constants';
+import { MAX_APP_WIDTH, DESKTOP_APP_WIDTH } from '@/lib/constants';
 
 const SCREEN_WIDTH = Math.min(Dimensions.get('window').width, MAX_APP_WIDTH);
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -37,6 +37,7 @@ export default function CalendarPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const calendarWidth = winWidth > MAX_APP_WIDTH ? DESKTOP_APP_WIDTH : winWidth;
   const { isOnline } = useNetworkStatus();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [displayMonth, setDisplayMonth] = useState(new Date());
@@ -179,13 +180,13 @@ export default function CalendarPage() {
   }, []);
 
   const onScrollEnd = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const itemWidth = Math.min(winWidth || SCREEN_WIDTH, MAX_APP_WIDTH);
+    const itemWidth = calendarWidth;
     const newIndex = Math.round(e.nativeEvent.contentOffset.x / itemWidth);
     if (newIndex !== currentIndex) {
       setCurrentIndex(newIndex);
       setDisplayMonth(getMonthForIndex(newIndex));
     }
-  }, [currentIndex, getMonthForIndex, winWidth]);
+  }, [currentIndex, getMonthForIndex, calendarWidth]);
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
@@ -257,7 +258,7 @@ export default function CalendarPage() {
     }
 
     return (
-      <View style={{ width: SCREEN_WIDTH, paddingHorizontal: 12 }}>
+      <View style={{ width: calendarWidth, paddingHorizontal: 12 }}>
         <View style={styles.monthHeader}>
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
             <Text key={d} style={styles.monthHeaderDay}>{d}</Text>
@@ -373,8 +374,8 @@ export default function CalendarPage() {
               keyExtractor={(item) => item.toString()}
               renderItem={renderCompactMonth}
               getItemLayout={(_, index) => ({
-                length: Math.min(winWidth, MAX_APP_WIDTH),
-                offset: Math.min(winWidth, MAX_APP_WIDTH) * index,
+                length: calendarWidth,
+                offset: calendarWidth * index,
                 index,
               })}
               onMomentumScrollEnd={onScrollEnd}

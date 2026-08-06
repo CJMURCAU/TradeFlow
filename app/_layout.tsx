@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, Text, StyleSheet, AppState, AppStateStatus, useWindowDimensions } from 'react-native';
-import { MAX_APP_WIDTH } from '@/lib/constants';
+import { MAX_APP_WIDTH, DESKTOP_APP_WIDTH } from '@/lib/constants';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { supabase } from '@/lib/supabase';
 import { RoleProvider } from '@/lib/roleContext';
@@ -30,6 +30,8 @@ function AppRoot() {
   const router = useRouter();
   const segments = useSegments();
   const [sessionState, setSessionState] = useState<SessionState>('loading');
+  const { width: winWidth } = useWindowDimensions();
+  const isDesktop = winWidth > MAX_APP_WIDTH;
   const { wasJustReconnected, isOnline } = useNetworkStatus();
   const appState = useRef(AppState.currentState);
   const isSeedingRef = useRef(false);
@@ -115,33 +117,38 @@ function AppRoot() {
     }
   }, [sessionState, segments]);
 
+  const isAuthedRoute = sessionState === 'authenticated' &&
+    segments[0] !== 'landing' && segments[0] !== 'contact' &&
+    segments[0] !== 'login' && segments[0] !== 'invite' &&
+    segments[0] !== 'auth';
+
+  const shellStyle = isDesktop && isAuthedRoute ? styles.appShellDesktop : null;
+
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="landing" />
-      <Stack.Screen name="contact" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="invite" />
-      <Stack.Screen name="auth/callback" />
-      <Stack.Screen name="auth/reset-password" />
-      <Stack.Screen name="+not-found" />
-    </Stack>
+    <View style={[styles.appShell, shellStyle]}>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="landing" />
+        <Stack.Screen name="contact" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="invite" />
+        <Stack.Screen name="auth/callback" />
+        <Stack.Screen name="auth/reset-password" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <OfflineBanner />
+    </View>
   );
 }
 
 export default function RootLayout() {
   useFrameworkReady();
-  const { width } = useWindowDimensions();
-  const isDesktop = width > MAX_APP_WIDTH;
 
   return (
-    <GestureHandlerRootView style={[styles.root, isDesktop && styles.rootDesktop]}>
+    <GestureHandlerRootView style={styles.root}>
       <SafeAreaProvider style={styles.safeArea}>
         <RoleProvider>
-          <View style={styles.appShell}>
-            <AppRoot />
-            <OfflineBanner />
-          </View>
+          <AppRoot />
           <StatusBar style="light" />
         </RoleProvider>
       </SafeAreaProvider>
@@ -155,9 +162,6 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#F3F4F6',
   },
-  rootDesktop: {
-    alignItems: 'stretch',
-  },
   safeArea: {
     flex: 1,
     width: '100%',
@@ -165,8 +169,19 @@ const styles = StyleSheet.create({
   appShell: {
     flex: 1,
     width: '100%',
-    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
+  },
+  appShellDesktop: {
+    maxWidth: DESKTOP_APP_WIDTH,
+    alignSelf: 'center',
+    marginVertical: 24,
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
   },
   offlineBanner: {
     position: 'absolute',

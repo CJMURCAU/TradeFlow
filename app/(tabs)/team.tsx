@@ -1,20 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-  Image,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { supabase, Employee, Job, Client, JobAssignment } from '@/lib/supabase';
 import { ChevronLeft, ChevronRight, Users, Building2, ChevronDown, ChevronUp, Calendar } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import TabBar from '@/components/TabBar';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const EMPLOYEE_COLORS = [
   { bg: '#DBEAFE', border: '#93C5FD', text: '#1D4ED8', dot: '#3B82F6' }, // blue
@@ -449,8 +438,6 @@ export default function TeamPage() {
   );
 }
 
-const COL_WIDTH = Math.floor((SCREEN_WIDTH - 32) / 7);
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: {
@@ -529,7 +516,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   dayHeaderRow: { flexDirection: 'row', backgroundColor: '#F9FAFB', borderBottomWidth: 1, borderBottomColor: '#E5E7EB' },
-  dayHeaderCell: { width: COL_WIDTH, alignItems: 'center', paddingVertical: 8, gap: 2 },
+  dayHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2 },
   dayHeaderCellToday: { backgroundColor: '#EFF6FF' },
   dayLabel: { fontSize: 10, fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase' },
   dayLabelToday: { color: '#3B82F6' },
@@ -537,7 +524,7 @@ const styles = StyleSheet.create({
   dayNumberToday: { color: '#3B82F6' },
   dayJobsRow: { flexDirection: 'row', minHeight: 80, alignItems: 'flex-start' },
   dayCell: {
-    width: COL_WIDTH,
+    flex: 1,
     borderRightWidth: 1,
     borderRightColor: '#F3F4F6',
     padding: 3,
