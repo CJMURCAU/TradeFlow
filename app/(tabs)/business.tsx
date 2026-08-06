@@ -32,8 +32,8 @@ import {
   X,
   LogOut,
   Download,
-  Bug,
-  Lightbulb,
+  AlertCircle,
+  Sparkles,
   MessageSquare,
 } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system';
@@ -1029,13 +1029,13 @@ export default function BusinessPage() {
               <TouchableOpacity
                 style={[styles.feedbackTypeButton, feedbackType === 'glitch' && styles.feedbackTypeButtonActive]}
                 onPress={() => setFeedbackType('glitch')}>
-                <Bug size={16} color={feedbackType === 'glitch' ? '#FFFFFF' : '#EF4444'} />
+                <AlertCircle size={16} color={feedbackType === 'glitch' ? '#FFFFFF' : '#EF4444'} />
                 <Text style={[styles.feedbackTypeText, feedbackType === 'glitch' && styles.feedbackTypeTextActive]}>Report a Glitch</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.feedbackTypeButton, feedbackType === 'feature' && styles.feedbackTypeButtonActive]}
                 onPress={() => setFeedbackType('feature')}>
-                <Lightbulb size={16} color={feedbackType === 'feature' ? '#FFFFFF' : '#F59E0B'} />
+                <Sparkles size={16} color={feedbackType === 'feature' ? '#FFFFFF' : '#F59E0B'} />
                 <Text style={[styles.feedbackTypeText, feedbackType === 'feature' && styles.feedbackTypeTextActive]}>Request a Feature</Text>
               </TouchableOpacity>
             </View>
