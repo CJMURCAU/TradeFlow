@@ -2562,8 +2562,8 @@ export default function JobDetailPage() {
         transparent
         animationType="slide"
         onRequestClose={() => setShowInventoryModal(false)}>
-        <View style={styles.multiShareOverlay}>
-          <View style={styles.multiShareSheet}>
+        <View style={[styles.multiShareOverlay, isDesktop && styles.multiShareOverlayDesktop]}>
+          <View style={[styles.multiShareSheet, isDesktop && styles.multiShareSheetDesktop]}>
             <View style={styles.multiShareHeader}>
               <Text style={styles.multiShareTitle}>Add to Inventory</Text>
               <TouchableOpacity style={styles.multiShareClose} onPress={() => setShowInventoryModal(false)}>
