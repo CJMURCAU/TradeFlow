@@ -183,6 +183,8 @@ export default function BusinessPage() {
       setAddEmployeeError('Please enter a valid hourly rate.');
       return;
     }
+    )
+    )
 
     setAddEmployeeLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -240,6 +242,8 @@ export default function BusinessPage() {
       setEditError('Please enter a valid hourly rate.');
       return;
     }
+    )
+    )
 
     setEditLoading(true);
     const { error } = await supabase
@@ -291,7 +295,8 @@ export default function BusinessPage() {
     }
   };
 
-  const handleToggleCalendarAccess = async (employee: Employee) => {
+  const handleToggleCalendarAccess = async (employee: Employee)
+} => {
     await supabase
       .from('employees')
       .update({ calendar_access: !employee.calendar_access })
