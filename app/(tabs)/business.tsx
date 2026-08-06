@@ -32,9 +32,6 @@ import {
   X,
   LogOut,
   Download,
-  AlertCircle,
-  Sparkles,
-  MessageSquare,
 } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
@@ -84,11 +81,6 @@ export default function BusinessPage() {
   const [editForm, setEditForm] = useState({ name: '', email: '', hourly_rate: '' });
   const [editError, setEditError] = useState('');
   const [editLoading, setEditLoading] = useState(false);
-
-  const [showFeedback, setShowFeedback] = useState(false);
-  const [feedbackType, setFeedbackType] = useState<'glitch' | 'feature'>('glitch');
-  const [feedbackMessage, setFeedbackMessage] = useState('');
-  const [feedbackError, setFeedbackError] = useState('');
 
   useEffect(() => {
     fetchBusinessDetails();
@@ -968,20 +960,6 @@ export default function BusinessPage() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.settingsRow, styles.feedbackRow]}
-          onPress={() => { setShowFeedback(true); setFeedbackError(''); }}>
-          <View style={styles.settingsRowLeft}>
-            <View style={[styles.settingsIconWrap, styles.feedbackIconWrap]}>
-              <MessageSquare size={18} color="#2563EB" />
-            </View>
-            <View>
-              <Text style={styles.feedbackRowText}>Report a Glitch / Request a Feature</Text>
-              <Text style={styles.feedbackRowHint}>Tell us what's broken or what you'd love to see</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-
-        <TouchableOpacity
           style={[styles.settingsRow, styles.logoutRow]}
           onPress={handleLogout}>
           <View style={styles.settingsRowLeft}>
@@ -1008,71 +986,6 @@ export default function BusinessPage() {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Feedback Modal */}
-      <Modal
-        visible={showFeedback}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowFeedback(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.feedbackHeader}>
-              <Text style={styles.modalTitle}>Send Us Feedback</Text>
-              <TouchableOpacity onPress={() => setShowFeedback(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                <X size={20} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.feedbackSubtitle}>We'd love to hear from you. Your message goes straight to our team.</Text>
-
-            <View style={styles.feedbackTypeRow}>
-              <TouchableOpacity
-                style={[styles.feedbackTypeButton, feedbackType === 'glitch' && styles.feedbackTypeButtonActive]}
-                onPress={() => setFeedbackType('glitch')}>
-                <AlertCircle size={16} color={feedbackType === 'glitch' ? '#FFFFFF' : '#EF4444'} />
-                <Text style={[styles.feedbackTypeText, feedbackType === 'glitch' && styles.feedbackTypeTextActive]}>Report a Glitch</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.feedbackTypeButton, feedbackType === 'feature' && styles.feedbackTypeButtonActive]}
-                onPress={() => setFeedbackType('feature')}>
-                <Sparkles size={16} color={feedbackType === 'feature' ? '#FFFFFF' : '#F59E0B'} />
-                <Text style={[styles.feedbackTypeText, feedbackType === 'feature' && styles.feedbackTypeTextActive]}>Request a Feature</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TextInput
-              style={styles.feedbackInput}
-              placeholder={feedbackType === 'glitch' ? 'Describe the glitch... What happened? What did you expect?' : 'What feature would you like? How would it help you?'}
-              placeholderTextColor="#9CA3AF"
-              value={feedbackMessage}
-              onChangeText={setFeedbackMessage}
-              multiline
-              numberOfLines={4}
-              textAlignVertical="top"
-            />
-            {feedbackError ? <Text style={styles.errorText}>{feedbackError}</Text> : null}
-            <TouchableOpacity
-              style={styles.feedbackSendButton}
-              onPress={() => {
-                const msg = feedbackMessage.trim();
-                if (!msg) { setFeedbackError('Please enter a message.'); return; }
-                const subject = feedbackType === 'glitch' ? 'Glitch Report' : 'Feature Request';
-                const body = encodeURIComponent(`${msg}\n\n---\nSent from the Innovative Trade Tracker app`);
-                const mailto = `mailto:simplejobtrademanager@gmail.com?subject=${encodeURIComponent(subject)}&body=${body}`;
-                if (Platform.OS === 'web') {
-                  window.location.href = mailto;
-                } else {
-                  Linking.openURL(mailto);
-                }
-                setFeedbackMessage('');
-                setShowFeedback(false);
-              }}>
-              <Send size={16} color="#FFFFFF" />
-              <Text style={styles.feedbackSendText}>Send Message</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* Remove Employee Modal */}
       <Modal
@@ -1383,47 +1296,4 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444', alignItems: 'center',
   },
   modalConfirmText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  feedbackRow: { borderColor: '#DBEAFE', backgroundColor: '#EFF6FF' },
-  feedbackIconWrap: { backgroundColor: '#DBEAFE' },
-  feedbackRowText: { fontSize: 16, fontWeight: '500', color: '#1D4ED8' },
-  feedbackRowHint: { fontSize: 12, color: '#3B82F6', marginTop: 1 },
-  feedbackHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  feedbackSubtitle: { fontSize: 13, color: '#6B7280', lineHeight: 18, marginBottom: 16 },
-  feedbackTypeRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
-  feedbackTypeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-  },
-  feedbackTypeButtonActive: { borderColor: '#2563EB', backgroundColor: '#2563EB' },
-  feedbackTypeText: { fontSize: 13, fontWeight: '600', color: '#374151' },
-  feedbackTypeTextActive: { color: '#FFFFFF' },
-  feedbackInput: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    color: '#111827',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    minHeight: 120,
-  },
-  feedbackSendButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 14,
-  },
-  feedbackSendText: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 });
