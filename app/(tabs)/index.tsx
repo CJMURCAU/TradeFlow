@@ -65,6 +65,9 @@ export default function CalendarPage() {
     router.push(`/newjob?date=${y}-${m}-${d}`);
   }, [selectedDate, router]);
 
+  const navigateToNewJobRef = useRef(navigateToNewJob);
+  useEffect(() => { navigateToNewJobRef.current = navigateToNewJob; }, [navigateToNewJob]);
+
   const fabPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -86,7 +89,7 @@ export default function CalendarPage() {
           y: fabOffset.current.y + gs.dy,
         };
         if (fabDragDistance.current < 6) {
-          navigateToNewJob();
+          navigateToNewJobRef.current();
         }
       },
     })
