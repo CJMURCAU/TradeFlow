@@ -462,7 +462,7 @@ export default function LandingPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: NAVY },
+  container: { flex: 1, width: '100%', backgroundColor: NAVY },
 
   header: {
     backgroundColor: NAVY_DARK,
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   mobileMenuBtnPrimary: { backgroundColor: AMBER, borderColor: AMBER },
   mobileMenuBtnPrimaryText: { fontSize: 15, fontWeight: '700', color: NAVY },
 
-  scrollView: { flex: 1 },
+  scrollView: { flex: 1, width: '100%' },
 
   hero: {
     alignItems: 'center',

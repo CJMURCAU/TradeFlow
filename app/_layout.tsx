@@ -136,9 +136,9 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={[styles.root, isDesktop && styles.rootDesktop]}>
-      <SafeAreaProvider>
+      <SafeAreaProvider style={styles.safeArea}>
         <RoleProvider>
-          <View style={[styles.appShell, isDesktop && { maxWidth: MAX_APP_WIDTH }]}>
+          <View style={styles.appShell}>
             <AppRoot />
             <OfflineBanner />
           </View>
@@ -152,14 +152,20 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#F3F4F6',
   },
   rootDesktop: {
-    alignItems: 'center',
+    alignItems: 'stretch',
+  },
+  safeArea: {
+    flex: 1,
+    width: '100%',
   },
   appShell: {
     flex: 1,
     width: '100%',
+    alignSelf: 'center',
     backgroundColor: '#FFFFFF',
   },
   offlineBanner: {

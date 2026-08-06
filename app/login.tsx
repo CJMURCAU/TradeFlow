@@ -259,6 +259,7 @@ export default function LoginPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#F9FAFB',
   },
   scrollContent: {
