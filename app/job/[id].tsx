@@ -28,6 +28,7 @@ import { supabase, Job, Client, Part, TimeEntry, BusinessDetails, Employee, JobA
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useRole } from '@/lib/roleContext';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { DESKTOP_APP_WIDTH } from '@/lib/constants';
 import {
   getLocalJob,
   getLocalParts,
@@ -2779,8 +2780,8 @@ export default function JobDetailPage() {
         transparent
         animationType="slide"
         onRequestClose={() => setShowCatalogueModal(false)}>
-        <View style={styles.multiShareOverlay}>
-          <View style={styles.multiShareSheet}>
+        <View style={[styles.multiShareOverlay, isDesktop && styles.multiShareOverlayDesktop]}>
+          <View style={[styles.multiShareSheet, isDesktop && styles.multiShareSheetDesktop]}>
             <View style={styles.multiShareHeader}>
               <Text style={styles.multiShareTitle}>Manage Catalogue</Text>
               <TouchableOpacity style={styles.multiShareClose} onPress={() => setShowCatalogueModal(false)}>
@@ -3449,9 +3450,15 @@ const styles = StyleSheet.create({
   multiShareOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
   },
+  multiShareOverlayDesktop: {
+    justifyContent: 'center', alignItems: 'center',
+  },
   multiShareSheet: {
     backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20,
     paddingTop: 20, paddingHorizontal: 20, paddingBottom: 36, maxHeight: '80%',
+  },
+  multiShareSheetDesktop: {
+    maxWidth: DESKTOP_APP_WIDTH, width: '100%', borderRadius: 20,
   },
   multiShareHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
