@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: '#FFFFFF' },
   content: { flex: 1, padding: 20 },
   contentContainer: { paddingBottom: 40 },
-  contentContainerDesktop: { alignItems: 'center' },
+  contentContainerDesktop: { alignItems: 'stretch' },
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyStateText: { fontSize: 16, color: '#6B7280' },
   jobCard: {

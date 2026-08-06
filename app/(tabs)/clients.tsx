@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   contentContainerDesktop: {
-    alignItems: 'center',
+    alignItems: 'stretch',
   },
   emptyState: {
     alignItems: 'center',
