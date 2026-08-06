@@ -106,11 +106,11 @@ function buildJobCardHtml(data: JobCardData): string {
       <table style="width:100%;border-collapse:collapse;margin-top:8px;">
         <thead>
           <tr style="background:#f3f4f6;">
-            <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Description</th>
-            <th style="text-align:left;padding:8px 12px;border:1px solid #e5e7eb;font-size:12px;color:#6b7280;">Type</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Unit Price</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Qty</th>
-            <th style="text-align:right;padding:8px 12px;border:1px solid #e5e7eb;font-size:14px;">Total</th>
+            <th style="text-align:left;padding:14px 12px 12px;border:1px solid #e5e7eb;font-size:14px;line-height:18px;vertical-align:top;">Description</th>
+            <th style="text-align:left;padding:14px 12px 12px;border:1px solid #e5e7eb;font-size:12px;line-height:18px;color:#6b7280;vertical-align:top;">Type</th>
+            <th style="text-align:right;padding:14px 12px 12px;border:1px solid #e5e7eb;font-size:14px;line-height:18px;vertical-align:top;">Unit Price</th>
+            <th style="text-align:right;padding:14px 12px 12px;border:1px solid #e5e7eb;font-size:14px;line-height:18px;vertical-align:top;">Qty</th>
+            <th style="text-align:right;padding:14px 12px 12px;border:1px solid #e5e7eb;font-size:14px;line-height:18px;vertical-align:top;">Total</th>
           </tr>
         </thead>
         <tbody>
@@ -147,10 +147,10 @@ function buildJobCardHtml(data: JobCardData): string {
 
       ${client ? `
       <table role="presentation" style="width:100%;border-collapse:collapse;margin:20px 0;border:1px solid #000000;">
-        <tr><td style="padding:16px 16px 8px;font-size:11px;line-height:13px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Client</td></tr>
-        <tr><td style="padding:0 16px 4px;font-size:16px;line-height:20px;color:#000000;font-weight:600;">${client.name}</td></tr>
-        ${client.company_name ? `<tr><td style="padding:0 16px 4px;font-size:14px;line-height:18px;color:#000000;">${client.company_name}</td></tr>` : ''}
-        ${client.address ? `<tr><td style="padding:0 16px 16px;font-size:14px;line-height:18px;color:#000000;">${client.address}</td></tr>` : `<tr><td style="padding:0 16px 16px;font-size:1px;line-height:1px;">&nbsp;</td></tr>`}
+        <tr><td style="padding:20px 16px 10px;font-size:11px;line-height:13px;color:#000000;text-transform:uppercase;letter-spacing:0.08em;font-weight:700;">Client</td></tr>
+        <tr><td style="padding:0 16px 6px;font-size:16px;line-height:22px;color:#000000;font-weight:600;">${client.name}</td></tr>
+        ${client.company_name ? `<tr><td style="padding:0 16px 6px;font-size:14px;line-height:20px;color:#000000;">${client.company_name}</td></tr>` : ''}
+        ${client.address ? `<tr><td style="padding:0 16px 24px;font-size:14px;line-height:20px;color:#000000;">${client.address}</td></tr>` : `<tr><td style="padding:0 16px 24px;font-size:1px;line-height:1px;">&nbsp;</td></tr>`}
       </table>` : ''}
 
       ${job.description ? `
